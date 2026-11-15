@@ -1,8 +1,21 @@
 <script lang="ts">
   // Transport and global controls. Play/Stop, CPU and the master meter talk to the audio engine;
-  // tempo, position and "add module" are still placeholders.
+  // tempo and position are still placeholders.
   import { engineState, togglePlay } from '../engine/engine.svelte';
   import MasterMeter from './components/MasterMeter.svelte';
+  import { canvasState, patch } from '../patch/patch.svelte';
+  import { toCanvas } from '../patch/geometry';
+  import { interaction, closeBrowser, openBrowser } from './workspace/interaction.svelte';
+
+  function toggleBrowser() {
+    if (interaction.browser) {
+      closeBrowser();
+      return;
+    }
+    // Popup under the button (top-right of the canvas); new module goes in the middle of the view.
+    const { w, h } = canvasState.viewport;
+    openBrowser({ x: w - 308, y: 8 }, toCanvas(patch.view, w / 2, h / 2));
+  }
 
   let bpm = $state(120);
 
@@ -67,7 +80,15 @@
   <div class="group">
     <MasterMeter left={engineState.peakL} right={engineState.peakR} active={engineState.playing} tick={engineState.statsTick} />
     <span class="pill readout cpu" title="Audio engine load (share of the real-time budget)">{cpuText}</span>
-    <button class="pill" type="button" title="Add module (not available yet)">
+    <button
+      class="pill"
+      class:open={!!interaction.browser}
+      type="button"
+      title="Add module (or double-click the canvas)"
+      aria-expanded={!!interaction.browser}
+      onpointerdown={(e) => e.stopPropagation()}
+      onclick={toggleBrowser}
+    >
       <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
         <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
       </svg>
@@ -135,6 +156,9 @@
   }
   button.pill:hover {
     border-color: var(--text-muted);
+  }
+  .pill.open {
+    border-color: var(--border-focus);
   }
   .readout {
     font-family: var(--font-mono);

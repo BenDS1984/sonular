@@ -43,3 +43,13 @@ export function formatCents(ct: number): string {
   if (r === 0) return '0 ct';
   return (r > 0 ? '+' : '') + withSign(String(r)) + ' ct';
 }
+
+/** Frequency, e.g. "440 Hz", "1.20 kHz". */
+export function formatHz(hz: number): string {
+  return formatNumber(hz, 'Hz');
+}
+
+/** 0..1 as a percentage, e.g. "35%". */
+export function formatPercent(v: number): string {
+  return `${Math.round(v * 100)}%`;
+}
