@@ -1,0 +1,21 @@
+# Dependencies and build output
+node_modules/
+dist/
+
+# Old prototype, kept locally only as a historical reference
+Idee/
+
+# Logs and caches
+*.log
+npm-debug.log*
+.vite/
+
+# Editor and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local Claude settings
+.claude/settings.local.json
