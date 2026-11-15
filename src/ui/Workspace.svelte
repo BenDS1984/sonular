@@ -14,8 +14,8 @@
     position: relative;
     flex: 1;
     overflow: hidden;
-    background-color: var(--color-bg);
-    background-image: radial-gradient(#22262d 1px, transparent 1px);
+    background-color: var(--bg-canvas);
+    background-image: radial-gradient(var(--bg-canvas-dot) 1px, transparent 1px);
     background-size: 20px 20px;
     display: grid;
     place-items: center;
@@ -27,10 +27,10 @@
   .title {
     margin: 0 0 4px;
     font-size: 15px;
-    color: var(--color-text);
+    color: var(--text-default);
   }
   .hint {
     margin: 0;
-    color: var(--color-text-muted);
+    color: var(--text-muted);
   }
 </style>

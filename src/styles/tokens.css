@@ -1,0 +1,131 @@
+/*
+ * Modulab design tokens.
+ *
+ * Single source of truth for colour, type, spacing and motion. Components must only
+ * use the semantic tokens (second block), never the raw palette, so the whole look
+ * can be re-themed by editing this file.
+ */
+
+:root {
+  /* ---------- Raw palette (do not use directly in components) ---------- */
+  --gray-975: #0a0b0d;
+  --gray-950: #0d0f12;
+  --gray-900: #0f1114;
+  --gray-875: #13161a;
+  --gray-850: #16191e;
+  --gray-800: #1a1d22;
+  --gray-750: #1f2329;
+  --gray-700: #262a31;
+  --gray-650: #2c313a;
+  --gray-600: #343a44;
+  --gray-500: #4a515d;
+  --gray-400: #7f8794;
+  --gray-300: #aeb5c0;
+  --gray-200: #d9dde4;
+  --gray-100: #f0f2f5;
+
+  --amber-300: #f3c477;
+  --amber-500: #e8a33d;
+  --amber-900: #3a2c14;
+  --teal-300: #8fdccf;
+  --teal-500: #4fc1b0;
+  --teal-900: #14332f;
+  --pink-300: #f0a5be;
+  --pink-500: #e0678f;
+  --pink-900: #3a1a25;
+  --violet-300: #bdb7f3;
+  --violet-500: #8e84e8;
+  --violet-900: #24213f;
+  --green-500: #5fbf8a;
+  --yellow-500: #e8c547;
+  --red-500: #e5534b;
+  --red-900: #3b1816;
+
+  /* ---------- Semantic tokens ---------- */
+
+  /* Surfaces */
+  --bg-app: var(--gray-900);
+  --bg-canvas: var(--gray-900);
+  --bg-canvas-dot: #22262d;
+  --surface-bar: var(--gray-850);
+  --surface-module: var(--gray-800);
+  --surface-module-header: var(--gray-850);
+  --surface-inset: var(--gray-950); /* displays, meters, wells */
+  --surface-control: var(--gray-750);
+  --surface-control-hover: var(--gray-700);
+  --surface-knob: #23272e;
+
+  /* Borders */
+  --border-subtle: var(--gray-700);
+  --border-default: var(--gray-650);
+  --border-strong: var(--gray-600);
+  --border-focus: var(--amber-500);
+
+  /* Text */
+  --text-strong: var(--gray-100);
+  --text-default: var(--gray-200);
+  --text-secondary: var(--gray-300);
+  --text-muted: var(--gray-400);
+  --text-on-accent: #1d1405;
+
+  /* Signal colours: every cable, output and accent follows the kind of signal it carries */
+  --signal-audio: var(--amber-500);
+  --signal-audio-soft: var(--amber-300);
+  --signal-audio-bg: var(--amber-900);
+  --signal-cv: var(--teal-500);
+  --signal-cv-soft: var(--teal-300);
+  --signal-cv-bg: var(--teal-900);
+  --signal-gate: var(--pink-500);
+  --signal-gate-soft: var(--pink-300);
+  --signal-gate-bg: var(--pink-900);
+  --signal-pitch: var(--violet-500);
+  --signal-pitch-soft: var(--violet-300);
+  --signal-pitch-bg: var(--violet-900);
+
+  /* Status */
+  --meter-low: var(--green-500);
+  --meter-mid: var(--yellow-500);
+  --meter-high: var(--red-500);
+  --danger: var(--red-500);
+  --danger-bg: var(--red-900);
+
+  /* Typography */
+  --font-ui: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 15px;
+  --text-xl: 20px;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-bold: 600;
+
+  /* Spacing (4px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* Shape */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 999px;
+
+  /* Depth */
+  --shadow-module: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 6px 18px rgb(0 0 0 / 0.35);
+  --shadow-cable: rgb(0 0 0 / 0.35);
+
+  /* Motion */
+  --duration-fast: 80ms;
+  --duration-base: 160ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* Layout */
+  --topbar-height: 44px;
+
+  color-scheme: dark;
+}

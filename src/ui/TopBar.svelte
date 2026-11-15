@@ -38,10 +38,10 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    height: 44px;
+    height: var(--topbar-height);
     padding: 0 12px;
-    background: var(--color-surface);
-    border-bottom: 1px solid var(--color-border);
+    background: var(--surface-bar);
+    border-bottom: 1px solid var(--border-subtle);
     flex: none;
   }
   .logo {
@@ -50,7 +50,7 @@
     gap: 8px;
     font-weight: 600;
     letter-spacing: 0.08em;
-    color: var(--color-text-strong);
+    color: var(--text-strong);
     font-size: 13px;
   }
   .group {
@@ -67,27 +67,27 @@
     gap: 6px;
     height: 28px;
     padding: 0 10px;
-    background: var(--color-surface-raised);
-    border: 1px solid var(--color-border-strong);
+    background: var(--surface-control);
+    border: 1px solid var(--border-strong);
     border-radius: 6px;
-    color: var(--color-text);
+    color: var(--text-default);
     font-size: 12px;
   }
   button.pill {
     cursor: pointer;
   }
   button.pill:hover {
-    border-color: var(--color-text-muted);
+    border-color: var(--text-muted);
   }
   .readout {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    color: var(--color-text-muted);
+    color: var(--text-muted);
   }
   .play {
-    background: var(--color-audio);
-    border-color: var(--color-audio);
-    color: var(--color-on-audio);
+    background: var(--signal-audio);
+    border-color: var(--signal-audio);
+    color: var(--text-on-accent);
     font-weight: 600;
   }
   .play:hover {

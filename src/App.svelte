@@ -1,12 +1,25 @@
 <script lang="ts">
   import TopBar from './ui/TopBar.svelte';
   import Workspace from './ui/Workspace.svelte';
+  import Gallery from './ui/gallery/Gallery.svelte';
+
+  // Minimal hash routing: '#gallery' opens the component gallery, anything else the app.
+  let hash = $state(window.location.hash);
+  $effect(() => {
+    const onHashChange = () => (hash = window.location.hash);
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  });
 </script>
 
-<div class="app">
-  <TopBar />
-  <Workspace />
-</div>
+{#if hash === '#gallery'}
+  <Gallery />
+{:else}
+  <div class="app">
+    <TopBar />
+    <Workspace />
+  </div>
+{/if}
 
 <style>
   .app {
