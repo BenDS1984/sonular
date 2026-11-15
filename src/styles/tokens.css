@@ -49,18 +49,18 @@
   --bg-canvas: var(--gray-900);
   --bg-canvas-dot: var(--gray-700);
   --surface-bar: var(--gray-800);
-  --surface-module: var(--gray-750);
-  --surface-module-header: var(--gray-700);
+  --surface-module: #363b44;
+  --surface-module-header: #40464f;
   --surface-inset: var(--gray-950); /* displays, meters, wells */
-  --surface-control: var(--gray-650);
-  --surface-control-hover: var(--gray-600);
-  --surface-knob: var(--gray-600);
-  --surface-knob-hover: var(--gray-550);
+  --surface-control: #4b525c;
+  --surface-control-hover: #575e69;
+  --surface-knob: #525964;
+  --surface-knob-hover: #5e6672;
 
   /* Borders */
-  --border-subtle: var(--gray-650);
-  --border-default: var(--gray-600);
-  --border-strong: var(--gray-500);
+  --border-subtle: #474d57;
+  --border-default: #535a65;
+  --border-strong: #69717e;
   --border-focus: var(--amber-500);
   --knob-track: var(--gray-950);
 

@@ -1,7 +1,33 @@
 <script lang="ts">
-  // Transport and global controls. Placeholders only: nothing is wired to audio yet.
+  // Transport and global controls. Play/Stop, CPU and the master meter talk to the audio engine;
+  // tempo, position and "add module" are still placeholders.
+  import { engineState, togglePlay } from '../engine/engine.svelte';
+  import MasterMeter from './components/MasterMeter.svelte';
+
   let bpm = $state(120);
+
+  const cpuText = $derived(
+    engineState.status === 'ready' && engineState.playing
+      ? engineState.cpu < 0.01
+        ? 'CPU <1%'
+        : `CPU ${Math.min(999, Math.round(engineState.cpu * 100))}%`
+      : 'CPU –',
+  );
+  const playLabel = $derived(
+    engineState.status === 'starting' ? 'Starting…' : engineState.playing ? 'Stop' : 'Play',
+  );
+
+  function onkeydown(e: KeyboardEvent) {
+    // Space toggles playback unless the user is typing or operating a focused control.
+    if (e.code !== 'Space' || e.repeat) return;
+    const el = document.activeElement;
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLButtonElement || el instanceof HTMLSelectElement) return;
+    e.preventDefault();
+    void togglePlay();
+  }
 </script>
+
+<svelte:window {onkeydown} />
 
 <header class="topbar">
   <div class="logo" aria-label="Modulab">
@@ -10,20 +36,37 @@
   </div>
 
   <div class="group">
-    <button class="pill play" type="button" title="Play (not available yet)">
+    <button
+      class="pill play"
+      class:playing={engineState.playing}
+      type="button"
+      title="Play / stop (Space)"
+      aria-pressed={engineState.playing}
+      disabled={engineState.status === 'starting'}
+      onclick={() => void togglePlay()}
+    >
       <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-        <path d="M4 2.5v11l9-5.5z" fill="currentColor" />
+        {#if engineState.playing}
+          <rect x="3.5" y="3.5" width="9" height="9" rx="1" fill="currentColor" />
+        {:else}
+          <path d="M4 2.5v11l9-5.5z" fill="currentColor" />
+        {/if}
       </svg>
-      Play
+      {playLabel}
     </button>
     <span class="pill readout" title="Tempo">{bpm} BPM</span>
     <span class="pill readout" title="Position (bar.beat.step)">1.1.1</span>
   </div>
 
-  <div class="spacer"></div>
+  <div class="spacer">
+    {#if engineState.status === 'error'}
+      <span class="error" role="alert">Audio could not start: {engineState.error}</span>
+    {/if}
+  </div>
 
   <div class="group">
-    <span class="pill readout" title="Audio engine load">CPU –</span>
+    <MasterMeter left={engineState.peakL} right={engineState.peakR} active={engineState.playing} tick={engineState.statsTick} />
+    <span class="pill readout cpu" title="Audio engine load (share of the real-time budget)">{cpuText}</span>
     <button class="pill" type="button" title="Add module (not available yet)">
       <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
         <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
@@ -60,6 +103,20 @@
   }
   .spacer {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+  }
+  .error {
+    color: var(--danger);
+    font-size: var(--text-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cpu {
+    min-width: 76px;
+    justify-content: center;
   }
   .pill {
     display: inline-flex;
@@ -90,7 +147,19 @@
     color: var(--text-on-accent);
     font-weight: 600;
   }
+  .play {
+    min-width: 76px;
+    justify-content: center;
+  }
   .play:hover {
     filter: brightness(1.08);
+  }
+  .play.playing {
+    background: var(--signal-audio-bg);
+    color: var(--signal-audio-soft);
+  }
+  .play:disabled {
+    cursor: progress;
+    opacity: 0.7;
   }
 </style>

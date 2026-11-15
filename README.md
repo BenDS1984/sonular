@@ -30,6 +30,7 @@ npm install
 npm run dev      # start the dev server at http://localhost:5173
 npm run build    # production build in dist/
 npm run check    # type-check
+npm test         # run the automated tests
 ```
 
 ## License

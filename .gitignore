@@ -19,3 +19,6 @@ Thumbs.db
 
 # Local Claude settings
 .claude/settings.local.json
+
+# Generated Faust WebAssembly (rebuilt automatically)
+src/dsp/generated/
