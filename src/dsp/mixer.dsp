@@ -1,0 +1,40 @@
+// Mixer: four mono channels with level, pan (−3 dB equal-power law) and mute, summed to stereo.
+//
+// Inputs 0-3: channels 1-4. Outputs 0/1: left/right.
+// Meters (peak followers): meter1..meter4 per channel (post-fader), mainL / mainR.
+
+declare name "mixer";
+declare tail "0";
+
+import("stdfaust.lib");
+
+// Peak follower for meters: instant attack, ~150 ms release.
+peak = abs : max ~ *(ba.tau2pole(0.15));
+
+// Pan gains are computed from the slider value (once per block, since Faust hoists
+// control-rate expressions out of the sample loop) and smoothed afterwards. Smoothing the pan
+// position first would force cos/sin to be evaluated for every sample.
+panL(pan) = cos((pan + 1) * ma.PI / 4) : si.smoo;
+panR(pan) = sin((pan + 1) * ma.PI / 4) : si.smoo;
+
+// Note: in Faust `:` binds tighter than `,` and `<:`, so groups are parenthesised explicitly.
+channel(gain, mute, pan, meter) = (*(level) : (_ <: attach(_, peak : meter))) <: (*(panL(pan)), *(panR(pan)))
+with {
+  level = gain * (1 - mute) : si.smoo;
+};
+
+ch1 = channel(hslider("gain1", 1, 0, 2, 0.0001), hslider("mute1", 0, 0, 1, 1), hslider("pan1", 0, -1, 1, 0.001),
+              vbargraph("meter1", 0, 4));
+ch2 = channel(hslider("gain2", 1, 0, 2, 0.0001), hslider("mute2", 0, 0, 1, 1), hslider("pan2", 0, -1, 1, 0.001),
+              vbargraph("meter2", 0, 4));
+ch3 = channel(hslider("gain3", 1, 0, 2, 0.0001), hslider("mute3", 0, 0, 1, 1), hslider("pan3", 0, -1, 1, 0.001),
+              vbargraph("meter3", 0, 4));
+ch4 = channel(hslider("gain4", 1, 0, 2, 0.0001), hslider("mute4", 0, 0, 1, 1), hslider("pan4", 0, -1, 1, 0.001),
+              vbargraph("meter4", 0, 4));
+
+main = hslider("main", 1, 0, 2, 0.0001) : si.smoo;
+
+meterL = _ <: attach(_, peak : vbargraph("mainL", 0, 4));
+meterR = _ <: attach(_, peak : vbargraph("mainR", 0, 4));
+
+process = ((ch1, ch2, ch3, ch4) :> (*(main), *(main))) : (meterL, meterR);

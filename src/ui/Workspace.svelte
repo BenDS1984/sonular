@@ -13,7 +13,7 @@
   import CableLayer from './workspace/CableLayer.svelte';
   import ModuleBrowser from './workspace/ModuleBrowser.svelte';
   import ZoomControls from './workspace/ZoomControls.svelte';
-  import { addModule, canvasState, deleteSelection, patch } from '../patch/patch.svelte';
+  import { addModule, canvasState, deleteSelection, loadStarterPatch, patch } from '../patch/patch.svelte';
   import { GRID, SNAP, fitView, snap, toCanvas, zoomAt } from '../patch/geometry';
   import type { ModuleDefinition } from '../modules/types';
   import {
@@ -228,6 +228,15 @@
     <div class="empty">
       <p class="title">Your patch is empty</p>
       <p class="hint">Double-click anywhere to add a module, or use <strong>+ Module</strong> in the top bar.</p>
+      <button
+        type="button"
+        class="starter"
+        onpointerdown={(e) => e.stopPropagation()}
+        ondblclick={(e) => e.stopPropagation()}
+        onclick={loadStarterPatch}
+      >
+        Load a starter patch
+      </button>
     </div>
   {/if}
 
@@ -276,6 +285,21 @@
   .hint {
     margin: 0;
     color: var(--text-muted);
+  }
+  .starter {
+    justify-self: center;
+    margin-top: var(--space-4);
+    height: 32px;
+    padding: 0 var(--space-4);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--surface-control);
+    color: var(--text-default);
+    cursor: pointer;
+    pointer-events: auto;
+  }
+  .starter:hover {
+    background: var(--surface-control-hover);
   }
   .hint strong {
     color: var(--text-secondary);

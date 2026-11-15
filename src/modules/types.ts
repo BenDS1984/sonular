@@ -51,4 +51,9 @@ export interface ModuleDefinition {
   params: ParamSpec[];
   /** Controls shown in the module body. */
   panel: Component<ModulePanelProps>;
+  /**
+   * Engine module kind that does the DSP, e.g. "faust:osc" for src/dsp/osc.dsp. Port order in
+   * `inputs`/`outputs` is the engine's channel order; parameter ids are the engine's names.
+   */
+  engine: string;
 }

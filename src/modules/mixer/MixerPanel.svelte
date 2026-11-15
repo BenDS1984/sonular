@@ -2,6 +2,7 @@
   import Meter from '../../ui/components/Meter.svelte';
   import Toggle from '../../ui/components/Toggle.svelte';
   import ParamKnob from '../ParamKnob.svelte';
+  import { meterValue } from '../../engine/engine.svelte';
   import type { ModulePanelProps } from '../types';
 
   let { module, def }: ModulePanelProps = $props();
@@ -22,15 +23,15 @@
           tone="danger"
           onchange={(p) => (module.params[`mute${ch}`] = p ? 1 : 0)}
         />
-        <Meter level={0} height={52} label={`Channel ${ch} level`} />
+        <Meter level={meterValue(module.id, `meter${ch}`)} height={52} label={`Channel ${ch} level`} />
       </div>
     </div>
   {/each}
   <div class="strip main">
     <ParamKnob {module} {def} param="main" />
     <div class="meters">
-      <Meter level={0} height={96} label="Main left" />
-      <Meter level={0} height={96} label="Main right" />
+      <Meter level={meterValue(module.id, 'mainL')} height={96} label="Main left" />
+      <Meter level={meterValue(module.id, 'mainR')} height={96} label="Main right" />
     </div>
   </div>
 </div>

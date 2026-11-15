@@ -15,6 +15,7 @@ const def = (type: string, inputs: string[], outputs: string[]): ModuleDefinitio
   outputs: outputs.map((id) => ({ id, label: id, signal: 'audio' })),
   params: [{ id: 'level', label: 'Level', min: 0, max: 1, default: 0.5 }],
   panel: null as unknown as ModuleDefinition['panel'],
+  engine: `test:${type}`,
 });
 
 const DEFS = [def('src', [], ['out']), def('fx', ['in'], ['out']), def('sink', ['L', 'R'], [])];

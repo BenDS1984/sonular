@@ -4,7 +4,8 @@
  */
 import { Engine, type MasterMeters } from '../core/Engine';
 import type { ModuleFactory } from '../core/types';
-import { FaustDsp } from '../faust/FaustDsp';
+import { FaustDsp, declaredSink } from '../faust/FaustDsp';
+import { FaustSink } from '../faust/FaustSink';
 import { Master } from '../modules/Master';
 import { PROCESSOR_NAME, type EngineStats, type FromEngine, type ToEngine } from '../protocol';
 
@@ -40,6 +41,7 @@ class ModulabProcessor extends AudioWorkletProcessor {
     processed: 0,
     sleeping: 0,
     unreachable: 0,
+    meters: new Float32Array(0),
   };
   private readonly statsMessage: FromEngine = { type: 'stats', stats: this.stats };
 
@@ -65,15 +67,26 @@ class ModulabProcessor extends AudioWorkletProcessor {
           master: () => new Master(),
         };
         for (const prog of msg.faust) {
-          factories[`faust:${prog.name}`] = (sr) => new FaustDsp(prog.module, prog.meta, sr);
+          const sink = declaredSink(prog.meta);
+          factories[`faust:${prog.name}`] = (sr) => {
+            const dsp = new FaustDsp(prog.module, prog.meta, sr);
+            return sink ? new FaustSink(dsp) : dsp;
+          };
         }
         this.engine = new Engine(sampleRate, factories);
         this.post({ type: 'ready', sampleRate, hiResTimer: HIRES_TIMER });
         break;
       }
-      case 'patch':
-        this.engine?.setPatch(msg.patch);
+      case 'patch': {
+        const engine = this.engine;
+        if (!engine) break;
+        engine.setPatch(msg.patch);
+        if (engine.meterValueCount !== this.stats.meters.length) {
+          this.stats.meters = new Float32Array(engine.meterValueCount);
+        }
+        this.post({ type: 'meterLayout', layout: [...engine.meterLayout] });
         break;
+      }
       case 'param':
         this.engine?.setParam(msg.node, msg.name, msg.value);
         break;
@@ -130,6 +143,7 @@ class ModulabProcessor extends AudioWorkletProcessor {
     st.processed = engine.stats.processed;
     st.sleeping = engine.stats.sleeping;
     st.unreachable = engine.stats.unreachable;
+    engine.readMeters(st.meters);
     this.post(this.statsMessage);
     this.busyMs = 0;
     this.renderedFrames = 0;

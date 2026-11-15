@@ -31,6 +31,8 @@ export interface FaustParam {
 
 interface FaustExports {
   memory: WebAssembly.Memory;
+  getNumInputs(dsp: number): number;
+  getNumOutputs(dsp: number): number;
   init(dsp: number, sampleRate: number): void;
   instanceClear(dsp: number): void;
   setParamValue(dsp: number, index: number, value: number): void;
@@ -95,13 +97,15 @@ function buildImports(module: WebAssembly.Module): WebAssembly.Imports {
   return { env };
 }
 
+const isMeter = (item: FaustUiItem) => item.type === 'vbargraph' || item.type === 'hbargraph';
+
 /** Collect sliders, knobs and buttons by their short name. */
 export function collectParams(meta: FaustMeta): Map<string, FaustParam> {
   const params = new Map<string, FaustParam>();
   const walk = (items: FaustUiItem[]) => {
     for (const item of items) {
       if (item.items) walk(item.items);
-      else if (item.index !== undefined) {
+      else if (item.index !== undefined && !isMeter(item)) {
         params.set(item.shortname ?? item.label, {
           index: item.index,
           min: item.min ?? 0,
@@ -113,6 +117,26 @@ export function collectParams(meta: FaustMeta): Map<string, FaustParam> {
   };
   walk(meta.ui);
   return params;
+}
+
+/** Bargraphs (meters) by short name, with their memory index. */
+export function collectMeters(meta: FaustMeta): { name: string; index: number }[] {
+  const meters: { name: string; index: number }[] = [];
+  const walk = (items: FaustUiItem[]) => {
+    for (const item of items) {
+      if (item.items) walk(item.items);
+      else if (item.index !== undefined && isMeter(item)) {
+        meters.push({ name: item.shortname ?? item.label, index: item.index });
+      }
+    }
+  };
+  walk(meta.ui);
+  return meters;
+}
+
+/** Whether the program declares itself an audio sink (`declare sink "1";`). */
+export function declaredSink(meta: FaustMeta): boolean {
+  return (meta.meta ?? []).some((entry) => entry['sink'] === '1');
 }
 
 /**
@@ -150,6 +174,8 @@ export class FaustDsp implements DspModule {
 
   private readonly exports: FaustExports;
   private readonly params: Map<string, FaustParam>;
+  readonly meterNames: readonly string[];
+  private readonly meterIndexes: Int32Array;
   private readonly inputPtrs: number;
   private readonly outputPtrs: number;
   private readonly inBufs: Float32Array[];
@@ -160,10 +186,17 @@ export class FaustDsp implements DspModule {
   constructor(module: WebAssembly.Module, meta: FaustMeta, sampleRate: number) {
     const instance = new WebAssembly.Instance(module, buildImports(module));
     this.exports = instance.exports as unknown as FaustExports;
+    // Guard against metadata from a different build than the code (parameter addresses would be wrong).
+    if (this.exports.getNumInputs(0) !== meta.inputs || this.exports.getNumOutputs(0) !== meta.outputs) {
+      throw new Error(`Faust program "${meta.name}": metadata does not match its WebAssembly code`);
+    }
     this.numInputs = meta.inputs;
     this.numOutputs = meta.outputs;
     this.tailSeconds = declaredTail(meta);
     this.params = collectParams(meta);
+    const meters = collectMeters(meta);
+    this.meterNames = meters.map((m) => m.name);
+    this.meterIndexes = Int32Array.from(meters, (m) => m.index);
 
     const channels = this.numInputs + this.numOutputs;
     this.inputPtrs = align16(meta.size);
@@ -186,6 +219,10 @@ export class FaustDsp implements DspModule {
       ptrs[c] = addr;
       (c < this.numInputs ? this.inBufs : this.outBufs).push(new Float32Array(heap, addr, BLOCK_SIZE));
     }
+    // The compiler stores its JSON description in memory from address 0 onward, which overlaps
+    // the buffer area. Clear the buffers so silent inputs really start out as silence.
+    for (const buf of this.inBufs) buf.fill(0);
+    for (const buf of this.outBufs) buf.fill(0);
     this.inZeroed = this.inBufs.map(() => true);
 
     this.exports.init(0, sampleRate);
@@ -200,6 +237,12 @@ export class FaustDsp implements DspModule {
     const p = this.params.get(name);
     if (!p || !Number.isFinite(value)) return;
     this.exports.setParamValue(0, p.index, Math.min(p.max, Math.max(p.min, value)));
+  }
+
+  readMeters(out: Float32Array, offset: number): void {
+    for (let i = 0; i < this.meterIndexes.length; i++) {
+      out[offset + i] = this.exports.getParamValue(0, this.meterIndexes[i]!);
+    }
   }
 
   getParam(name: string): number | undefined {

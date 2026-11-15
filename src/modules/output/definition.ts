@@ -15,4 +15,5 @@ export const output: ModuleDefinition = {
   outputs: [],
   params: [{ id: 'volume', label: 'Volume', min: 0, max: 1, default: 0.5, format: 'gain-db' }],
   panel: OutputPanel,
+  engine: 'faust:output',
 };

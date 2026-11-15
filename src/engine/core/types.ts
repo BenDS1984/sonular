@@ -42,6 +42,10 @@ export interface DspModule {
    * in. Lets modules behave differently for unconnected inputs (e.g. mono-to-stereo).
    */
   onConnectionsChanged?(inputsConnected: readonly boolean[]): void;
+  /** Names of the level meters this module exposes (e.g. "meterL"), if any. */
+  readonly meterNames?: readonly string[];
+  /** Write the current meter values into `out`, starting at `offset`, in `meterNames` order. */
+  readMeters?(out: Float32Array, offset: number): void;
   /** Clear internal state (delay lines, filter memory, phases). */
   reset(): void;
   /** Release resources when removed from the patch. */
@@ -93,4 +97,10 @@ export interface EngineBlockStats {
   sleeping: number;
   /** Nodes skipped because they don't reach any output. */
   unreachable: number;
+}
+
+/** Which meters the engine reports, in the order their values appear in a meter snapshot. */
+export interface MeterLayoutEntry {
+  node: string;
+  names: readonly string[];
 }

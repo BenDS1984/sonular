@@ -4,6 +4,7 @@ import {
   type DspModule,
   type EngineBlockStats,
   type EnginePatch,
+  type MeterLayoutEntry,
   type ModuleFactory,
   type SinkModule,
 } from './types';
@@ -76,6 +77,9 @@ export class Engine {
   /** Processing order: only reachable nodes, dependencies first. */
   private order: Node[] = [];
   private sinks: { node: Node; module: SinkModule }[] = [];
+  private meterNodes: Node[] = [];
+  private meterLayoutCache: MeterLayoutEntry[] = [];
+  private meterCount = 0;
   private readonly zero = new Float32Array(BLOCK_SIZE);
 
   private readonly masterL = new Float32Array(BLOCK_SIZE);
@@ -142,6 +146,33 @@ export class Engine {
     }
 
     this.rebuildOrder();
+
+    this.meterNodes = [...next.values()].filter((n) => (n.module.meterNames?.length ?? 0) > 0);
+    this.meterLayoutCache = this.meterNodes.map((n) => ({ node: n.id, names: n.module.meterNames! }));
+    this.meterCount = this.meterLayoutCache.reduce((sum, e) => sum + e.names.length, 0);
+  }
+
+  /** Meters of all modules, in snapshot order. Changes only when the patch changes. */
+  get meterLayout(): readonly MeterLayoutEntry[] {
+    return this.meterLayoutCache;
+  }
+
+  /** Number of values in a meter snapshot. */
+  get meterValueCount(): number {
+    return this.meterCount;
+  }
+
+  /** Fill `out` with every module's current meter values (layout order). No allocation. */
+  readMeters(out: Float32Array): void {
+    let offset = 0;
+    for (let i = 0; i < this.meterNodes.length; i++) {
+      const node = this.meterNodes[i]!;
+      const count = node.module.meterNames!.length;
+      if (offset + count > out.length) return;
+      if (node.asleep) out.fill(0, offset, offset + count);
+      else node.module.readMeters!(out, offset);
+      offset += count;
+    }
   }
 
   setParam(nodeId: string, name: string, value: number): void {

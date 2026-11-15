@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { buildAll, compileDsp } from './scripts/faust-build.mjs';
@@ -11,16 +12,24 @@ function faust(): Plugin {
     },
     configureServer(server) {
       server.watcher.add('src/dsp/*.dsp');
-      server.watcher.on('change', (file) => {
+      const rebuild = (file: string) => {
         if (!file.endsWith('.dsp')) return;
         try {
           compileDsp(file);
-          server.config.logger.info(`[faust] recompiled ${file}`);
+          server.config.logger.info(`[faust] compiled ${file}`);
+          // The list of programs is collected with import.meta.glob; make sure it is re-evaluated.
+          for (const mod of server.moduleGraph.getModulesByFile(
+            fileURLToPath(new URL('./src/engine/faustPrograms.ts', import.meta.url)),
+          ) ?? []) {
+            server.moduleGraph.invalidateModule(mod);
+          }
           server.ws.send({ type: 'full-reload' });
         } catch (err) {
           server.config.logger.error((err as Error).message);
         }
-      });
+      };
+      server.watcher.on('add', rebuild);
+      server.watcher.on('change', rebuild);
     },
   };
 }

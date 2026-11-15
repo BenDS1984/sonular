@@ -1,6 +1,7 @@
 <script lang="ts">
   import Meter from '../../ui/components/Meter.svelte';
   import ParamKnob from '../ParamKnob.svelte';
+  import { meterValue } from '../../engine/engine.svelte';
   import type { ModulePanelProps } from '../types';
 
   let { module, def }: ModulePanelProps = $props();
@@ -8,8 +9,8 @@
 
 <div class="output">
   <div class="meters">
-    <Meter level={0} height={110} width={10} label="Output left" />
-    <Meter level={0} height={110} width={10} label="Output right" />
+    <Meter level={meterValue(module.id, 'meterL')} height={110} width={10} label="Output left" />
+    <Meter level={meterValue(module.id, 'meterR')} height={110} width={10} label="Output right" />
   </div>
   <ParamKnob {module} {def} param="volume" size="lg" />
 </div>

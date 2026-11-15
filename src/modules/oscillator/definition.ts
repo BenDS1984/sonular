@@ -17,4 +17,5 @@ export const oscillator: ModuleDefinition = {
     { id: 'level', label: 'Level', min: 0, max: 1, default: 0.7, format: 'gain-db' },
   ],
   panel: OscillatorPanel,
+  engine: 'faust:osc',
 };

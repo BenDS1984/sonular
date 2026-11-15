@@ -27,4 +27,5 @@ export const mixer: ModuleDefinition = {
     { id: 'main', label: 'Main', min: 0, max: MAX_GAIN, default: 1, format: 'gain-db' },
   ],
   panel: MixerPanel,
+  engine: 'faust:mixer',
 };
