@@ -8,65 +8,68 @@
 
 :root {
   /* ---------- Raw palette (do not use directly in components) ---------- */
-  --gray-975: #0a0b0d;
-  --gray-950: #0d0f12;
-  --gray-900: #0f1114;
-  --gray-875: #13161a;
-  --gray-850: #16191e;
-  --gray-800: #1a1d22;
-  --gray-750: #1f2329;
-  --gray-700: #262a31;
-  --gray-650: #2c313a;
-  --gray-600: #343a44;
-  --gray-500: #4a515d;
-  --gray-400: #7f8794;
-  --gray-300: #aeb5c0;
-  --gray-200: #d9dde4;
-  --gray-100: #f0f2f5;
+  --gray-950: #0c0d10;
+  --gray-900: #121418;
+  --gray-850: #1a1d22;
+  --gray-800: #20242a;
+  --gray-750: #282c33;
+  --gray-700: #30353d;
+  --gray-650: #3a4049;
+  --gray-600: #454c56;
+  --gray-550: #535a66;
+  --gray-500: #646c79;
+  --gray-400: #8d95a2;
+  --gray-300: #b4bbc6;
+  --gray-200: #dfe3e9;
+  --gray-100: #f5f7fa;
 
-  --amber-300: #f3c477;
-  --amber-500: #e8a33d;
-  --amber-900: #3a2c14;
-  --teal-300: #8fdccf;
-  --teal-500: #4fc1b0;
-  --teal-900: #14332f;
-  --pink-300: #f0a5be;
-  --pink-500: #e0678f;
-  --pink-900: #3a1a25;
-  --violet-300: #bdb7f3;
-  --violet-500: #8e84e8;
-  --violet-900: #24213f;
-  --green-500: #5fbf8a;
-  --yellow-500: #e8c547;
-  --red-500: #e5534b;
-  --red-900: #3b1816;
+  --amber-300: #ffd08a;
+  --amber-500: #f5ad42;
+  --amber-900: #4a3614;
+  --teal-300: #9ae8da;
+  --teal-500: #4fd1bd;
+  --teal-900: #143f39;
+  --pink-300: #f7b0c8;
+  --pink-500: #ee6f99;
+  --pink-900: #4a1e2e;
+  --violet-300: #c9c3fa;
+  --violet-500: #9a90f2;
+  --violet-900: #2c2850;
+  --green-500: #5fd18f;
+  --yellow-500: #f2d04e;
+  --red-500: #f2584f;
+  --red-900: #4a1c19;
 
   /* ---------- Semantic tokens ---------- */
 
   /* Surfaces */
+  /* Each layer is clearly lighter than the one beneath it:
+     canvas < bar < module < module header < controls, with insets (screens, meters) darkest. */
   --bg-app: var(--gray-900);
   --bg-canvas: var(--gray-900);
-  --bg-canvas-dot: #22262d;
-  --surface-bar: var(--gray-850);
-  --surface-module: var(--gray-800);
-  --surface-module-header: var(--gray-850);
+  --bg-canvas-dot: var(--gray-700);
+  --surface-bar: var(--gray-800);
+  --surface-module: var(--gray-750);
+  --surface-module-header: var(--gray-700);
   --surface-inset: var(--gray-950); /* displays, meters, wells */
-  --surface-control: var(--gray-750);
-  --surface-control-hover: var(--gray-700);
-  --surface-knob: #23272e;
+  --surface-control: var(--gray-650);
+  --surface-control-hover: var(--gray-600);
+  --surface-knob: var(--gray-600);
+  --surface-knob-hover: var(--gray-550);
 
   /* Borders */
-  --border-subtle: var(--gray-700);
-  --border-default: var(--gray-650);
-  --border-strong: var(--gray-600);
+  --border-subtle: var(--gray-650);
+  --border-default: var(--gray-600);
+  --border-strong: var(--gray-500);
   --border-focus: var(--amber-500);
+  --knob-track: var(--gray-950);
 
   /* Text */
-  --text-strong: var(--gray-100);
-  --text-default: var(--gray-200);
-  --text-secondary: var(--gray-300);
-  --text-muted: var(--gray-400);
-  --text-on-accent: #1d1405;
+  --text-strong: #ffffff;
+  --text-default: var(--gray-100);
+  --text-secondary: var(--gray-200);
+  --text-muted: var(--gray-300);
+  --text-on-accent: #241904;
 
   /* Signal colours: every cable, output and accent follows the kind of signal it carries */
   --signal-audio: var(--amber-500);

@@ -93,7 +93,7 @@
         {/snippet}
       </ModulePanel>
 
-      <ModulePanel title="Mixer" width={330}>
+      <ModulePanel title="Mixer" width={400}>
         <div class="mixer">
           {#each channels as ch, i (i)}
             <div class="strip">

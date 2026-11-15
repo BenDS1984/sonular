@@ -57,8 +57,6 @@
   const FINE_FACTOR = 10;
 
   let dragging = $state(false);
-  let hovering = $state(false);
-  let focused = $state(false);
   let dragNorm = 0;
   let lastY = 0;
 
@@ -67,7 +65,6 @@
   const text = $derived(format ? format(value) : formatNumber(value, unit));
   const resetValue = $derived(defaultValue ?? (bipolar ? (min + max) / 2 : min));
   const angle = $derived(START_DEG + norm * SWEEP_DEG);
-  const showReadout = $derived(dragging || hovering || focused);
 
   // ---------- Geometry (SVG viewBox 0..100) ----------
   const C = 50;
@@ -172,6 +169,7 @@
 </script>
 
 <div class="knob" class:disabled style:--knob-accent={`var(--signal-${signal})`}>
+  {#if label}<div class="label">{label}</div>{/if}
   <div
     class="dial"
     class:active={dragging}
@@ -193,14 +191,10 @@
     ondblclick={() => !disabled && commit(resetValue)}
     {onwheel}
     {onkeydown}
-    onpointerenter={() => (hovering = true)}
-    onpointerleave={() => (hovering = false)}
-    onfocus={() => (focused = true)}
-    onblur={() => (focused = false)}
   >
     <svg viewBox="0 0 100 100" aria-hidden="true">
       <path class="track" d={trackPath} />
-      {#if valuePath}<path class="value" d={valuePath} />{/if}
+      {#if valuePath}<path class="arc" d={valuePath} />{/if}
       <circle class="cap" cx={C} cy={C} r="31" />
       <line
         class="pointer"
@@ -210,11 +204,8 @@
         y2={pointer.to[1]}
       />
     </svg>
-    {#if showReadout}
-      <div class="readout">{text}</div>
-    {/if}
   </div>
-  {#if label}<div class="label">{label}</div>{/if}
+  <div class="value" class:active={dragging}>{text}</div>
 </div>
 
 <style>
@@ -243,11 +234,11 @@
   }
   .track {
     fill: none;
-    stroke: var(--border-default);
+    stroke: var(--knob-track);
     stroke-width: 7;
     stroke-linecap: round;
   }
-  .value {
+  .arc {
     fill: none;
     stroke: var(--knob-accent);
     stroke-width: 7;
@@ -261,35 +252,33 @@
   }
   .dial:hover .cap,
   .dial.active .cap {
-    fill: var(--surface-control-hover);
+    fill: var(--surface-knob-hover);
   }
   .pointer {
     stroke: var(--text-strong);
     stroke-width: 6;
     stroke-linecap: round;
   }
-  .readout {
-    position: absolute;
-    left: 50%;
-    bottom: calc(100% + 6px);
-    transform: translateX(-50%);
-    padding: 2px 6px;
-    background: var(--surface-inset);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    color: var(--text-strong);
+  .label {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    color: var(--text-secondary);
+    user-select: none;
+    white-space: nowrap;
+  }
+  .value {
+    min-width: 52px;
+    text-align: center;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-    pointer-events: none;
-    z-index: 20;
-  }
-  .label {
-    font-size: var(--text-xs);
-    color: var(--text-muted);
+    color: var(--text-default);
     user-select: none;
     white-space: nowrap;
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+  .value.active {
+    color: var(--knob-accent);
   }
   .disabled {
     opacity: 0.45;
