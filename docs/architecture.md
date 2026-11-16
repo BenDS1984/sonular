@@ -52,6 +52,28 @@ so a desktop build could swap them out.
 | **Storage** | `localStorage` holds a few MB — enough for patches, not for samples. |
 | **Browser differences** | Firefox can't install PWAs and needs an extra permission for MIDI; Brave disables the File System Access API by default. |
 
+## Measured CPU cost
+
+`npm run bench` measures each module in Node (per 128-frame block, best case). Figures from
+2026-11-16:
+
+| Module | µs per block | Share of one core |
+|---|---|---|
+| Oscillator (saw) | 9.3 | 0.35 % |
+| Mixer (4 channels) | 3.7 | 0.14 % |
+| Reverb | 13.7 | 0.51 % |
+| Output | 0.9 | 0.03 % |
+| Clock | 1.4 | 0.05 % |
+| Sequencer | 0.6 | 0.02 % |
+| Envelope | 0.7 | 0.03 % |
+
+In the browser on the user's laptop (CPU meter, peak), 2026-11-16:
+- Oscillator, Mixer, Reverb, Output: at most **2 %**.
+- The same plus Clock and Sequencer: at most **3 %**.
+
+The browser figures include the engine's fixed overhead and the meter's coarse timer, so they
+are higher than the Node sums; they confirm that a reverb is cheap enough to use freely.
+
 ## Planned improvements
 
 Each item lists when it becomes worth doing. Several are inspired by openDAW (see below).
