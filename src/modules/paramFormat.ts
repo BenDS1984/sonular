@@ -2,9 +2,11 @@ import {
   formatCents,
   formatGainDb,
   formatHz,
+  formatMs,
   formatNumber,
   formatPan,
   formatPercent,
+  formatSeconds,
   formatSemitones,
 } from '../ui/format';
 import type { ParamSpec } from './types';
@@ -24,6 +26,10 @@ export function paramFormatter(spec: ParamSpec): (value: number) => string {
       return formatHz;
     case 'percent':
       return formatPercent;
+    case 'seconds':
+      return formatSeconds;
+    case 'ms':
+      return formatMs;
     case 'toggle':
       return (v) => (v >= 0.5 ? 'On' : 'Off');
     case 'choice':

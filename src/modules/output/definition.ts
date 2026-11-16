@@ -3,6 +3,7 @@ import OutputPanel from './OutputPanel.svelte';
 
 export const output: ModuleDefinition = {
   type: 'output',
+  version: 1,
   title: 'Output',
   category: 'Output',
   description: 'Sends audio to your speakers or headphones, with volume and level meters.',

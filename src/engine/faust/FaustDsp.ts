@@ -140,6 +140,26 @@ export function declaredSink(meta: FaustMeta): boolean {
 }
 
 /**
+ * Normalled inputs from `declare normal "1:0";` (comma-separated pairs `input:fallback`):
+ * while input 1 is unpatched it receives whatever input 0 gets — e.g. mono into a stereo pair.
+ * Returns, per input, the input it falls back to (or -1).
+ */
+export function declaredNormals(meta: FaustMeta, numInputs: number): Int32Array {
+  const map = new Int32Array(numInputs).fill(-1);
+  for (const entry of meta.meta ?? []) {
+    const value = entry['normal'];
+    if (value === undefined) continue;
+    for (const pair of value.split(',')) {
+      const [to, from] = pair.split(':').map((x) => Number(x.trim()));
+      if (Number.isInteger(to) && Number.isInteger(from) && to! >= 0 && to! < numInputs && from! >= 0 && from! < numInputs && to !== from) {
+        map[to!] = from!;
+      }
+    }
+  }
+  return map;
+}
+
+/**
  * Tail length from `declare tail "<seconds>";` in the .dsp source.
  * Without a declaration, generators (no inputs) never sleep and processors are treated as
  * stateless only if they explicitly say so — so the safe default is Infinity.
@@ -182,6 +202,10 @@ export class FaustDsp implements DspModule {
   private readonly outBufs: Float32Array[];
   /** Whether each wasm input buffer is known to contain only zeros (skips redundant clears). */
   private readonly inZeroed: boolean[];
+  /** Per input: the input it falls back to while unpatched (`declare normal`), or -1. */
+  private readonly normals: Int32Array;
+  /** Per input: the input whose signal it actually reads, given the current cables. */
+  private readonly source: Int32Array;
 
   constructor(module: WebAssembly.Module, meta: FaustMeta, sampleRate: number) {
     const instance = new WebAssembly.Instance(module, buildImports(module));
@@ -193,6 +217,8 @@ export class FaustDsp implements DspModule {
     this.numInputs = meta.inputs;
     this.numOutputs = meta.outputs;
     this.tailSeconds = declaredTail(meta);
+    this.normals = declaredNormals(meta, meta.inputs);
+    this.source = Int32Array.from({ length: meta.inputs }, (_, i) => i);
     this.params = collectParams(meta);
     const meters = collectMeters(meta);
     this.meterNames = meters.map((m) => m.name);
@@ -256,6 +282,13 @@ export class FaustDsp implements DspModule {
     return p ? this.exports.getParamValue(0, p.index) : undefined;
   }
 
+  onConnectionsChanged(connected: readonly boolean[]): void {
+    for (let i = 0; i < this.numInputs; i++) {
+      const from = this.normals[i]!;
+      this.source[i] = from >= 0 && !connected[i] ? from : i;
+    }
+  }
+
   process(
     inputs: readonly Float32Array[],
     inputSilent: readonly boolean[],
@@ -264,13 +297,14 @@ export class FaustDsp implements DspModule {
   ): void {
     for (let i = 0; i < this.numInputs; i++) {
       const dst = this.inBufs[i]!;
-      if (inputSilent[i]) {
+      const from = this.source[i]!;
+      if (inputSilent[from]) {
         if (!this.inZeroed[i]) {
           dst.fill(0);
           this.inZeroed[i] = true;
         }
       } else {
-        const src = inputs[i]!;
+        const src = inputs[from]!;
         if (frames === BLOCK_SIZE) dst.set(src);
         else for (let k = 0; k < frames; k++) dst[k] = src[k]!;
         this.inZeroed[i] = false;

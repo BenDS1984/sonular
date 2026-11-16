@@ -49,6 +49,18 @@ export function formatHz(hz: number): string {
   return formatNumber(hz, 'Hz');
 }
 
+/** Seconds, e.g. "0.45 s", "2.50 s", "12.0 s". */
+export function formatSeconds(s: number): string {
+  return formatNumber(s, 's');
+}
+
+/** Milliseconds, e.g. "0 ms", "8.5 ms", "120 ms". */
+export function formatMs(ms: number): string {
+  if (Math.abs(ms) < 0.05) return '0 ms';
+  const a = Math.abs(ms);
+  return withSign(a >= 100 ? ms.toFixed(0) : ms.toFixed(1)) + ' ms';
+}
+
 /** 0..1 as a percentage, e.g. "35%". */
 export function formatPercent(v: number): string {
   return `${Math.round(v * 100)}%`;

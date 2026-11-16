@@ -14,9 +14,21 @@ export interface PortSpec {
 }
 
 /** How a parameter value is shown to the user. */
-export type ParamFormat = 'plain' | 'gain-db' | 'semitones' | 'cents' | 'pan' | 'hz' | 'percent' | 'toggle' | 'choice';
+export type ParamFormat =
+  | 'plain'
+  | 'gain-db'
+  | 'semitones'
+  | 'cents'
+  | 'pan'
+  | 'hz'
+  | 'percent'
+  | 'seconds'
+  | 'ms'
+  | 'toggle'
+  | 'choice';
 
 export interface ParamSpec {
+  /** Fixed internal id (also the engine's parameter name). Never rename it. */
   id: string;
   label: string;
   min: number;
@@ -38,9 +50,16 @@ export interface ModulePanelProps {
 }
 
 export interface ModuleDefinition {
+  /** Fixed internal id, stored in patch files. Never rename it; display text goes in `title`. */
   type: string;
+  /**
+   * Version of the module's behaviour, starting at 1. Raise it when parameters, ports or the
+   * sound change in a way that affects saved patches (see "Patch compatibility" in
+   * docs/architecture.md).
+   */
+  version: number;
   title: string;
-  category: 'Sources' | 'Shaping' | 'Modulation' | 'Mixing' | 'Output' | 'Utilities';
+  category: 'Sources' | 'Shaping' | 'Modulation' | 'Effects' | 'Mixing' | 'Output' | 'Utilities';
   description: string;
   /** Accent colour: the kind of signal the module mainly produces. */
   signal: SignalType;

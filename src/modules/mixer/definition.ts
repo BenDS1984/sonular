@@ -8,6 +8,7 @@ const MAX_GAIN = 2;
 
 export const mixer: ModuleDefinition = {
   type: 'mixer',
+  version: 1,
   title: 'Mixer',
   category: 'Mixing',
   description: 'Four channels with level, pan and mute, summed to a stereo output.',

@@ -3,6 +3,7 @@ import OscillatorPanel from './OscillatorPanel.svelte';
 
 export const oscillator: ModuleDefinition = {
   type: 'osc',
+  version: 1,
   title: 'Oscillator',
   category: 'Sources',
   description: 'Basic waveforms: sine, triangle, sawtooth and square.',

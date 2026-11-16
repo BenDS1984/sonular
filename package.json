@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.test.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
+    "bench": "vitest run --mode bench src/dsp/cpu --silent=false",
     "faust": "node scripts/faust-build.mjs",
     "icons": "pwa-assets-generator"
   },

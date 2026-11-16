@@ -5,6 +5,7 @@ import type { Patch } from './types';
 
 const def = (type: string, inputs: string[], outputs: string[]): ModuleDefinition => ({
   type,
+  version: 1,
   title: type,
   category: 'Utilities',
   description: '',
