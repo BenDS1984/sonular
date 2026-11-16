@@ -16,5 +16,5 @@ volume = hslider("volume", 0.5, 0, 1, 0.0001) : si.smoo;
 meterL = _ <: attach(_, peak : vbargraph("meterL", 0, 4));
 meterR = _ <: attach(_, peak : vbargraph("meterR", 0, 4));
 
-// Note: in Faust `:` binds tighter than `,`, so groups are parenthesised explicitly.
+// Groups are parenthesised for readability. (Faust priorities: `~` > `,` > `:` > `<:`/`:>`.)
 process = (*(volume), *(volume)) : (meterL, meterR);

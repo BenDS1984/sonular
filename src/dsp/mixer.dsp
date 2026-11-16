@@ -17,7 +17,8 @@ peak = abs : max ~ *(ba.tau2pole(0.15));
 panL(pan) = cos((pan + 1) * ma.PI / 4) : si.smoo;
 panR(pan) = sin((pan + 1) * ma.PI / 4) : si.smoo;
 
-// Note: in Faust `:` binds tighter than `,` and `<:`, so groups are parenthesised explicitly.
+// Groups are parenthesised for readability. (Faust priorities: `~` > `,` > `:` > `<:`/`:>`.)
+// `attach(a, b)` has two inputs, so a meter is attached with `_ <: attach(_, peak : meter)`.
 channel(gain, mute, pan, meter) = (*(level) : (_ <: attach(_, peak : meter))) <: (*(panL(pan)), *(panR(pan)))
 with {
   level = gain * (1 - mute) : si.smoo;

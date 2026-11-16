@@ -5,12 +5,28 @@
     onzoom: (factor: number) => void;
     onreset: () => void;
     onfit: () => void;
+    minimap: boolean;
+    ontoggleminimap: () => void;
   }
 
-  let { zoom, onzoom, onreset, onfit }: Props = $props();
+  let { zoom, onzoom, onreset, onfit, minimap, ontoggleminimap }: Props = $props();
 </script>
 
 <div class="zoom" role="toolbar" aria-label="Zoom">
+  <button
+    type="button"
+    class:on={minimap}
+    title={minimap ? 'Hide overview' : 'Show overview'}
+    aria-label={minimap ? 'Hide overview' : 'Show overview'}
+    aria-pressed={minimap}
+    onclick={ontoggleminimap}
+  >
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <rect x="2" y="3" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <rect x="8" y="5" width="4" height="3" rx="0.5" fill="currentColor" />
+    </svg>
+  </button>
+  <span class="sep" aria-hidden="true"></span>
   <button type="button" title="Zoom out (Ctrl + scroll)" aria-label="Zoom out" onclick={() => onzoom(1 / 1.2)}>
     <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
   </button>
@@ -53,6 +69,14 @@
   button:hover {
     background: var(--surface-control);
     color: var(--text-strong);
+  }
+  button.on {
+    color: var(--signal-audio-soft);
+  }
+  .sep {
+    width: 1px;
+    margin: 4px 2px;
+    background: var(--border-default);
   }
   .pct {
     min-width: 48px;

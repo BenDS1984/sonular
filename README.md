@@ -18,7 +18,7 @@ Modulab is free and open source, and aims for sound quality that holds up in rea
 
 - [Svelte](https://svelte.dev) + [TypeScript](https://www.typescriptlang.org) for the interface
 - [Vite](https://vite.dev) for development and builds
-- [Faust](https://faust.grame.fr) for DSP, compiled to WebAssembly at build time
+- [Faust](https://faust.grame.fr) for DSP, compiled to WebAssembly at build time — see [docs/faust-notes.md](docs/faust-notes.md)
 - Web Audio `AudioWorklet` hosting a single custom engine
 
 ## Development
@@ -28,10 +28,14 @@ Requires [Node.js](https://nodejs.org) 22 or newer.
 ```bash
 npm install
 npm run dev      # start the dev server at http://localhost:5173
-npm run build    # production build in dist/
+npm run build    # production build in dist/ (includes the offline service worker)
+npm run preview  # serve the production build at http://localhost:4173 (install/offline testing)
 npm run check    # type-check
 npm test         # run the automated tests
+npm run icons    # regenerate app icons from public/app-icon.svg
 ```
+
+The service worker is only active in production builds (`npm run preview`), not in `npm run dev`.
 
 ## License
 

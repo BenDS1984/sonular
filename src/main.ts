@@ -7,6 +7,7 @@ import App from './App.svelte';
 import { startPatchSync } from './engine/engine.svelte';
 import { restoreAutosave, startAutosave } from './patch/autosave.svelte';
 import { startHistory } from './patch/history.svelte';
+import { startPwa } from './platform/pwa.svelte';
 
 const target = document.getElementById('app');
 if (!target) throw new Error('Modulab: #app element not found');
@@ -16,5 +17,6 @@ restoreAutosave();
 startHistory();
 startAutosave();
 startPatchSync();
+startPwa();
 
 export default mount(App, { target });

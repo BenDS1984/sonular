@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Source for the generated app icons. Full-bleed background; the mark stays inside the
+       central 80% so it survives the round/squircle masks of "maskable" icons. -->
+  <rect width="512" height="512" fill="#16191e"/>
+  <path d="M136 312 C 186 312, 186 200, 256 200 S 326 312, 376 312" fill="none" stroke="#f5ad42" stroke-width="30" stroke-linecap="round"/>
+  <circle cx="136" cy="312" r="30" fill="#16191e" stroke="#f5ad42" stroke-width="18"/>
+  <circle cx="376" cy="312" r="30" fill="#16191e" stroke="#f5ad42" stroke-width="18"/>
+</svg>

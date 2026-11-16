@@ -13,6 +13,8 @@
   import CableLayer from './workspace/CableLayer.svelte';
   import ModuleBrowser from './workspace/ModuleBrowser.svelte';
   import ZoomControls from './workspace/ZoomControls.svelte';
+  import Minimap from './workspace/Minimap.svelte';
+  import { prefs } from './prefs.svelte';
   import { addModule, canvasState, deleteSelection, loadStarterPatch, patch } from '../patch/patch.svelte';
   import { GRID, SNAP, fitView, snap, toCanvas, zoomAt } from '../patch/geometry';
   import type { ModuleDefinition } from '../modules/types';
@@ -273,7 +275,18 @@
     <div class="drop-hint">Drop a .modulab file to open it</div>
   {/if}
 
-  <ZoomControls zoom={view.zoom} onzoom={zoomCentered} onreset={resetZoom} onfit={fit} />
+  {#if prefs.minimap && patch.modules.length > 0}
+    <Minimap />
+  {/if}
+
+  <ZoomControls
+    zoom={view.zoom}
+    onzoom={zoomCentered}
+    onreset={resetZoom}
+    onfit={fit}
+    minimap={prefs.minimap}
+    ontoggleminimap={() => (prefs.minimap = !prefs.minimap)}
+  />
 
   {#if interaction.browser && browserPos}
     <ModuleBrowser x={browserPos.x} y={browserPos.y} onpick={pick} onclose={closeBrowser} />

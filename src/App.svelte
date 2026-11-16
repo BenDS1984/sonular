@@ -4,6 +4,7 @@
   import Gallery from './ui/gallery/Gallery.svelte';
   import Toasts from './ui/Toasts.svelte';
   import SaveDialog from './ui/SaveDialog.svelte';
+  import UpdateBanner from './ui/UpdateBanner.svelte';
 
   // Minimal hash routing: '#gallery' opens the component gallery, anything else the app.
   let hash = $state(window.location.hash);
@@ -23,6 +24,7 @@
   </div>
   <SaveDialog />
   <Toasts />
+  <UpdateBanner />
 {/if}
 
 <style>
