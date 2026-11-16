@@ -1,6 +1,10 @@
 <!--
-  All cables, drawn above the modules in canvas coordinates. Each cable has a wide invisible
-  hit path for hovering/selecting. Pressing on a cable end that sits on a jack starts a jack drag.
+  All cables, drawn above the modules in canvas coordinates.
+
+  Each cable also has a wide invisible hit path for hovering and selecting, but that lives in a
+  second layer *below* the modules: wherever a cable crosses a module, the module's knobs,
+  buttons and jacks work as if the cable were not there. Cables are picked up where they run
+  over empty canvas. Pressing on a cable end that sits on a jack starts a jack drag.
 -->
 <script lang="ts">
   import { canvasState, patch } from '../../patch/patch.svelte';
@@ -57,6 +61,19 @@
   }
 </script>
 
+<svg class="cables hits" aria-hidden="true">
+  {#each drawn as { cable, d } (cable.id)}
+    <path
+      class="hit"
+      {d}
+      role="presentation"
+      onpointerenter={() => (hovered = cable.id)}
+      onpointerleave={() => (hovered = null)}
+      onpointerdown={(e) => onpointerdown(e, cable)}
+    />
+  {/each}
+</svg>
+
 <svg class="cables" aria-hidden="true">
   {#each drawn as { cable, d, signal } (cable.id)}
     {@const selected = canvasState.selection?.kind === 'cable' && canvasState.selection.id === cable.id}
@@ -68,14 +85,6 @@
     >
       <path class="shadow" {d} />
       <path class="line" {d} />
-      <path
-        class="hit"
-        {d}
-        role="presentation"
-        onpointerenter={() => (hovered = cable.id)}
-        onpointerleave={() => (hovered = null)}
-        onpointerdown={(e) => onpointerdown(e, cable)}
-      />
     </g>
   {/each}
   {#if dragPath && interaction.cable}
@@ -96,6 +105,10 @@
     overflow: visible;
     pointer-events: none;
     z-index: 100000;
+  }
+  /* Below every module (they stack from z-index 0), above the empty canvas. */
+  .cables.hits {
+    z-index: -1;
   }
   path {
     fill: none;
