@@ -3,9 +3,38 @@
   // tempo and position are still placeholders.
   import { engineState, togglePlay } from '../engine/engine.svelte';
   import MasterMeter from './components/MasterMeter.svelte';
-  import { canvasState, patch } from '../patch/patch.svelte';
+  import IconButton from './components/IconButton.svelte';
+  import { canvasState, DEFAULT_PATCH_NAME, patch } from '../patch/patch.svelte';
   import { toCanvas } from '../patch/geometry';
+  import { historyState, redo, undo } from '../patch/history.svelte';
+  import { choosePatchFile, newPatch, requestSave } from '../patch/fileActions';
   import { interaction, closeBrowser, openBrowser } from './workspace/interaction.svelte';
+
+  // ---------- New patch (with confirmation when there is something to lose) ----------
+
+  let confirmNew = $state(false);
+
+  function askNew() {
+    if (patch.modules.length === 0) newPatch();
+    else confirmNew = !confirmNew;
+  }
+
+  // ---------- Full screen ----------
+
+  const fullscreenSupported = typeof document !== 'undefined' && document.fullscreenEnabled;
+  let isFullscreen = $state(false);
+
+  $effect(() => {
+    const update = () => (isFullscreen = !!document.fullscreenElement);
+    update();
+    document.addEventListener('fullscreenchange', update);
+    return () => document.removeEventListener('fullscreenchange', update);
+  });
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void document.documentElement.requestFullscreen().catch(() => {});
+  }
 
   function toggleBrowser() {
     if (interaction.browser) {
@@ -31,10 +60,31 @@
   );
 
   function onkeydown(e: KeyboardEvent) {
+    const el = document.activeElement;
+    const typing = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement;
+
+    // Ctrl/Cmd shortcuts. In text fields, undo/redo stay with the field itself.
+    if (e.ctrlKey || e.metaKey) {
+      const key = e.key.toLowerCase();
+      if (key === 's') {
+        e.preventDefault();
+        requestSave();
+      } else if (key === 'o') {
+        e.preventDefault();
+        choosePatchFile();
+      } else if (!typing && key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if (!typing && (key === 'y' || (key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        redo();
+      }
+      return;
+    }
+
     // Space toggles playback unless the user is typing or operating a focused control.
     if (e.code !== 'Space' || e.repeat) return;
-    const el = document.activeElement;
-    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLButtonElement || el instanceof HTMLSelectElement) return;
+    if (typing || el instanceof HTMLButtonElement) return;
     e.preventDefault();
     void togglePlay();
   }
@@ -46,6 +96,51 @@
   <div class="logo" aria-label="Modulab">
     <img src="/favicon.svg" alt="" width="20" height="20" />
     <span>MODULAB</span>
+  </div>
+
+  <div class="group doc">
+    <label class="name-wrap" title="Click to rename (also the file name)">
+    <input
+      class="name"
+      bind:value={patch.name}
+      aria-label="Patch name"
+      spellcheck="false"
+      maxlength="80"
+      onkeydown={(e) => {
+        if (e.key === 'Enter' || e.key === 'Escape') (e.currentTarget as HTMLInputElement).blur();
+      }}
+      onblur={() => {
+        if (!patch.name.trim()) patch.name = DEFAULT_PATCH_NAME;
+      }}
+    />
+      <svg class="pencil" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+        <path d="M11 2.5l2.5 2.5L6 12.5l-3.25.75L3.5 10 11 2.5z" />
+      </svg>
+    </label>
+    <span class="new-wrap">
+      <IconButton icon="new" label="New patch" active={confirmNew} onclick={askNew} />
+      {#if confirmNew}
+        <div class="confirm" role="dialog" aria-label="Start a new patch">
+          <p>Start a new patch? The current one is cleared — you can undo this.</p>
+          <div class="confirm-actions">
+            <button type="button" class="pill" onclick={() => (confirmNew = false)}>Cancel</button>
+            <button
+              type="button"
+              class="pill primary"
+              onclick={() => {
+                confirmNew = false;
+                newPatch();
+              }}>New patch</button
+            >
+          </div>
+        </div>
+      {/if}
+    </span>
+    <IconButton icon="open" label="Open patch file (Ctrl+O)" onclick={choosePatchFile} />
+    <IconButton icon="save" label="Save patch as file (Ctrl+S)" onclick={requestSave} />
+    <span class="sep" aria-hidden="true"></span>
+    <IconButton icon="undo" label="Undo (Ctrl+Z)" disabled={!historyState.canUndo} onclick={undo} />
+    <IconButton icon="redo" label="Redo (Ctrl+Y)" disabled={!historyState.canRedo} onclick={redo} />
   </div>
 
   <div class="group">
@@ -67,8 +162,8 @@
       </svg>
       {playLabel}
     </button>
-    <span class="pill readout" title="Tempo">{bpm} BPM</span>
-    <span class="pill readout" title="Position (bar.beat.step)">1.1.1</span>
+    <span class="pill readout placeholder" title="Tempo">{bpm} BPM</span>
+    <span class="pill readout placeholder" title="Position (bar.beat.step)">1.1.1</span>
   </div>
 
   <div class="spacer">
@@ -92,16 +187,29 @@
       <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
         <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
       </svg>
-      Module
+      <span class="module-label">Module</span>
     </button>
+    {#if fullscreenSupported}
+      <IconButton
+        icon={isFullscreen ? 'exit-fullscreen' : 'fullscreen'}
+        label={isFullscreen ? 'Exit full screen (Esc)' : 'Full screen'}
+        onclick={toggleFullscreen}
+      />
+    {/if}
   </div>
 </header>
 
+{#if confirmNew}
+  <div class="confirm-backdrop" role="presentation" onpointerdown={() => (confirmNew = false)}></div>
+{/if}
+
 <style>
   .topbar {
+    position: relative;
+    z-index: 250002;
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
     height: var(--topbar-height);
     padding: 0 12px;
     background: var(--surface-bar);
@@ -122,6 +230,96 @@
     align-items: center;
     gap: 6px;
   }
+  .doc {
+    gap: 2px;
+  }
+  .name-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-right: 6px;
+  }
+  .pencil {
+    position: absolute;
+    right: 8px;
+    fill: none;
+    stroke: var(--text-muted);
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--duration-fast) var(--ease-out);
+  }
+  .name-wrap:hover .pencil {
+    opacity: 1;
+  }
+  .name:focus + .pencil {
+    opacity: 0;
+  }
+  .name {
+    width: clamp(110px, 14vw, 180px);
+    height: 28px;
+    padding: 0 26px 0 8px;
+    cursor: text;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text-default);
+    font: inherit;
+    font-size: var(--text-sm);
+    text-overflow: ellipsis;
+  }
+  .name:hover {
+    border-color: var(--border-default);
+  }
+  .name:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    background: var(--surface-inset);
+  }
+  .sep {
+    width: 1px;
+    height: 18px;
+    margin: 0 4px;
+    background: var(--border-default);
+  }
+  .new-wrap {
+    position: relative;
+  }
+  .confirm {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 250001;
+    width: 260px;
+    padding: var(--space-3);
+    background: var(--surface-bar);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 40px rgb(0 0 0 / 0.5);
+  }
+  .confirm p {
+    margin: 0 0 var(--space-3);
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.5;
+  }
+  .confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .primary {
+    background: var(--signal-audio);
+    border-color: var(--signal-audio);
+    color: var(--text-on-accent);
+    font-weight: 600;
+  }
+  .confirm-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 250000;
+  }
   .spacer {
     flex: 1;
     min-width: 0;
@@ -140,6 +338,8 @@
     justify-content: center;
   }
   .pill {
+    white-space: nowrap;
+    flex: none;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -185,5 +385,25 @@
   .play:disabled {
     cursor: progress;
     opacity: 0.7;
+  }
+
+  /* Narrower windows: drop the tempo/position placeholders first, then shorten labels. */
+  @media (max-width: 1260px) {
+    .placeholder {
+      display: none;
+    }
+  }
+  @media (max-width: 1020px) {
+    .module-label {
+      display: none;
+    }
+    .topbar {
+      gap: 8px;
+    }
+  }
+  @media (max-width: 900px) {
+    .logo span {
+      display: none;
+    }
   }
 </style>

@@ -5,10 +5,16 @@ import './styles/tokens.css';
 import './styles/base.css';
 import App from './App.svelte';
 import { startPatchSync } from './engine/engine.svelte';
+import { restoreAutosave, startAutosave } from './patch/autosave.svelte';
+import { startHistory } from './patch/history.svelte';
 
 const target = document.getElementById('app');
 if (!target) throw new Error('Modulab: #app element not found');
 
+// Order matters: restore the saved patch first, so it becomes the start of the undo history.
+restoreAutosave();
+startHistory();
+startAutosave();
 startPatchSync();
 
 export default mount(App, { target });

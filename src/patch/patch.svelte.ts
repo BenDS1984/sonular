@@ -5,7 +5,10 @@ import { getDefinition } from '../modules/registry';
 import * as ops from './operations';
 import type { Patch, PortRef } from './types';
 
+export const DEFAULT_PATCH_NAME = 'Untitled patch';
+
 export const patch = $state<Patch>({
+  name: DEFAULT_PATCH_NAME,
   modules: [],
   cables: [],
   view: { x: 0, y: 0, zoom: 1 },

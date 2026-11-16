@@ -33,6 +33,8 @@ export interface ViewState {
 }
 
 export interface Patch {
+  /** Shown in the top bar and used as the file name. */
+  name: string;
   modules: ModuleInstance[];
   cables: Cable[];
   view: ViewState;

@@ -227,6 +227,26 @@ describe('Engine', () => {
     expect(m.peakL).toBeCloseTo(2);
   });
 
+  it('reports zero meters for modules that have not rendered yet', () => {
+    class Metered extends Const {
+      readonly meterNames = ['m'];
+      readMeters(out: Float32Array, offset: number) {
+        out[offset] = 1e30; // garbage until processed
+      }
+    }
+    const engine = new Engine(SR, { metered: () => new Metered(), master: () => new Master() });
+    engine.setPatch({
+      nodes: [
+        { id: 'x', kind: 'metered' },
+        { id: 'master', kind: 'master' },
+      ],
+      connections: [],
+    });
+    const out = new Float32Array(engine.meterValueCount).fill(-1);
+    engine.readMeters(out);
+    expect(out[0]).toBe(0);
+  });
+
   it('rejects unknown module kinds', () => {
     expect(() => setup({ nodes: [{ id: 'q', kind: 'nope' }], connections: [] })).toThrow(/Unknown module kind/);
   });

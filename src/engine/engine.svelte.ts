@@ -112,7 +112,17 @@ export function startPatchSync(): () => void {
   });
 }
 
+/** Forget meter readings, so nothing from a previous run (or before the first) is shown. */
+function clearMeters() {
+  for (const values of Object.values(engineState.meters)) {
+    for (const name of Object.keys(values)) values[name] = 0;
+  }
+  engineState.peakL = 0;
+  engineState.peakR = 0;
+}
+
 export async function togglePlay(): Promise<void> {
+  clearMeters();
   if (engineState.playing) {
     audio.setRunning(false);
     engineState.playing = false;

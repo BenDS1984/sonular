@@ -48,6 +48,8 @@ interface Node {
   tailBlocks: number;
   asleep: boolean;
   isSink: boolean;
+  /** Whether the module has processed at least one block (meters are meaningless before). */
+  rendered: boolean;
 }
 
 function isBufferSilent(buf: Float32Array, frames: number): boolean {
@@ -169,7 +171,7 @@ export class Engine {
       const node = this.meterNodes[i]!;
       const count = node.module.meterNames!.length;
       if (offset + count > out.length) return;
-      if (node.asleep) out.fill(0, offset, offset + count);
+      if (node.asleep || !node.rendered) out.fill(0, offset, offset + count);
       else node.module.readMeters!(out, offset);
       offset += count;
     }
@@ -213,6 +215,7 @@ export class Engine {
           : Infinity,
       asleep: false,
       isSink: isSink(module),
+      rendered: false,
     };
   }
 
@@ -315,6 +318,7 @@ export class Engine {
       node.asleep = false;
 
       node.module.process(node.inputViews, node.inputSilent, node.outputs, n);
+      node.rendered = true;
       for (let o = 0; o < node.outputs.length; o++) {
         node.outputSilent[o] = isBufferSilent(node.outputs[o]!, n);
       }

@@ -215,6 +215,13 @@ describe('Mixer', () => {
     expect(r.L).toBeCloseTo(0.3 * Math.SQRT1_2 * 2, 3);
   });
 
+  it('reports silent meters before anything has been processed', () => {
+    const m = load('mixer');
+    const meters = new Float32Array(m.meterNames.length).fill(-1);
+    m.readMeters(meters, 0);
+    expect(Array.from(meters)).toEqual(new Array(meters.length).fill(0));
+  });
+
   it('reports per-channel and main meters', () => {
     const r = mix(() => {}, [0.5, 0.25, 0, 0]);
     expect(r.meter('meter1')).toBeCloseTo(0.5, 2);

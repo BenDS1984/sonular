@@ -20,7 +20,7 @@ const def = (type: string, inputs: string[], outputs: string[]): ModuleDefinitio
 
 const DEFS = [def('src', [], ['out']), def('fx', ['in'], ['out']), def('sink', ['L', 'R'], [])];
 const getDef = (t: string) => DEFS.find((d) => d.type === t);
-const empty = (): Patch => ({ modules: [], cables: [], view: { x: 0, y: 0, zoom: 1 } });
+const empty = (): Patch => ({ name: 'test', modules: [], cables: [], view: { x: 0, y: 0, zoom: 1 } });
 
 describe('patch operations', () => {
   it('creates modules with readable unique ids and default parameters', () => {

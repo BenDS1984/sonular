@@ -16,6 +16,7 @@
   import { addModule, canvasState, deleteSelection, loadStarterPatch, patch } from '../patch/patch.svelte';
   import { GRID, SNAP, fitView, snap, toCanvas, zoomAt } from '../patch/geometry';
   import type { ModuleDefinition } from '../modules/types';
+  import { openPatchFile } from '../patch/fileActions';
   import {
     beginCableDrag,
     cancelCableDrag,
@@ -32,7 +33,9 @@
 
   $effect(() => {
     if (!el) return;
-    const update = () => (canvasState.viewport = { w: el!.clientWidth, h: el!.clientHeight });
+    const update = () => {
+      canvasState.viewport = { w: el!.clientWidth, h: el!.clientHeight };
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
@@ -196,6 +199,29 @@
     }
   }
 
+  // ---------- Dropping a patch file onto the canvas ----------
+
+  let dropping = $state(false);
+
+  function hasFiles(e: DragEvent) {
+    return !!e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files');
+  }
+
+  function ondragover(e: DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = 'copy';
+    dropping = true;
+  }
+
+  function ondrop(e: DragEvent) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dropping = false;
+    const file = e.dataTransfer!.files[0];
+    if (file) void openPatchFile(file);
+  }
+
   const browserPos = $derived.by(() => {
     const b = interaction.browser;
     if (!b) return null;
@@ -215,10 +241,13 @@
   {onpointerdown}
   {onwheel}
   {ondblclick}
+  {ondragover}
+  ondragleave={() => (dropping = false)}
+  {ondrop}
   aria-label="Patch canvas"
 >
   <div class="world" style:transform={`translate(${view.x}px, ${view.y}px) scale(${view.zoom})`}>
-    {#each patch.modules as module (module.id)}
+    {#each patch.modules as module (`${module.id}:${module.type}`)}
       <ModuleView {module} />
     {/each}
     <CableLayer onjackpointerdown={startJackDrag} />
@@ -238,6 +267,10 @@
         Load a starter patch
       </button>
     </div>
+  {/if}
+
+  {#if dropping}
+    <div class="drop-hint">Drop a .modulab file to open it</div>
   {/if}
 
   <ZoomControls zoom={view.zoom} onzoom={zoomCentered} onreset={resetZoom} onfit={fit} />
@@ -285,6 +318,19 @@
   .hint {
     margin: 0;
     color: var(--text-muted);
+  }
+  .drop-hint {
+    position: absolute;
+    inset: var(--space-3);
+    z-index: 190000;
+    display: grid;
+    place-items: center;
+    border: 2px dashed var(--border-focus);
+    border-radius: var(--radius-lg);
+    background: rgb(0 0 0 / 0.35);
+    color: var(--text-strong);
+    font-size: var(--text-lg);
+    pointer-events: none;
   }
   .starter {
     justify-self: center;

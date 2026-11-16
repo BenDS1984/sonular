@@ -226,6 +226,12 @@ export class FaustDsp implements DspModule {
     this.inZeroed = this.inBufs.map(() => true);
 
     this.exports.init(0, sampleRate);
+    this.clearMeters();
+  }
+
+  /** Meter (bargraph) values are only written by compute(); until then they hold leftover bytes. */
+  private clearMeters() {
+    for (let i = 0; i < this.meterIndexes.length; i++) this.exports.setParamValue(0, this.meterIndexes[i]!, 0);
   }
 
   /** Names of the parameters this module accepts. */
@@ -281,5 +287,6 @@ export class FaustDsp implements DspModule {
 
   reset(): void {
     this.exports.instanceClear(0);
+    this.clearMeters();
   }
 }
