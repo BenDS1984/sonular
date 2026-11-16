@@ -1,8 +1,8 @@
 # Architecture
 
 How Modulab is put together today, the limits of running a DAW in a browser, and the improvements
-we expect to need — with the point at which each one becomes worth doing. Decisions that are still
-open are listed at the end.
+we expect to need — with the point at which each one becomes worth doing. The design decisions
+that every module must follow are listed near the end.
 
 ## Overview
 
@@ -96,21 +96,79 @@ Each item lists when it becomes worth doing. Several are inspired by openDAW (se
 - Run `npm run check` and `npm test` on GitHub for every push.
 - **When:** any time; cheap insurance as the module count grows.
 
-## Open design decisions
+## Design decisions
 
-These affect how every future module is written, so they should be decided before the module
-count grows.
+Settled on 2026-11-16, before the module count grows. They affect how every module is written;
+changing one later means touching all modules.
 
-1. **Polyphony.** Should a cable carry several voices (e.g. up to 16 channels, as in VCV Rack)?
-   It changes port buffers, the engine's routing and every module's process loop. Cheap to add
-   now, expensive later.
-2. **Clock and timing.** A transport clock inside the engine, sample-accurate, that sequencers,
-   envelopes, LFO sync and later the arrangement view all follow. Timing must never depend on
-   main-thread messages.
-3. **Events vs. signals.** Gates, triggers and notes as audio-rate signals (modular style) or as
-   timestamped events (DAW style) — or both, with clear conversion modules.
-4. **Automation and the arrangement view.** How clips and tracks drive module parameters with
-   sample accuracy, and how that is stored in the file format (versioned migrations).
+### 1. Polyphony
+- A cable carries **1 to 16 voices** (channels). The count is dynamic per cable: modules compute
+  only the active voices, so a mono patch costs exactly what it does today.
+- Port buffers are preallocated for 16 voices (≈8 KB per port), so nothing is allocated when the
+  voice count changes.
+- The voice count is chosen at the source (a *voices* control on the note input or sequencer),
+  **default 4**, and everything downstream follows. Users fit it to their computer; the CPU meter
+  shows the cost.
+- When this is built, benchmark the cost of 1, 4 and 16 voices.
+
+### 2. Signal conventions
+Plain normalized numbers, not Eurorack volts:
+
+| Signal | Range | Notes |
+|---|---|---|
+| Audio | −1 … +1 | What sound cards and WAV files use; no conversion at the output or export. |
+| Pitch | 1 per octave | 0 = middle C (C4, 261.63 Hz); a semitone is 1/12. Transposing is adding. |
+| Bipolar modulation (LFO) | −1 … +1 | |
+| Unipolar modulation (envelope) | 0 … 1 | |
+| Gate / trigger | 0 = off, 1 = on | A gate stays on while held; a trigger is a very short pulse. |
+
+Panels show musical units (Hz, seconds, %, notes), never the raw numbers. Every modulation input
+gets an amount (attenuverter) control. The rule is that any output can be patched into any input.
+
+### 3. Clock and timing
+- One **master transport** inside the engine: tempo (BPM), time signature, play/stop and
+  position, sample-accurate. The tempo is set in the top bar. Timing never depends on main-thread
+  messages.
+- A **Clock module** brings the transport into the patch as trigger outputs and can **divide and
+  multiply** the clock.
+- **No hidden sync switches.** Modules that can follow tempo (LFO, delay, …) get a *clock* input.
+  Patched: they follow that clock, with their time set as a ratio of it. Unpatched: they run free,
+  set in Hz or milliseconds.
+- The engine knows the exact period of every clock, so clock cables carry exact timing: no jitter
+  from measuring the gap between ticks, and tempo changes are followed at once. When a clock
+  stops, modules keep its last tempo.
+- Later, without redesign: swing, several independent clocks (polyrhythms), MIDI clock sync.
+
+### 4. Notes and triggers are signals
+- Cables always carry **signals** (pitch, gate, velocity), never events.
+- Event sources are converted at the edge of the patch: a *MIDI in* module (polyphonic pitch,
+  gate and velocity cables, one voice per held key), computer-keyboard input as an alternative,
+  and later the arrangement timeline, converted sample-accurately. Sequencers output the same
+  cables directly.
+- So every module behaves the same whatever the note source, and gates and pitches can be
+  delayed, modulated or randomised like any other signal.
+
+### 5. Patch compatibility
+An old patch must load and sound the same in every later version of Modulab.
+1. **Fixed ids.** Module types, parameters and ports have internal ids (e.g. `osc`,
+   `osc.frequency`) that never change. Files store ids, not display labels; labels may change.
+2. **Versioned modules.** Each module type has a version number and a migration recipe. A new
+   parameter gets a default that keeps the old sound. When a module's sound changes, old patches
+   keep the old behaviour (or get a *classic / new* switch).
+3. **Unknown modules are kept.** A module from a newer Modulab loads as a grey placeholder with
+   its settings intact and is written back unchanged on save.
+4. **Sound regression tests.** Reference patches with recorded audio are re-rendered and compared
+   on every change, so an unintended change in sound is caught before it is published.
+
+### 6. Target devices
+- **Computers only** (laptop/desktop, mouse and keyboard, optionally a MIDI keyboard). No tablet
+  or phone support and no touch design; right-click, hover and keyboard shortcuts are fine.
+- Browsers: Chrome and Edge first; Safari and Firefox must work and are tested regularly.
+
+### Still open
+- **Automation and the arrangement view.** How clips and tracks drive module parameters with
+  sample accuracy, and how that is stored in the file format. Follows from decisions 3–5; to be
+  designed together with the arrangement view.
 
 ## About openDAW
 
