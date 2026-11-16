@@ -1,8 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <!-- Source for the generated app icons. Full-bleed background; the mark stays inside the
-       central 80% so it survives the round/squircle masks of "maskable" icons. -->
+       central 80% so it survives the round/squircle masks of "maskable" icons.
+       The mark: a patch cable shaped as one full sine wave between two jacks. -->
   <rect width="512" height="512" fill="#16191e"/>
-  <path d="M136 312 C 186 312, 186 200, 256 200 S 326 312, 376 312" fill="none" stroke="#f5ad42" stroke-width="30" stroke-linecap="round"/>
-  <circle cx="136" cy="312" r="30" fill="#16191e" stroke="#f5ad42" stroke-width="18"/>
-  <circle cx="376" cy="312" r="30" fill="#16191e" stroke="#f5ad42" stroke-width="18"/>
+  <path d="M126 256 C136.83 234.01, 147.67 212.15, 158.5 196.6 C169.33 181.05, 180.17 172, 191 172 C201.83 172, 212.67 181.05, 223.5 196.6 C234.33 212.15, 245.17 234.01, 256 256 C266.83 277.99, 277.67 299.85, 288.5 315.4 C299.33 330.95, 310.17 340, 321 340 C331.83 340, 342.67 330.95, 353.5 315.4 C364.33 299.85, 375.17 277.99, 386 256" fill="none" stroke="#f5ad42" stroke-width="30" stroke-linecap="round"/>
+  <circle cx="126" cy="256" r="30" fill="#16191e" stroke="#f5ad42" stroke-width="18"/>
+  <circle cx="386" cy="256" r="30" fill="#16191e" stroke="#f5ad42" stroke-width="18"/>
 </svg>
