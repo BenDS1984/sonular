@@ -28,7 +28,7 @@ function isUpToDate(dspPath, name) {
 /** Compile one .dsp file. Throws with the compiler output on failure. */
 export function compileDsp(dspPath) {
   const name = basename(dspPath, '.dsp');
-  const tmp = mkdtempSync(join(tmpdir(), 'modulab-faust-'));
+  const tmp = mkdtempSync(join(tmpdir(), 'sonular-faust-'));
   try {
     execFileSync(process.execPath, [FAUST_CLI, dspPath, tmp, '-no-template'], {
       stdio: ['ignore', 'pipe', 'pipe'],

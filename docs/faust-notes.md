@@ -1,6 +1,6 @@
 # Faust notes
 
-Practical notes for writing Modulab modules in [Faust](https://faust.grame.fr): where to look things
+Practical notes for writing Sonular modules in [Faust](https://faust.grame.fr): where to look things
 up, traps we ran into, how a `.dsp` file plugs into the engine, and which library building blocks
 we measured. Keep this file up to date when you learn something new.
 

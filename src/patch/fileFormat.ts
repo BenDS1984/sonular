@@ -1,5 +1,5 @@
 /**
- * The .modulab file format: plain, readable JSON with a format name and version number.
+ * The .sonular file format: plain, readable JSON with a format name and version number.
  *
  * Reading is forgiving: unknown modules, missing or out-of-range parameters and dangling cables
  * are repaired or dropped with a warning, so a file never fails to open because of one bad
@@ -9,9 +9,9 @@ import { clampTempo, DEFAULT_TEMPO } from '../engine/core/Transport';
 import type { ModuleDefinition } from '../modules/types';
 import type { Cable, ModuleInstance, Patch } from './types';
 
-export const FILE_FORMAT = 'modulab-patch';
+export const FILE_FORMAT = 'sonular-patch';
 export const FILE_VERSION = 1;
-export const FILE_EXTENSION = '.modulab';
+export const FILE_EXTENSION = '.sonular';
 
 export interface PatchFile {
   format: typeof FILE_FORMAT;
@@ -56,21 +56,21 @@ const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
 const isFiniteNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const asString = (v: unknown, fallback: string) => (typeof v === 'string' && v.trim() ? v : fallback);
 
-/** Parse and validate a .modulab file. Throws PatchFileError if it isn't a Modulab patch at all. */
+/** Parse and validate a .sonular file. Throws PatchFileError if it isn't a Sonular patch at all. */
 export function parsePatchFile(text: string, getDef: DefinitionLookup, fallbackName = 'Untitled patch'): ParseResult {
   let data: unknown;
   try {
     data = JSON.parse(text);
   } catch {
-    throw new PatchFileError('This file is not a Modulab patch (it is not valid JSON).');
+    throw new PatchFileError('This file is not a Sonular patch (it is not valid JSON).');
   }
   if (!isObject(data) || data['format'] !== FILE_FORMAT) {
-    throw new PatchFileError('This file is not a Modulab patch.');
+    throw new PatchFileError('This file is not a Sonular patch.');
   }
   let version = data['version'];
   if (!isFiniteNumber(version) || version < 1) throw new PatchFileError('This patch file has no valid version.');
   if (version > FILE_VERSION) {
-    throw new PatchFileError('This patch was saved by a newer version of Modulab. Update Modulab to open it.');
+    throw new PatchFileError('This patch was saved by a newer version of Sonular. Update Sonular to open it.');
   }
   let current: Record<string, unknown> = data;
   while (version < FILE_VERSION) {

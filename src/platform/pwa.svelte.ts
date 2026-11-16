@@ -19,7 +19,7 @@ export function startPwa() {
       pwaState.updateReady = true;
     },
     onOfflineReady() {
-      showToast('Modulab is ready to work offline');
+      showToast('Sonular is ready to work offline');
     },
   });
 }

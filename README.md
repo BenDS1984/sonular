@@ -1,9 +1,9 @@
-# Modulab
+# Sonular
 
 A modular DAW that runs in your browser — online, and offline once installed.
 
 Patch modules together with cables, shape sound, and (later) arrange it on a timeline.
-Modulab is free and open source, and aims for sound quality that holds up in real music production.
+Sonular is free and open source, and aims for sound quality that holds up in real music production.
 
 > **Status:** early development. Nothing is usable yet.
 

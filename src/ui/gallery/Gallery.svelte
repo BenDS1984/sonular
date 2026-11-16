@@ -68,10 +68,10 @@
   <header class="intro">
     <h1>Component gallery</h1>
     <p>
-      Modulab's visual building blocks. Drag knobs up and down (Shift for fine control), scroll over
+      Sonular's visual building blocks. Drag knobs up and down (Shift for fine control), scroll over
       them, or double-click to reset. Meters run on a fake signal — nothing here makes sound yet.
     </p>
-    <a href="#/">← Back to Modulab</a>
+    <a href="#/">← Back to Sonular</a>
   </header>
 
   <section>

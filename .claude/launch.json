@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "modulab-dev",
+      "name": "sonular-dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
         "run",
@@ -11,7 +11,7 @@
       "port": 5173
     },
     {
-      "name": "modulab-preview",
+      "name": "sonular-preview",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
         "run",

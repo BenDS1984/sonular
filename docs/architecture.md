@@ -1,6 +1,6 @@
 # Architecture
 
-How Modulab is put together today, the limits of running a DAW in a browser, and the improvements
+How Sonular is put together today, the limits of running a DAW in a browser, and the improvements
 we expect to need — with the point at which each one becomes worth doing. The design decisions
 that every module must follow are listed near the end.
 
@@ -25,7 +25,7 @@ that every module must follow are listed near the end.
 | Engine | `src/engine/core/` | Plain TypeScript (runs in the worklet, in offline renders and in Node tests). Orders nodes, routes buffers, sums cables, sleeps idle modules, guards the output. Owns the transport (tempo and position). |
 | DSP | `src/dsp/*.dsp` | Faust, compiled to WebAssembly at build time; each module is its own wasm instance. See [faust-notes.md](faust-notes.md). |
 | Native modules | `src/engine/modules/` | TypeScript for control logic and anything that follows the tempo (Clock, Sequencer, Envelope). Engine kinds `native:<name>`. |
-| Persistence | `src/patch/`, `src/platform/storage.ts` | Autosave in browser storage, undo history, `.modulab` files with a version number. |
+| Persistence | `src/patch/`, `src/platform/storage.ts` | Autosave in browser storage, undo history, `.sonular` files with a version number. |
 | Offline | `vite.config.ts`, `src/platform/pwa.svelte.ts` | Service worker precaches every built file; updates wait for the user. |
 
 Browser-specific code is kept behind small modules in `src/platform/` (storage, service worker),
@@ -107,7 +107,7 @@ Each item lists when it becomes worth doing. Several are inspired by openDAW (se
 ### 4. Sample storage
 - Samples go into **IndexedDB** (or OPFS), referenced from the patch by id; request persistent
   storage (`navigator.storage.persist()`) so the browser doesn't evict them.
-- `.modulab` files need a way to carry or reference samples (e.g. a zipped bundle).
+- `.sonular` files need a way to carry or reference samples (e.g. a zipped bundle).
 - **When:** with the sampler.
 
 ### 5. Audio device and latency settings
@@ -177,13 +177,13 @@ gets an amount (attenuverter) control. The rule is that any output can be patche
   delayed, modulated or randomised like any other signal.
 
 ### 5. Patch compatibility
-An old patch must load and sound the same in every later version of Modulab.
+An old patch must load and sound the same in every later version of Sonular.
 1. **Fixed ids.** Module types, parameters and ports have internal ids (e.g. `osc`,
    `osc.frequency`) that never change. Files store ids, not display labels; labels may change.
 2. **Versioned modules.** Each module type has a version number and a migration recipe. A new
    parameter gets a default that keeps the old sound. When a module's sound changes, old patches
    keep the old behaviour (or get a *classic / new* switch).
-3. **Unknown modules are kept.** A module from a newer Modulab loads as a grey placeholder with
+3. **Unknown modules are kept.** A module from a newer Sonular loads as a grey placeholder with
    its settings intact and is written back unchanged on save.
 4. **Sound regression tests.** Reference patches with recorded audio are re-rendered and compared
    on every change, so an unintended change in sound is caught before it is published.
@@ -204,4 +204,4 @@ An old patch must load and sound the same in every later version of Modulab.
 audio in a single AudioWorklet, a Rust/WebAssembly engine with dynamically linked device modules in
 shared memory, a main-thread source of truth mirrored into the engine, lock-free telemetry, and
 Web Workers for analysis, time-stretching, storage and ML. It is licensed **AGPL-3.0**: we learn
-from its ideas but do not copy its code into Modulab (GPL-3.0).
+from its ideas but do not copy its code into Sonular (GPL-3.0).

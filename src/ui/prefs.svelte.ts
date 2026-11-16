@@ -1,7 +1,7 @@
 /** Small per-user interface preferences, remembered in browser storage. */
 import { browserStore } from '../platform/storage';
 
-const KEY = 'modulab.ui';
+const KEY = 'sonular.ui';
 
 interface Prefs {
   minimap: boolean;

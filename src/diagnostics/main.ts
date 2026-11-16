@@ -25,7 +25,7 @@ interface Variant {
   start(latencyHint: AudioContextLatencyCategory | number, buffer: BufferSize): Promise<Run>;
 }
 
-const GAIN = 0.125; // −18 dBFS, same as the Modulab test tone
+const GAIN = 0.125; // −18 dBFS, same as the Sonular test tone
 
 function context(latencyHint: AudioContextLatencyCategory | number): AudioContext {
   return new AudioContext({ latencyHint });
@@ -35,7 +35,7 @@ const VARIANTS: Variant[] = [
   {
     id: 'native',
     title: '1. Browser oscillator',
-    detail: 'Built-in OscillatorNode. No Modulab code involved at all.',
+    detail: 'Built-in OscillatorNode. No Sonular code involved at all.',
     async start(hint) {
       const ctx = context(hint);
       const osc = new OscillatorNode(ctx, { frequency: 440 });
@@ -79,7 +79,7 @@ const VARIANTS: Variant[] = [
   {
     id: 'faust',
     title: '4. Faust tone (WebAssembly)',
-    detail: 'The Faust test tone running in its own worklet, without the Modulab engine.',
+    detail: 'The Faust test tone running in its own worklet, without the Sonular engine.',
     async start(hint) {
       const ctx = context(hint);
       const [programs] = await Promise.all([compileFaustPrograms(), ctx.audioWorklet.addModule(faustSineUrl)]);
@@ -97,7 +97,7 @@ const VARIANTS: Variant[] = [
   },
   {
     id: 'engine',
-    title: '5. Full Modulab engine',
+    title: '5. Full Sonular engine',
     detail: 'The complete engine with the test patch, as in the app, but without the app interface.',
     async start(_hint, buffer) {
       const engine = new AudioEngine({}, buffer);

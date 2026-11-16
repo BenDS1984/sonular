@@ -10,7 +10,7 @@ import { startHistory } from './patch/history.svelte';
 import { startPwa } from './platform/pwa.svelte';
 
 const target = document.getElementById('app');
-if (!target) throw new Error('Modulab: #app element not found');
+if (!target) throw new Error('Sonular: #app element not found');
 
 // Order matters: restore the saved patch first, so it becomes the start of the undo history.
 restoreAutosave();

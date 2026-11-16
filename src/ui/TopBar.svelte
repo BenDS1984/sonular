@@ -98,9 +98,9 @@
 <svelte:window {onkeydown} />
 
 <header class="topbar">
-  <div class="logo" aria-label="Modulab">
+  <div class="logo" aria-label="Sonular">
     <img src="/favicon.svg" alt="" width="20" height="20" />
-    <span>MODULAB</span>
+    <span>SONULAR</span>
   </div>
 
   <div class="group doc">

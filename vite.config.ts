@@ -7,7 +7,7 @@ import { buildAll, compileDsp } from './scripts/faust-build.mjs';
 /** Compiles src/dsp/*.dsp to WebAssembly before dev/build and recompiles on change. */
 function faust(): Plugin {
   return {
-    name: 'modulab-faust',
+    name: 'sonular-faust',
     buildStart() {
       buildAll();
     },
@@ -45,8 +45,8 @@ const pwa = VitePWA({
   injectRegister: false,
   includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
   manifest: {
-    name: 'Modulab',
-    short_name: 'Modulab',
+    name: 'Sonular',
+    short_name: 'Sonular',
     description: 'A modular DAW in your browser, online and offline.',
     lang: 'en',
     start_url: '/',

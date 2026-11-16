@@ -1,5 +1,5 @@
 /**
- * New / open / save for patches. Saving downloads a .modulab file; opening reads one chosen by
+ * New / open / save for patches. Saving downloads a .sonular file; opening reads one chosen by
  * the user (file picker or drag and drop). Both are undoable like any other edit.
  */
 import { DEFAULT_TEMPO } from '../engine/core/Transport';
@@ -55,7 +55,7 @@ export async function openPatchFile(file: File) {
   }
 }
 
-/** Let the user pick a .modulab file. */
+/** Let the user pick a .sonular file. */
 export function choosePatchFile() {
   const input = document.createElement('input');
   input.type = 'file';

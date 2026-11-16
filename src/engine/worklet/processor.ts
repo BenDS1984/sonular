@@ -22,7 +22,7 @@ const HIRES_TIMER = typeof performance !== 'undefined' && typeof performance.now
 const now: () => number = HIRES_TIMER ? () => performance.now() : () => Date.now();
 const CPU_SMOOTHING = HIRES_TIMER ? 0.3 : 0.05;
 
-class ModulabProcessor extends AudioWorkletProcessor {
+class SonularProcessor extends AudioWorkletProcessor {
   private engine: Engine | null = null;
   private running = false;
   private gain = 0;
@@ -160,4 +160,4 @@ class ModulabProcessor extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor(PROCESSOR_NAME, ModulabProcessor);
+registerProcessor(PROCESSOR_NAME, SonularProcessor);

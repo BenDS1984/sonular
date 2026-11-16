@@ -2,7 +2,7 @@
 import type { EnginePatch, MeterLayoutEntry } from './core/types';
 import type { FaustMeta } from './faust/FaustDsp';
 
-export const PROCESSOR_NAME = 'modulab-engine';
+export const PROCESSOR_NAME = 'sonular-engine';
 
 export interface FaustProgram {
   name: string;

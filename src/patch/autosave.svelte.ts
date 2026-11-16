@@ -1,13 +1,13 @@
 /**
  * Keeps a copy of the open patch in browser storage and restores it on start-up, so closing or
- * reloading Modulab never loses work.
+ * reloading Sonular never loses work.
  */
 import { getDefinition } from '../modules/registry';
 import { browserStore, type KeyValueStore } from '../platform/storage';
 import { parsePatchFile, serializePatch } from './fileFormat';
 import { patch } from './patch.svelte';
 
-const KEY = 'modulab.autosave';
+const KEY = 'sonular.autosave';
 const SAVE_DELAY_MS = 400;
 
 /** Restore the autosaved patch, if any. Returns true when something was restored. */

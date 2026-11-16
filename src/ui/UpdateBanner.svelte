@@ -5,7 +5,7 @@
 
 {#if pwaState.updateReady}
   <div class="banner" role="status">
-    <span>A new version of Modulab is ready. Your patch is saved, so reloading is safe.</span>
+    <span>A new version of Sonular is ready. Your patch is saved, so reloading is safe.</span>
     <button type="button" class="btn" onclick={dismissUpdate}>Later</button>
     <button type="button" class="btn primary" onclick={installUpdate}>Reload</button>
   </div>

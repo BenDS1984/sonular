@@ -1,5 +1,5 @@
 /*
- * Modulab design tokens.
+ * Sonular design tokens.
  *
  * Single source of truth for colour, type, spacing and motion. Components must only
  * use the semantic tokens (second block), never the raw palette, so the whole look

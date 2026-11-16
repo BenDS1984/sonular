@@ -74,9 +74,9 @@ export function meterValue(moduleId: string, name: string): number {
   return engineState.playing ? (engineState.meters[moduleId]?.[name] ?? 0) : 0;
 }
 
-// Development aid: inspect the engine from the browser console as `__modulab`.
+// Development aid: inspect the engine from the browser console as `__sonular`.
 if (import.meta.env.DEV) {
-  (globalThis as Record<string, unknown>).__modulab = { audio, engineState, patch };
+  (globalThis as Record<string, unknown>).__sonular = { audio, engineState, patch };
 }
 
 // ---------- Live patch sync ----------

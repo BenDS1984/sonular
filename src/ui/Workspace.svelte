@@ -272,7 +272,7 @@
   {/if}
 
   {#if dropping}
-    <div class="drop-hint">Drop a .modulab file to open it</div>
+    <div class="drop-hint">Drop a .sonular file to open it</div>
   {/if}
 
   {#if prefs.minimap && patch.modules.length > 0}

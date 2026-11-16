@@ -42,9 +42,9 @@ describe('patch files', () => {
     expect(patch).toEqual(sample());
   });
 
-  it('rejects files that are not Modulab patches', () => {
+  it('rejects files that are not Sonular patches', () => {
     expect(() => parsePatchFile('not json', getDef)).toThrow(PatchFileError);
-    expect(() => parsePatchFile('{"hello": 1}', getDef)).toThrow(/not a Modulab patch/);
+    expect(() => parsePatchFile('{"hello": 1}', getDef)).toThrow(/not a Sonular patch/);
   });
 
   it('refuses files from a newer version', () => {
@@ -91,7 +91,7 @@ describe('patch files', () => {
   });
 
   it('makes safe file names', () => {
-    expect(fileNameFor('Bass: take 2/3')).toBe('Bass- take 2-3.modulab');
-    expect(fileNameFor('   ')).toBe('Untitled patch.modulab');
+    expect(fileNameFor('Bass: take 2/3')).toBe('Bass- take 2-3.sonular');
+    expect(fileNameFor('   ')).toBe('Untitled patch.sonular');
   });
 });
