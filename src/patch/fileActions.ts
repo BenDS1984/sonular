@@ -2,6 +2,7 @@
  * New / open / save for patches. Saving downloads a .modulab file; opening reads one chosen by
  * the user (file picker or drag and drop). Both are undoable like any other edit.
  */
+import { DEFAULT_TEMPO } from '../engine/core/Transport';
 import { getDefinition } from '../modules/registry';
 import { dialogs } from '../ui/dialogs.svelte';
 import { showToast } from '../ui/toast.svelte';
@@ -42,6 +43,7 @@ export async function openPatchFile(file: File) {
     const { patch: loaded, warnings } = parsePatchFile(await file.text(), getDefinition, fallbackName);
     canvasState.selection = null;
     patch.name = loaded.name;
+    patch.tempo = loaded.tempo;
     patch.modules = loaded.modules;
     patch.cables = loaded.cables;
     patch.view = loaded.view;
@@ -68,6 +70,7 @@ export function choosePatchFile() {
 export function newPatch() {
   canvasState.selection = null;
   patch.name = DEFAULT_PATCH_NAME;
+  patch.tempo = DEFAULT_TEMPO;
   patch.modules = [];
   patch.cables = [];
   patch.view = { x: 0, y: 0, zoom: 1 };

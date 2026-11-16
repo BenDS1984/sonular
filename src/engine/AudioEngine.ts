@@ -4,6 +4,7 @@
  */
 import workletUrl from './worklet/processor.ts?worker&url';
 import type { EnginePatch, MeterLayoutEntry } from './core/types';
+import { DEFAULT_TEMPO } from './core/Transport';
 import { compileFaustPrograms } from './faustPrograms';
 import { PROCESSOR_NAME, type EngineStats, type FromEngine, type ToEngine } from './protocol';
 
@@ -32,6 +33,9 @@ export class AudioEngine {
   /** Whether CPU readings come from a high-resolution timer. */
   hiResTimer = false;
   private events: AudioEngineEvents;
+
+  /** Current tempo in BPM; kept here so a freshly started engine gets it too. */
+  private tempo = DEFAULT_TEMPO;
 
   /** Requested buffer size (preset name or milliseconds). */
   readonly buffer: BufferSize;
@@ -105,7 +109,7 @@ export class AudioEngine {
     });
     node.onprocessorerror = () => this.events.onStatus?.('error', 'The audio engine crashed.');
 
-    this.send({ type: 'init', faust: programs });
+    this.send({ type: 'init', faust: programs, tempo: this.tempo });
     await ready;
     node.connect(ctx.destination);
     if (ctx.state !== 'running') await ctx.resume();
@@ -136,6 +140,11 @@ export class AudioEngine {
 
   setParam(node: string, name: string, value: number): void {
     this.send({ type: 'param', node, name, value });
+  }
+
+  setTempo(bpm: number): void {
+    this.tempo = bpm;
+    this.send({ type: 'tempo', bpm });
   }
 
   /** Start or stop rendering (with a short fade to avoid clicks). */

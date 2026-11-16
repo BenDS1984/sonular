@@ -5,6 +5,7 @@
  * are repaired or dropped with a warning, so a file never fails to open because of one bad
  * entry. Older versions are upgraded step by step through MIGRATIONS.
  */
+import { clampTempo, DEFAULT_TEMPO } from '../engine/core/Transport';
 import type { ModuleDefinition } from '../modules/types';
 import type { Cable, ModuleInstance, Patch } from './types';
 
@@ -34,6 +35,7 @@ export function serializePatch(patch: Patch, now = new Date()): string {
     savedAt: now.toISOString(),
     patch: {
       name: patch.name,
+      tempo: patch.tempo,
       modules: patch.modules.map((m) => ({ id: m.id, type: m.type, x: m.x, y: m.y, params: { ...m.params } })),
       cables: patch.cables.map((c) => ({ id: c.id, from: { ...c.from }, to: { ...c.to } })),
       view: { ...patch.view },
@@ -155,7 +157,10 @@ export function validatePatch(raw: unknown, getDef: DefinitionLookup, fallbackNa
     zoom: isFiniteNumber(v['zoom']) && v['zoom'] > 0 ? v['zoom'] : 1,
   };
 
-  return { patch: { name: asString(src['name'], fallbackName), modules, cables, view }, warnings };
+  // Files from before the tempo existed play at the default tempo.
+  const tempo = isFiniteNumber(src['tempo']) ? clampTempo(src['tempo']) : DEFAULT_TEMPO;
+
+  return { patch: { name: asString(src['name'], fallbackName), tempo, modules, cables, view }, warnings };
 }
 
 /** File name for downloads: the patch name made safe for file systems. */

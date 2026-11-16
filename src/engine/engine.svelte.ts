@@ -18,6 +18,8 @@ export const engineState = $state({
   clipped: false,
   processed: 0,
   sleeping: 0,
+  /** Transport position in beats since Play was pressed. */
+  beat: 0,
   /** Increments with every stats message, so views can react even when values repeat. */
   statsTick: 0,
   /** Live meter values per module: meters[moduleId][meterName], linear peak amplitude. */
@@ -49,6 +51,7 @@ export const audio = new AudioEngine(
       engineState.clipped = s.clipped;
       engineState.processed = s.processed;
       engineState.sleeping = s.sleeping;
+      engineState.beat = s.beat;
       engineState.statsTick++;
       let i = 0;
       for (const entry of meterLayout) {
@@ -97,6 +100,11 @@ export function startPatchSync(): () => void {
       });
     });
 
+    // The tempo is remembered by `audio` even while the engine is off, so start-up uses it too.
+    $effect(() => {
+      audio.setTempo(patch.tempo);
+    });
+
     $effect(() => {
       if (engineState.status !== 'ready') return;
       for (const m of patch.modules) {
@@ -119,6 +127,7 @@ function clearMeters() {
   }
   engineState.peakL = 0;
   engineState.peakR = 0;
+  engineState.beat = 0;
 }
 
 export async function togglePlay(): Promise<void> {

@@ -22,6 +22,7 @@ const getDef = (t: string) => DEFS.find((d) => d.type === t);
 
 const sample = (): Patch => ({
   name: 'My drone',
+  tempo: 96,
   modules: [
     { id: 'src1', type: 'src', x: 10, y: 20, params: { level: 0.25 } },
     { id: 'sink1', type: 'sink', x: 300, y: 20, params: { level: 1 } },
@@ -71,6 +72,7 @@ describe('patch files', () => {
     });
     const { patch, warnings } = parsePatchFile(text, getDef, 'fallback');
     expect(patch.name).toBe('fallback');
+    expect(patch.tempo).toBe(120); // files from before the tempo existed
     expect(patch.modules.map((m) => m.id)).toEqual(['src1', 'sink1']);
     expect(patch.modules[0]!.params).toEqual({ level: 1 }); // clamped, unknown dropped
     expect(patch.modules[0]!.x).toBe(0);
@@ -79,6 +81,13 @@ describe('patch files', () => {
     expect(warnings.join(' ')).toMatch(/duplicate/);
     expect(warnings.join(' ')).toMatch(/unknown type "mystery"/);
     expect(warnings.join(' ')).toMatch(/2 cables/);
+  });
+
+  it('keeps the tempo within range', () => {
+    const text = (tempo: unknown) => JSON.stringify({ format: FILE_FORMAT, version: 1, patch: { tempo } });
+    expect(parsePatchFile(text(999), getDef).patch.tempo).toBe(300);
+    expect(parsePatchFile(text(5), getDef).patch.tempo).toBe(20);
+    expect(parsePatchFile(text('fast'), getDef).patch.tempo).toBe(120);
   });
 
   it('makes safe file names', () => {

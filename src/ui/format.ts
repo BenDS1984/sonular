@@ -49,9 +49,9 @@ export function formatHz(hz: number): string {
   return formatNumber(hz, 'Hz');
 }
 
-/** Seconds, e.g. "0.45 s", "2.50 s", "12.0 s". */
+/** A time given in seconds: milliseconds below one second, e.g. "5.0 ms", "450 ms", "2.50 s". */
 export function formatSeconds(s: number): string {
-  return formatNumber(s, 's');
+  return Math.abs(s) < 0.9995 ? formatMs(s * 1000) : formatNumber(s, 's');
 }
 
 /** Milliseconds, e.g. "0 ms", "8.5 ms", "120 ms". */
@@ -59,6 +59,14 @@ export function formatMs(ms: number): string {
   if (Math.abs(ms) < 0.05) return '0 ms';
   const a = Math.abs(ms);
   return withSign(a >= 100 ? ms.toFixed(0) : ms.toFixed(1)) + ' ms';
+}
+
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+/** Semitones relative to middle C as a note name, e.g. 0 -> "C4", −3 -> "A3", 6 -> "F#4". */
+export function formatNote(semitonesFromC4: number): string {
+  const n = Math.round(semitonesFromC4) + 48;
+  return `${NOTE_NAMES[((n % 12) + 12) % 12]}${Math.floor(n / 12)}`;
 }
 
 /** 0..1 as a percentage, e.g. "35%". */

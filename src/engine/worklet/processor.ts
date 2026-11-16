@@ -7,6 +7,7 @@ import type { ModuleFactory } from '../core/types';
 import { FaustDsp, declaredSink } from '../faust/FaustDsp';
 import { FaustSink } from '../faust/FaustSink';
 import { Master } from '../modules/Master';
+import { NATIVE_MODULES } from '../modules/native';
 import { PROCESSOR_NAME, type EngineStats, type FromEngine, type ToEngine } from '../protocol';
 
 /** Fade applied when starting/stopping playback, to avoid clicks. */
@@ -41,6 +42,7 @@ class ModulabProcessor extends AudioWorkletProcessor {
     processed: 0,
     sleeping: 0,
     unreachable: 0,
+    beat: 0,
     meters: new Float32Array(0),
   };
   private readonly statsMessage: FromEngine = { type: 'stats', stats: this.stats };
@@ -65,6 +67,7 @@ class ModulabProcessor extends AudioWorkletProcessor {
       case 'init': {
         const factories: Record<string, ModuleFactory> = {
           master: () => new Master(),
+          ...NATIVE_MODULES,
         };
         for (const prog of msg.faust) {
           const sink = declaredSink(prog.meta);
@@ -74,6 +77,7 @@ class ModulabProcessor extends AudioWorkletProcessor {
           };
         }
         this.engine = new Engine(sampleRate, factories);
+        this.engine.setTempo(msg.tempo);
         this.post({ type: 'ready', sampleRate, hiResTimer: HIRES_TIMER });
         break;
       }
@@ -90,7 +94,12 @@ class ModulabProcessor extends AudioWorkletProcessor {
       case 'param':
         this.engine?.setParam(msg.node, msg.name, msg.value);
         break;
+      case 'tempo':
+        this.engine?.setTempo(msg.bpm);
+        break;
       case 'run':
+        // Starting from silence (not while a stop is still fading out): begin at the top.
+        if (msg.running && !this.running && this.gain === 0) this.engine?.restart();
         this.running = msg.running;
         break;
     }
@@ -143,6 +152,7 @@ class ModulabProcessor extends AudioWorkletProcessor {
     st.processed = engine.stats.processed;
     st.sleeping = engine.stats.sleeping;
     st.unreachable = engine.stats.unreachable;
+    st.beat = engine.transport.beat;
     engine.readMeters(st.meters);
     this.post(this.statsMessage);
     this.busyMs = 0;

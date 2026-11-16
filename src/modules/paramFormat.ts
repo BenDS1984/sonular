@@ -3,6 +3,7 @@ import {
   formatGainDb,
   formatHz,
   formatMs,
+  formatNote,
   formatNumber,
   formatPan,
   formatPercent,
@@ -30,6 +31,8 @@ export function paramFormatter(spec: ParamSpec): (value: number) => string {
       return formatSeconds;
     case 'ms':
       return formatMs;
+    case 'note':
+      return formatNote;
     case 'toggle':
       return (v) => (v >= 0.5 ? 'On' : 'Off');
     case 'choice':

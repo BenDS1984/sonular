@@ -8,6 +8,7 @@ import {
   type ModuleFactory,
   type SinkModule,
 } from './types';
+import { Transport } from './Transport';
 
 export interface MasterMeters {
   peakL: number;
@@ -74,6 +75,8 @@ function isBufferSilent(buf: Float32Array, frames: number): boolean {
  */
 export class Engine {
   readonly sampleRate: number;
+  /** Tempo and musical position, shared with modules that follow the tempo. */
+  readonly transport: Transport;
   private readonly factories: Readonly<Record<string, ModuleFactory>>;
   private nodes = new Map<string, Node>();
   /** Processing order: only reachable nodes, dependencies first. */
@@ -98,6 +101,7 @@ export class Engine {
 
   constructor(sampleRate: number, factories: Readonly<Record<string, ModuleFactory>>) {
     this.sampleRate = sampleRate;
+    this.transport = new Transport(sampleRate);
     this.factories = factories;
   }
 
@@ -114,7 +118,7 @@ export class Engine {
       if (!node || node.kind !== desc.kind) {
         const factory = this.factories[desc.kind];
         if (!factory) throw new Error(`Unknown module kind "${desc.kind}"`);
-        node = this.createNode(desc.id, desc.kind, factory(this.sampleRate));
+        node = this.createNode(desc.id, desc.kind, factory(this.sampleRate, this.transport));
       }
       if (desc.params) {
         for (const [name, value] of Object.entries(desc.params)) node.module.setParam(name, value);
@@ -192,6 +196,19 @@ export class Engine {
     }
   }
 
+  /**
+   * Start from the top (Play pressed): position back to zero and every module cleared, so
+   * sequences start on their first step and no tail from the previous run comes back.
+   */
+  restart(): void {
+    this.transport.rewind();
+    this.resetAll();
+  }
+
+  setTempo(bpm: number): void {
+    this.transport.setTempo(bpm);
+  }
+
   get nodeCount(): number {
     return this.nodes.size;
   }
@@ -262,6 +279,7 @@ export class Engine {
     const n = Math.min(frames, BLOCK_SIZE);
     let processed = 0;
     let sleeping = 0;
+    this.transport.beginBlock();
 
     // Hot path: indexed loops only. for-of creates iterator objects, and any garbage on the
     // audio thread eventually triggers a collection that stalls rendering (audible clicks).
@@ -378,6 +396,7 @@ export class Engine {
     this.peakL = pl;
     this.peakR = pr;
 
+    this.transport.endBlock(n);
     this.stats.processed = processed;
     this.stats.sleeping = sleeping;
     this.stats.unreachable = this.nodes.size - this.order.length;

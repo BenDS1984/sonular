@@ -1,7 +1,7 @@
 /**
  * Undo/redo for the patch.
  *
- * Every change to modules, cables, parameters or the patch name becomes an undo step, but changes that belong
+ * Every change to modules, cables, parameters, the tempo or the patch name becomes an undo step, but changes that belong
  * together are merged: while a mouse button is held (dragging a module or turning a knob) nothing
  * is recorded until release, and other bursts (scroll wheel, arrow keys) are merged when they
  * come within a short pause of each other. Panning and zooming the view is not undoable.
@@ -15,11 +15,12 @@ const MERGE_MS = 350;
 
 interface Content {
   name: string;
+  tempo: number;
   modules: ModuleInstance[];
   cables: Cable[];
 }
 
-const snapshot = (): string => JSON.stringify({ name: patch.name, modules: patch.modules, cables: patch.cables });
+const snapshot = (): string => JSON.stringify({ name: patch.name, tempo: patch.tempo, modules: patch.modules, cables: patch.cables });
 
 export const historyState = $state({ canUndo: false, canRedo: false });
 
@@ -50,6 +51,7 @@ function schedule() {
 function restore(state: string) {
   const content = JSON.parse(state) as Content;
   patch.name = content.name;
+  patch.tempo = content.tempo;
   patch.modules = content.modules;
   patch.cables = content.cables;
   const sel = canvasState.selection;

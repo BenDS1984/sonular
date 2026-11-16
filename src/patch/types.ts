@@ -35,6 +35,8 @@ export interface ViewState {
 export interface Patch {
   /** Shown in the top bar and used as the file name. */
   name: string;
+  /** Tempo of the master clock in BPM. */
+  tempo: number;
   modules: ModuleInstance[];
   cables: Cable[];
   view: ViewState;

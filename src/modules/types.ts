@@ -24,6 +24,8 @@ export type ParamFormat =
   | 'percent'
   | 'seconds'
   | 'ms'
+  /** Semitones from middle C shown as a note name ("C4", "F#3"). */
+  | 'note'
   | 'toggle'
   | 'choice';
 
@@ -59,7 +61,7 @@ export interface ModuleDefinition {
    */
   version: number;
   title: string;
-  category: 'Sources' | 'Shaping' | 'Modulation' | 'Effects' | 'Mixing' | 'Output' | 'Utilities';
+  category: 'Sources' | 'Sequencing' | 'Shaping' | 'Modulation' | 'Effects' | 'Mixing' | 'Output' | 'Utilities';
   description: string;
   /** Accent colour: the kind of signal the module mainly produces. */
   signal: SignalType;
@@ -71,7 +73,8 @@ export interface ModuleDefinition {
   /** Controls shown in the module body. */
   panel: Component<ModulePanelProps>;
   /**
-   * Engine module kind that does the DSP, e.g. "faust:osc" for src/dsp/osc.dsp. Port order in
+   * Engine module kind that does the DSP: "faust:osc" for src/dsp/osc.dsp, or "native:clock" for
+   * a module written in TypeScript (src/engine/modules/native.ts). Port order in
    * `inputs`/`outputs` is the engine's channel order; parameter ids are the engine's names.
    */
   engine: string;

@@ -1,9 +1,9 @@
 <script lang="ts">
-  // Transport and global controls. Play/Stop, CPU and the master meter talk to the audio engine;
-  // tempo and position are still placeholders.
+  // Transport and global controls: Play/Stop, tempo, position, CPU and the master meter.
   import { engineState, togglePlay } from '../engine/engine.svelte';
   import MasterMeter from './components/MasterMeter.svelte';
   import IconButton from './components/IconButton.svelte';
+  import TempoField from './components/TempoField.svelte';
   import { canvasState, DEFAULT_PATCH_NAME, patch } from '../patch/patch.svelte';
   import { toCanvas } from '../patch/geometry';
   import { historyState, redo, undo } from '../patch/history.svelte';
@@ -46,7 +46,12 @@
     openBrowser({ x: w - 308, y: 8 }, toCanvas(patch.view, w / 2, h / 2));
   }
 
-  let bpm = $state(120);
+  // Position as bar.beat.sixteenth in 4/4, counted from 1.
+  const position = $derived.by(() => {
+    const beat = engineState.playing ? Math.max(0, engineState.beat) : 0;
+    const sixteenths = Math.floor(beat * 4 + 1e-6);
+    return `${Math.floor(sixteenths / 16) + 1}.${(Math.floor(sixteenths / 4) % 4) + 1}.${(sixteenths % 4) + 1}`;
+  });
 
   const cpuText = $derived(
     engineState.status === 'ready' && engineState.playing
@@ -162,8 +167,8 @@
       </svg>
       {playLabel}
     </button>
-    <span class="pill readout placeholder" title="Tempo">{bpm} BPM</span>
-    <span class="pill readout placeholder" title="Position (bar.beat.step)">1.1.1</span>
+    <TempoField value={patch.tempo} onchange={(bpm) => (patch.tempo = bpm)} />
+    <span class="pill readout position" title="Position (bar.beat.sixteenth)">{position}</span>
   </div>
 
   <div class="spacer">
@@ -387,9 +392,14 @@
     opacity: 0.7;
   }
 
-  /* Narrower windows: drop the tempo/position placeholders first, then shorten labels. */
+  .position {
+    min-width: 64px;
+    justify-content: center;
+  }
+
+  /* Narrower windows: drop the position first, then shorten labels. */
   @media (max-width: 1260px) {
-    .placeholder {
+    .position {
       display: none;
     }
   }

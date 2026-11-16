@@ -22,8 +22,9 @@ that every module must follow are listed near the end.
 | Patch model | `src/patch/` | Modules, cables, parameters, view. The single source of truth, owned by the main thread. |
 | Module definitions | `src/modules/` | Per module type: ports, parameter specs, panel, and the engine kind that does its DSP. |
 | Patch sync | `src/engine/engine.svelte.ts`, `toEnginePatch.ts` | Sends the graph when modules or cables change; single values when a parameter moves. |
-| Engine | `src/engine/core/` | Plain TypeScript (runs in the worklet, in offline renders and in Node tests). Orders nodes, routes buffers, sums cables, sleeps idle modules, guards the output. |
+| Engine | `src/engine/core/` | Plain TypeScript (runs in the worklet, in offline renders and in Node tests). Orders nodes, routes buffers, sums cables, sleeps idle modules, guards the output. Owns the transport (tempo and position). |
 | DSP | `src/dsp/*.dsp` | Faust, compiled to WebAssembly at build time; each module is its own wasm instance. See [faust-notes.md](faust-notes.md). |
+| Native modules | `src/engine/modules/` | TypeScript for control logic and anything that follows the tempo (Clock, Sequencer, Envelope). Engine kinds `native:<name>`. |
 | Persistence | `src/patch/`, `src/platform/storage.ts` | Autosave in browser storage, undo history, `.modulab` files with a version number. |
 | Offline | `vite.config.ts`, `src/platform/pwa.svelte.ts` | Service worker precaches every built file; updates wait for the user. |
 
@@ -129,8 +130,13 @@ gets an amount (attenuverter) control. The rule is that any output can be patche
 - One **master transport** inside the engine: tempo (BPM), time signature, play/stop and
   position, sample-accurate. The tempo is set in the top bar. Timing never depends on main-thread
   messages.
-- A **Clock module** brings the transport into the patch as trigger outputs and can **divide and
-  multiply** the clock.
+- A **Clock module** brings the transport into the patch and can **divide and multiply** the
+  clock. Its outputs are gates that are high for the first half of each period: the rising edge
+  is the tick, and the same cable can open an envelope directly.
+- Built so far: tempo in the top bar (stored in the patch), position since Play, and Play always
+  starts from the top (position 0, every module cleared). Modules that follow the tempo read the
+  transport position sample by sample; it is derived from a whole sample count, so it never
+  drifts.
 - **No hidden sync switches.** Modules that can follow tempo (LFO, delay, …) get a *clock* input.
   Patched: they follow that clock, with their time set as a ratio of it. Unpatched: they run free,
   set in Hz or milliseconds.

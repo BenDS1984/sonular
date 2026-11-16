@@ -1,6 +1,7 @@
 /**
  * The open patch as reactive app state, plus UI state of the canvas (selection, port positions).
  */
+import { DEFAULT_TEMPO } from '../engine/core/Transport';
 import { getDefinition } from '../modules/registry';
 import * as ops from './operations';
 import type { Patch, PortRef } from './types';
@@ -9,6 +10,7 @@ export const DEFAULT_PATCH_NAME = 'Untitled patch';
 
 export const patch = $state<Patch>({
   name: DEFAULT_PATCH_NAME,
+  tempo: DEFAULT_TEMPO,
   modules: [],
   cables: [],
   view: { x: 0, y: 0, zoom: 1 },

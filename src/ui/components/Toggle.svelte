@@ -4,7 +4,7 @@
     pressed: boolean;
     label: string;
     title?: string;
-    tone?: 'danger' | 'accent';
+    tone?: 'danger' | 'accent' | 'gate';
     onchange?: (pressed: boolean) => void;
   }
 
@@ -52,6 +52,11 @@
     background: var(--danger-bg);
     border-color: var(--danger);
     color: var(--danger);
+  }
+  .gate.pressed {
+    background: var(--signal-gate-bg);
+    border-color: var(--signal-gate);
+    color: var(--signal-gate-soft);
   }
   .accent.pressed {
     background: var(--signal-audio-bg);

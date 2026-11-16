@@ -53,7 +53,7 @@ const SR = 48000;
 
 function setup(patch: EnginePatch) {
   const instances = new Map<string, DspModule>();
-  const track = (f: ModuleFactory): ModuleFactory => (sr) => f(sr);
+  const track = (f: ModuleFactory): ModuleFactory => (sr, t) => f(sr, t);
   const factories: Record<string, ModuleFactory> = {
     const: track(() => new Const()),
     gain: track(() => new Gain()),

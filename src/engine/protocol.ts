@@ -11,9 +11,10 @@ export interface FaustProgram {
 }
 
 export type ToEngine =
-  | { type: 'init'; faust: FaustProgram[] }
+  | { type: 'init'; faust: FaustProgram[]; tempo: number }
   | { type: 'patch'; patch: EnginePatch }
   | { type: 'param'; node: string; name: string; value: number }
+  | { type: 'tempo'; bpm: number }
   | { type: 'run'; running: boolean };
 
 export interface EngineStats {
@@ -26,6 +27,8 @@ export interface EngineStats {
   processed: number;
   sleeping: number;
   unreachable: number;
+  /** Transport position in beats since Play was pressed. */
+  beat: number;
   /** Module meter values, ordered as in the latest `meterLayout` message. */
   meters: Float32Array;
 }

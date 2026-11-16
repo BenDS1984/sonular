@@ -17,6 +17,7 @@ export function restoreAutosave(store: KeyValueStore = browserStore): boolean {
   try {
     const { patch: saved } = parsePatchFile(text, getDefinition);
     patch.name = saved.name;
+    patch.tempo = saved.tempo;
     patch.modules = saved.modules;
     patch.cables = saved.cables;
     patch.view = saved.view;

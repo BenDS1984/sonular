@@ -5,6 +5,8 @@
  * AudioWorklet, in offline rendering and in Node-based tests alike.
  */
 
+import type { Transport } from './Transport';
+
 /** Frames processed per engine block (the Web Audio render quantum). */
 export const BLOCK_SIZE = 128;
 
@@ -64,8 +66,11 @@ export function isSink(m: DspModule): m is SinkModule {
   return (m as Partial<SinkModule>).isSink === true;
 }
 
-/** Creates a module instance of one kind for a given sample rate. */
-export type ModuleFactory = (sampleRate: number) => DspModule;
+/**
+ * Creates a module instance of one kind for a given sample rate. Modules that follow the tempo
+ * keep the transport and read its position while rendering.
+ */
+export type ModuleFactory = (sampleRate: number, transport: Transport) => DspModule;
 
 /** Serializable description of the audio graph sent to the engine. */
 export interface PatchNode {

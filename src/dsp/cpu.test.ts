@@ -9,7 +9,11 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'vitest';
-import { BLOCK_SIZE } from '../engine/core/types';
+import { Transport } from '../engine/core/Transport';
+import { BLOCK_SIZE, type DspModule } from '../engine/core/types';
+import { Clock } from '../engine/modules/Clock';
+import { Envelope } from '../engine/modules/Envelope';
+import { Sequencer } from '../engine/modules/Sequencer';
 import { FaustDsp, type FaustMeta } from '../engine/faust/FaustDsp';
 
 const SR = 48000;
@@ -28,7 +32,7 @@ function load(name: string, params: Record<string, number> = {}) {
 }
 
 /** Median time per block in ms, over several rounds of 10 seconds of audio each. */
-function msPerBlock(dsp: FaustDsp): number {
+function msPerBlock(dsp: DspModule, transport?: Transport): number {
   const inputs = Array.from({ length: dsp.numInputs }, (_, c) =>
     Float32Array.from({ length: BLOCK_SIZE }, (_, i) => 0.3 * Math.sin(i * (0.1 + 0.07 * c))),
   );
@@ -38,7 +42,11 @@ function msPerBlock(dsp: FaustDsp): number {
   const rounds: number[] = [];
   for (let r = 0; r < 7; r++) {
     const t0 = performance.now();
-    for (let b = 0; b < blocks; b++) dsp.process(inputs, silent, outputs, BLOCK_SIZE);
+    for (let b = 0; b < blocks; b++) {
+      transport?.beginBlock();
+      dsp.process(inputs, silent, outputs, BLOCK_SIZE);
+      transport?.endBlock(BLOCK_SIZE);
+    }
     rounds.push((performance.now() - t0) / blocks);
   }
   rounds.sort((a, b) => a - b);
@@ -47,14 +55,18 @@ function msPerBlock(dsp: FaustDsp): number {
 
 describe.skipIf(import.meta.env.MODE !== 'bench')('CPU cost per module', () => {
   it('measures each module', () => {
-    const modules: [string, FaustDsp][] = [
+    const transport = new Transport(SR);
+    const modules: [string, DspModule][] = [
       ['Oscillator (saw)', load('osc', { wave: 2 })],
       ['Mixer (4 channels)', load('mixer')],
       ['Reverb', load('reverb')],
       ['Output', load('output')],
+      ['Clock', new Clock(transport)],
+      ['Sequencer', new Sequencer()],
+      ['Envelope', new Envelope(SR)],
     ];
     const rows = modules.map(([name, dsp]) => {
-      const ms = msPerBlock(dsp);
+      const ms = msPerBlock(dsp, dsp instanceof Clock ? transport : undefined);
       const pct = (ms / BLOCK_MS) * 100;
       return `${name.padEnd(20)} ${(ms * 1000).toFixed(1).padStart(7)} µs/block  ${pct.toFixed(2).padStart(6)} % of one core  ~${Math.floor(100 / pct)} fit`;
     });
