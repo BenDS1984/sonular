@@ -93,7 +93,6 @@
       title={def.title}
       signal={def.signal}
       width={def.width}
-      tag={module.id}
       {selected}
       {onheaderpointerdown}
       onremove={() => removeModule(module.id)}

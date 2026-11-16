@@ -12,8 +12,6 @@
     signal?: SignalType;
     width?: number;
     selected?: boolean;
-    /** Small id shown next to the title (e.g. "osc1"). */
-    tag?: string;
     children: Snippet;
     ports?: Snippet;
     onheaderpointerdown?: (e: PointerEvent) => void;
@@ -25,7 +23,6 @@
     signal = 'audio',
     width = 200,
     selected = false,
-    tag = '',
     children,
     ports,
     onheaderpointerdown,
@@ -43,7 +40,6 @@
   <header class="header" onpointerdown={onheaderpointerdown}>
     <span class="dot" aria-hidden="true"></span>
     <h3 class="title">{title}</h3>
-    {#if tag}<span class="tag">{tag}</span>{/if}
     {#if onremove}
       <button
         class="remove"
@@ -117,16 +113,6 @@
   }
   .title {
     flex: none;
-  }
-  .tag {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
   }
   .remove {
     display: grid;
