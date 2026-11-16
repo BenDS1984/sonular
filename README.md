@@ -21,6 +21,8 @@ Modulab is free and open source, and aims for sound quality that holds up in rea
 - [Faust](https://faust.grame.fr) for DSP, compiled to WebAssembly at build time — see [docs/faust-notes.md](docs/faust-notes.md)
 - Web Audio `AudioWorklet` hosting a single custom engine
 
+How it fits together, its limits and what's planned: [docs/architecture.md](docs/architecture.md).
+
 ## Development
 
 Requires [Node.js](https://nodejs.org) 22 or newer.
