@@ -12,6 +12,10 @@
   import { formatNumber } from '../format';
   import type { SignalType } from '../signals';
 
+  // Unique id for this knob's highlight gradient (ids must not repeat on the page).
+  const uid = $props.id();
+  const shineId = `knob-shine-${uid}`;
+
   interface Props {
     value: number;
     min?: number;
@@ -195,7 +199,14 @@
     <svg viewBox="0 0 100 100" aria-hidden="true">
       <path class="track" d={trackPath} />
       {#if valuePath}<path class="arc" d={valuePath} />{/if}
+      <defs>
+        <radialGradient id={shineId} cx="0.35" cy="0.3" r="0.7">
+          <stop offset="0" stop-color="#fff" stop-opacity="0.22" />
+          <stop offset="1" stop-color="#fff" stop-opacity="0" />
+        </radialGradient>
+      </defs>
       <circle class="cap" cx={C} cy={C} r="31" />
+      <circle class="shine" cx={C} cy={C} r="30" fill={`url(#${shineId})`} />
       <line
         class="pointer"
         x1={pointer.from[0]}
@@ -248,7 +259,11 @@
     fill: var(--surface-knob);
     stroke: var(--border-strong);
     stroke-width: 2;
+    filter: var(--shadow-knob);
     transition: fill var(--duration-fast) var(--ease-out);
+  }
+  .shine {
+    pointer-events: none;
   }
   .dial:hover .cap,
   .dial.active .cap {

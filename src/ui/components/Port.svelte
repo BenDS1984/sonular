@@ -1,6 +1,6 @@
 <!--
-  A patch point (jack). Outputs are drawn in their signal colour, inputs in neutral grey,
-  so the direction of every cable is readable at a glance.
+  A patch point (jack), always drawn in its signal colour so you can see what fits where.
+  Outputs sit on a darker plate (drawn by the module footer), so direction is readable too.
   Cable dragging is handled by the workspace through the data-* attributes on the jack.
 -->
 <script lang="ts">
@@ -62,7 +62,8 @@
     height: 16px;
     border-radius: 50%;
     background: var(--surface-inset);
-    border: 2px solid var(--border-strong);
+    border: 3px solid var(--port-color);
+    box-shadow: var(--shadow-hole);
     cursor: crosshair;
     touch-action: none;
     transition:
@@ -70,13 +71,9 @@
       box-shadow var(--duration-fast) var(--ease-out),
       transform var(--duration-fast) var(--ease-out);
   }
-  .jack.out {
-    border-color: var(--port-color);
-  }
   .jack:hover,
   .jack.target {
-    border-color: var(--port-color);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--port-color) 25%, transparent);
+    box-shadow: var(--shadow-hole), 0 0 0 3px color-mix(in srgb, var(--port-color) 25%, transparent);
   }
   .jack.active {
     transform: scale(1.25);
@@ -85,7 +82,7 @@
   .jack.connected::after {
     content: '';
     position: absolute;
-    inset: 3px;
+    inset: 2px;
     border-radius: 50%;
     background: var(--port-color);
   }

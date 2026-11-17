@@ -96,7 +96,7 @@
           role="option"
           aria-selected={index === activeIndex}
           class:active={index === activeIndex}
-          style:--item-accent={`var(--signal-${def.signal})`}
+          style:--item-accent={`var(--family-${def.category.toLowerCase()})`}
           onpointerenter={() => (activeIndex = index)}
           onclick={() => onpick(def)}
         >

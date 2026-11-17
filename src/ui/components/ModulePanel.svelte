@@ -1,15 +1,18 @@
 <!--
-  The frame every module sits in: header with title, a body for controls,
-  and a footer strip for its ports.
+  The frame every module sits in: a header coloured by the module's family, a body for
+  controls, and a footer strip for its ports.
 -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import type { SignalType } from '../signals';
+  import type { ModuleDefinition } from '../../modules/types';
 
   interface Props {
     title: string;
-    /** Accent colour of the module, usually the type of signal it produces. */
+    /** Accent colour of the module, usually the type of signal it produces (selection outline). */
     signal?: SignalType;
+    /** Module family; sets the header colour. */
+    family?: ModuleDefinition['category'];
     width?: number;
     selected?: boolean;
     children: Snippet;
@@ -21,6 +24,7 @@
   let {
     title,
     signal = 'audio',
+    family = 'Utilities',
     width = 200,
     selected = false,
     children,
@@ -35,10 +39,10 @@
   class:selected
   style:width={`${width}px`}
   style:--module-accent={`var(--signal-${signal})`}
+  style:--module-family={`var(--family-${family.toLowerCase()})`}
 >
   <!-- svelte-ignore a11y_no_static_element_interactions (dragging by the header is a mouse affordance; keyboard moving comes later) -->
   <header class="header" onpointerdown={onheaderpointerdown}>
-    <span class="dot" aria-hidden="true"></span>
     <h3 class="title">{title}</h3>
     {#if onremove}
       <button
@@ -69,7 +73,7 @@
   .module {
     display: flex;
     flex-direction: column;
-    background: var(--surface-module);
+    background: var(--sheen-module), var(--surface-module);
     border: 1px solid var(--border-default);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-module);
@@ -88,21 +92,15 @@
     gap: var(--space-2);
     height: 32px;
     padding: 0 var(--space-2) 0 var(--space-3);
-    background: var(--surface-module-header);
-    border-bottom: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--sheen-header), var(--module-family);
+    border-bottom: 1px solid rgb(0 0 0 / 0.25);
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.15) inset;
+    border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
     cursor: grab;
     touch-action: none;
   }
   .header:active {
     cursor: grabbing;
-  }
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--module-accent);
-    flex: none;
   }
   .title {
     margin: 0;
@@ -124,7 +122,7 @@
     border: 0;
     border-radius: var(--radius-sm);
     background: transparent;
-    color: var(--text-muted);
+    color: rgb(255 255 255 / 0.75);
     cursor: pointer;
     opacity: 0;
     transition: opacity var(--duration-fast) var(--ease-out);

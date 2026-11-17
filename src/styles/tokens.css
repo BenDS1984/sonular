@@ -85,6 +85,18 @@
   --signal-pitch-soft: var(--violet-300);
   --signal-pitch-bg: var(--violet-900);
 
+  /* Module families: the header colour of every module, by category. Muted on purpose so
+     cables and jacks (the signal colours) stay the brightest things on the canvas. */
+  --family-sources: #8a4b3a;
+  --family-sequencing: #3d5a80;
+  --family-shaping: #2f6570;
+  --family-modulation: #6b6a3a;
+  --family-effects: #5f4a7a;
+  --family-mixing: #3f6b5a;
+  --family-output: #555b66;
+  --family-utilities: #4a5363;
+  --surface-plate: var(--gray-800); /* the darker plate behind a module's outputs */
+
   /* Status */
   --meter-low: var(--green-500);
   --meter-mid: var(--yellow-500);
@@ -119,7 +131,15 @@
   --radius-full: 999px;
 
   /* Depth */
-  --shadow-module: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 6px 18px rgb(0 0 0 / 0.35);
+  /* Modules are lit from above: a light top edge, a dark bottom edge and a soft drop shadow. */
+  --shadow-module:
+    0 1px 0 rgb(255 255 255 / 0.08) inset, 0 -1px 0 rgb(0 0 0 / 0.3) inset,
+    0 10px 24px rgb(0 0 0 / 0.5), 0 2px 4px rgb(0 0 0 / 0.4);
+  --sheen-module: linear-gradient(rgb(255 255 255 / 0.04), rgb(0 0 0 / 0.07));
+  --sheen-header: linear-gradient(rgb(255 255 255 / 0.08), rgb(0 0 0 / 0.1));
+  --shadow-knob: drop-shadow(0 2px 2px rgb(0 0 0 / 0.5));
+  --shadow-hole: 0 2px 3px rgb(0 0 0 / 0.6) inset, 0 1px 0 rgb(255 255 255 / 0.1);
+  --shadow-recess: 0 2px 4px rgb(0 0 0 / 0.45) inset;
   --shadow-cable: rgb(0 0 0 / 0.35);
 
   /* Motion */

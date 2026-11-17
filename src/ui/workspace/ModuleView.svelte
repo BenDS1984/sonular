@@ -92,6 +92,7 @@
     <ModulePanel
       title={def.title}
       signal={def.signal}
+      family={def.category}
       width={def.width}
       {selected}
       {onheaderpointerdown}
@@ -113,7 +114,7 @@
             />
           {/each}
         </div>
-        <div class="group">
+        <div class="group" class:plate={def.outputs.length > 0}>
           {#each def.outputs as p (p.id)}
             <Port
               kind="out"
@@ -139,5 +140,13 @@
   .group {
     display: flex;
     gap: var(--space-2);
+  }
+  /* Outputs sit on a darker plate, so inputs and outputs are told apart at a glance. */
+  .plate {
+    margin: -4px -6px -6px;
+    padding: 4px 6px 6px;
+    background: var(--surface-plate);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-recess);
   }
 </style>
