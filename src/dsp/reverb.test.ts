@@ -208,6 +208,19 @@ describe('Reverb', () => {
     expect(onset(100) - base).toBeCloseTo(0.1, 2);
   });
 
+  it('lets the highs die out like in a real hall (not glassy)', () => {
+    // Real halls: 4 kHz decays in about half, 8 kHz in about a third of the midrange time.
+    // Before 2026-11-17 the defaults gave 0.83 and 0.62, which sounded glassy on bright sources.
+    const { L } = render(reverb({ size: 2.5, mix: 1, predelay: 0 }), 4.5, impulse, null);
+    const mid = t60(bandpass(L, 1000));
+    const high = t60(bandpass(L, 4000)) / mid;
+    const veryHigh = t60(bandpass(L, 8000)) / mid;
+    expect(high).toBeGreaterThan(0.45);
+    expect(high).toBeLessThan(0.68);
+    expect(veryHigh).toBeGreaterThan(0.3);
+    expect(veryHigh).toBeLessThan(0.5);
+  });
+
   it('makes the tail darker with more damping', () => {
     const tail = (damping: number) => {
       const { L } = render(reverb({ size: 3, damping, mix: 1 }), 1.5, impulse);

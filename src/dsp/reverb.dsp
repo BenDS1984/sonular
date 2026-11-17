@@ -2,13 +2,18 @@
 // feedback delay network with diffusing allpasses and a two-band decay (low / mid), damped
 // towards the highs.
 //
-// Two additions make it smoother than plain zita-rev1:
+// Three changes make it smoother and more natural than plain zita-rev1:
 // - Input diffusion: four allpasses per side (as in Dattorro's plate and the Lexicon designs)
 //   smear every sound into a dense cloud before it enters the network, so the reverb starts
 //   smooth instead of as a series of separate early echoes.
 // - Slow modulation of two of the eight delay lines (a few samples, below 1 Hz) breaks up the
 //   metallic ringing of long tails without sounding like chorus. Two lines spread through the
 //   whole network; modulating more cost noticeably more CPU for little audible gain.
+// - Realistic high-frequency decay: in a real hall the air and walls swallow the highs, so they
+//   die out at about half the time of the midrange (and a third at 8 kHz). zita-rev1's damping
+//   range (to 20 kHz) left the highs ringing almost as long as the mids, which sounded glassy on
+//   bright sources such as detuned saws. Damping now spans 10 kHz .. 500 Hz, and a gentle
+//   high-cut (8 kHz) keeps the sharpest fizz out of the reverb (the dry signal stays bright).
 //
 // The network is adapted from `re.zita_rev_fdn` and `re.zita_rev1_stereo` in the Faust reverbs
 // library (Copyright (C) 2003-2017 Julius O. Smith III, STK-4.3 licence, GPL compatible).
@@ -24,7 +29,8 @@
 // - size:     decay time (T60) of the midrange, in seconds; the bass decays 20% longer
 // - predelay: extra time before the reverb starts, in ms (on top of the ~20 ms the diffusers
 //             take by themselves)
-// - damping:  0..1, how quickly the highs die away (0 = bright, 1 = dark)
+// - damping:  0..1, how quickly the highs die away (0 = bright, 1 = dark); at the default 0.5
+//             4 kHz decays in about half and 8 kHz in about a third of the midrange time
 // - mix:      0..1, dry/wet with an equal-power law
 //
 // The tail declaration only has to cover the pre-delay: the engine also waits until the
@@ -41,7 +47,7 @@ FSMAX = 192000;
 
 size     = hslider("size", 2.5, 0.3, 12, 0.01);
 predelay = hslider("predelay", 10, 0, 150, 0.1);
-damping  = hslider("damping", 0.4, 0, 1, 0.001);
+damping  = hslider("damping", 0.5, 0, 1, 0.001);
 mix      = hslider("mix", 0.3, 0, 1, 0.001);
 
 // Smoothing (~20 ms) that jumps straight to the value on the very first sample, so a module
@@ -52,8 +58,9 @@ smo = si.polySmooth(first, 1 - 44.1 / ma.SR, 1);
 t60m  = size;
 t60dc = size * 1.2;
 f1    = 200;
-// Frequency at which the decay is half as long: 20 kHz (bright) down to 1.5 kHz (dark).
-f2    = 20000 * pow(1500 / 20000, damping);
+// Frequency at which the decay is half as long: 10 kHz (bright) down to 500 Hz (dark);
+// 2.2 kHz at the default 0.5.
+f2    = 10000 * pow(500 / 10000, damping);
 
 // ---- Feedback delay network (after re.zita_rev_fdn) -------------------------------------
 apdelays = (0.020346, 0.024421, 0.031604, 0.027333, 0.022904, 0.029291, 0.013458, 0.019123);
@@ -113,7 +120,8 @@ fdn = (si.bus(2 * N) :> allpass_combs : ro.hadamard(N)) ~ (par(i, N, decayfilter
 // slow enough that even a full jump stays within about half an octave.
 // 8192 samples is 170 ms at 48 kHz.
 preSamples = predelay * 0.001 * ma.SR : min(8190) : si.polySmooth(first, ba.tau2pole(0.3), 1);
-inDelay = de.fdelay(8192, preSamples) * 0.3;
+// The high-cut (2nd order, 8 kHz) keeps the sharpest fizz out of the reverb.
+inDelay = de.fdelay(8192, preSamples) * 0.3 : fi.lowpass(2, 8000);
 
 // Output: sum and difference of two lines. A longer tail holds more energy; zita-rev1 offsets
 // that with 0.525 / sqrt(T60), which over our 0.3..12 s range made short rooms 8 dB louder

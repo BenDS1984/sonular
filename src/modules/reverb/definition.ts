@@ -20,7 +20,7 @@ export const reverb: ModuleDefinition = {
   params: [
     { id: 'size', label: 'Size', min: 0.3, max: 12, default: 2.5, scale: 'log', format: 'seconds' },
     { id: 'predelay', label: 'Pre-delay', min: 0, max: 150, default: 10, format: 'ms' },
-    { id: 'damping', label: 'Damping', min: 0, max: 1, default: 0.4, format: 'percent' },
+    { id: 'damping', label: 'Damping', min: 0, max: 1, default: 0.5, format: 'percent' },
     { id: 'mix', label: 'Mix', min: 0, max: 1, default: 0.3, format: 'percent' },
   ],
   panel: ReverbPanel,

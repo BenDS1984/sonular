@@ -75,6 +75,9 @@ In the browser on the user's laptop (CPU meter, peak), 2026-11-16:
 On 2026-11-17 the reverb gained input diffusion and slow modulation of two delay lines (smoother
 onset, less metallic tail): 12.4 → 17.5 µs per block. The browser figures above were measured
 before that change.
+Later that day its damping range moved from 20 kHz…1.5 kHz to 10 kHz…500 Hz (default 0.5) and
+a 2nd-order 8 kHz high-cut was added before the network, so highs decay like in a real hall
+(4 kHz ≈ 0.55×, 8 kHz ≈ 0.4× the midrange T60) instead of sounding glassy; CPU unchanged.
 
 The browser figures include the engine's fixed overhead and the meter's coarse timer, so they
 are higher than the Node sums; they confirm that a reverb is cheap enough to use freely.
