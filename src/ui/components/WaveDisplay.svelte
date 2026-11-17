@@ -51,7 +51,7 @@
   });
 </script>
 
-<div class="screen" style:height={`${height}px`} style:--wave-color={`var(--signal-${signal})`}>
+<div class="screen lcd" style:height={`${height}px`} style:--wave-color={`var(--signal-${signal})`}>
   <svg viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="none" aria-hidden="true">
     <line class="axis" x1="0" y1={height / 2} x2={W} y2={height / 2} />
     <path class="wave" d={path} />
@@ -61,7 +61,6 @@
 <style>
   .screen {
     background: var(--surface-inset);
-    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     overflow: hidden;
   }
@@ -81,5 +80,6 @@
     stroke-width: 1.75;
     stroke-linejoin: round;
     vector-effect: non-scaling-stroke;
+    filter: drop-shadow(0 0 3px var(--wave-color));
   }
 </style>

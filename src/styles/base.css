@@ -37,3 +37,25 @@ button {
 ::selection {
   background: var(--signal-audio-bg);
 }
+
+/* A small screen set into a panel: bezel outside, shadow and glass reflection drawn on top of
+   the content. Add .small for thin meter bars. */
+.lcd {
+  position: relative;
+  box-shadow: var(--screen-bezel);
+}
+.lcd::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--screen-glass);
+  box-shadow: var(--screen-depth);
+  pointer-events: none;
+}
+.lcd.small {
+  box-shadow: var(--screen-bezel-small);
+}
+.lcd.small::after {
+  box-shadow: var(--screen-depth-small);
+}

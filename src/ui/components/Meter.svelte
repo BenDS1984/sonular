@@ -74,7 +74,7 @@
     onclick={() => (clipped = false)}
   ></button>
   <div
-    class="bar"
+    class="bar lcd small"
     style:height={`${height}px`}
     style:width={`${width}px`}
     style:--warn-stop={warnStop}

@@ -48,7 +48,7 @@
 <div class="master" title="Master output level" style:--zero={`${zeroDb}%`} style:--warn={`${warn}%`}>
   <div class="bars">
     {#each [shownL, shownR] as v, i (i)}
-      <div class="bar">
+      <div class="bar lcd small">
         <div class="lit" style:clip-path={`inset(0 ${((1 - pos(v)) * 100).toFixed(2)}% 0 0)`}></div>
         <div class="tick"></div>
       </div>

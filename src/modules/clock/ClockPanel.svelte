@@ -23,7 +23,7 @@
 </script>
 
 <div class="clock">
-  <div class="display">
+  <div class="display lcd">
     <Led level={beatOn} label="Beat" />
     <span class="tempo">{Math.round(patch.tempo)}</span>
     <span class="unit">BPM</span>

@@ -140,6 +140,15 @@
   --shadow-knob: drop-shadow(0 2px 2px rgb(0 0 0 / 0.5));
   --shadow-hole: 0 2px 3px rgb(0 0 0 / 0.6) inset, 0 1px 0 rgb(255 255 255 / 0.1);
   --shadow-recess: 0 2px 4px rgb(0 0 0 / 0.45) inset;
+  /* Screens (waveform, meters, readouts): a thin bezel around dark glass set into the panel. */
+  --screen-bezel:
+    0 0 0 1px rgb(0 0 0 / 0.8), 0 0 0 3px #2a2e35, 0 -1px 0 3px rgb(0 0 0 / 0.35),
+    0 1px 0 3px rgb(255 255 255 / 0.12);
+  --screen-depth: 0 4px 9px rgb(0 0 0 / 0.9) inset, 0 0 0 1px rgb(0 0 0 / 0.6) inset;
+  --screen-bezel-small: 0 0 0 1px rgb(0 0 0 / 0.8), 0 1px 0 1px rgb(255 255 255 / 0.12);
+  --screen-depth-small: 0 1px 3px rgb(0 0 0 / 0.9) inset;
+  --screen-glass:
+    linear-gradient(160deg, rgb(255 255 255 / 0.13), rgb(255 255 255 / 0.03) 40%, rgb(255 255 255 / 0) 41%);
   --shadow-cable: rgb(0 0 0 / 0.35);
 
   /* Motion */
