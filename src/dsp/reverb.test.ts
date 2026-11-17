@@ -164,7 +164,30 @@ function clickDb(x: Float32Array, at: number, span = SR / 4): number {
   return worst;
 }
 
+/**
+ * Normalised echo density (Abel & Huang) in a 10 ms window around `at`: the share of samples
+ * louder than the window's RMS, relative to Gaussian noise. About 1 = as dense as noise;
+ * near 0 = separate echoes you can hear one by one.
+ */
+function echoDensity(x: Float32Array, at: number): number {
+  const half = Math.round(SR * 0.005);
+  const w = x.subarray(at - half, at + half);
+  const level = rms(w);
+  let louder = 0;
+  for (const v of w) if (Math.abs(v) > level) louder++;
+  return louder / w.length / 0.3173;
+}
+
 describe('Reverb', () => {
+  it('starts as a smooth cloud, not as separate echoes', () => {
+    const { L } = render(reverb({ size: 2.5, damping: 0.4, predelay: 0, mix: 1 }, [true, false]), 0.5, impulse, null);
+    const onset = L.findIndex((v) => Math.abs(v) > 1e-4);
+    // Measured: 0.81 at 50 ms and 0.94 at 100 ms (plain zita-rev1 without input diffusion:
+    // 0.01 and 0.02, which is why it sounded rough).
+    expect(echoDensity(L, onset + SR * 0.05)).toBeGreaterThan(0.6);
+    expect(echoDensity(L, onset + SR * 0.1)).toBeGreaterThan(0.75);
+  });
+
   it('decays in about the time set with Size', () => {
     for (const size of [0.8, 2.5, 6]) {
       // Measured around 1 kHz: Size sets the midrange decay (bass decays longer, highs faster).

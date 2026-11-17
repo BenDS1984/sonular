@@ -2,6 +2,14 @@
 // feedback delay network with diffusing allpasses and a two-band decay (low / mid), damped
 // towards the highs.
 //
+// Two additions make it smoother than plain zita-rev1:
+// - Input diffusion: four allpasses per side (as in Dattorro's plate and the Lexicon designs)
+//   smear every sound into a dense cloud before it enters the network, so the reverb starts
+//   smooth instead of as a series of separate early echoes.
+// - Slow modulation of two of the eight delay lines (a few samples, below 1 Hz) breaks up the
+//   metallic ringing of long tails without sounding like chorus. Two lines spread through the
+//   whole network; modulating more cost noticeably more CPU for little audible gain.
+//
 // The network is adapted from `re.zita_rev_fdn` and `re.zita_rev1_stereo` in the Faust reverbs
 // library (Copyright (C) 2003-2017 Julius O. Smith III, STK-4.3 licence, GPL compatible).
 // The difference: the library computes its feedback gains and filter coefficients directly from
@@ -84,7 +92,19 @@ with {
 };
 
 allpass_combs = par(i, N, fi.allpass_comb(maxapdelay(i), apdelay(i), apcoeff(i)));
-fbdelaylines  = par(i, N, de.delay(maxfbdelay(i), fbdelay(i) - 1));
+// Lines 0 and 4 get a slow sine-like modulation of their length (interpolated delay). The rates
+// are unrelated so the lines never move together; depth is ~0.2 ms, about 2 cents of wobble.
+modrates = (0.43, 0.71);
+moddepth = 0.0002 * ma.SR;
+// A parabolic sine approximation from a ramp: smooth enough for a slow wobble, and far cheaper
+// than calling sin() every sample.
+lfo(f) = 4 * x * (1 - abs(x)) with { x = 2 * os.lf_sawpos(f) - 1; };
+modulation(j) = moddepth * (1 + lfo(ba.take(j + 1, modrates))) / 2;
+// de.fdelay adds one to its size; passing a power of two minus one keeps the buffer a power of
+// two, which Faust indexes with a cheap bit mask instead of a modulo.
+modline(i, j) = de.fdelay(maxfbdelay(i) - 1, fbdelay(i) - 1 + modulation(j));
+plainline(i)  = de.delay(maxfbdelay(i), fbdelay(i) - 1);
+fbdelaylines  = par(j, N / 4, (modline(4 * j, j), plainline(4 * j + 1), plainline(4 * j + 2), plainline(4 * j + 3)));
 fdn = (si.bus(2 * N) :> allpass_combs : ro.hadamard(N)) ~ (par(i, N, decayfilter(i)) : fbdelaylines);
 
 // ---- Input and output stages (after re.zita_rev1_stereo) --------------------------------
@@ -102,7 +122,17 @@ inDelay = de.fdelay(8192, preSamples) * 0.3;
 wetGain = 0.525 / sqrt(2.5) * pow(2.5 / t60m, 0.25) : smo;
 outmix = !, _, _, !, !, !, !, ! : ro.butterfly(2) : *(wetGain), *(wetGain);
 
-wet = (inDelay, inDelay) : re.zita_distrib2(N) : fdn : outmix;
+// Input diffusion: four allpasses per side, after Dattorro (input diffusion 0.75 / 0.625).
+// The two sides use different delay times, so left and right stay decorrelated.
+dsamples(t) = floor(0.5 + t * ma.SR);
+diffuser(t1, t2, t3, t4) = fi.allpass_comb(4096, dsamples(t1), 0.75)
+                         : fi.allpass_comb(4096, dsamples(t2), 0.75)
+                         : fi.allpass_comb(4096, dsamples(t3), 0.625)
+                         : fi.allpass_comb(4096, dsamples(t4), 0.625);
+diffuseL = diffuser(0.00477, 0.00360, 0.01273, 0.00931);
+diffuseR = diffuser(0.00513, 0.00391, 0.01187, 0.00863);
+
+wet = (inDelay : diffuseL), (inDelay : diffuseR) : re.zita_distrib2(N) : fdn : outmix;
 
 // Equal-power dry/wet; the wet side is normalised so mix = 0.5 gives zita-rev1's own level.
 dryGain = cos(mix * ma.PI / 2) : smo;

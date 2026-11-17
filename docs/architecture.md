@@ -61,7 +61,7 @@ so a desktop build could swap them out.
 |---|---|---|
 | Oscillator (saw) | 9.3 | 0.35 % |
 | Mixer (4 channels) | 3.7 | 0.14 % |
-| Reverb | 13.7 | 0.51 % |
+| Reverb (with input diffusion, 2026-11-17) | 17.5 | 0.66 % |
 | Output | 0.9 | 0.03 % |
 | Clock | 1.4 | 0.05 % |
 | Sequencer | 0.6 | 0.02 % |
@@ -70,6 +70,10 @@ so a desktop build could swap them out.
 In the browser on the user's laptop (CPU meter, peak), 2026-11-16:
 - Oscillator, Mixer, Reverb, Output: at most **2 %**.
 - The same plus Clock and Sequencer: at most **3 %**.
+
+On 2026-11-17 the reverb gained input diffusion and slow modulation of two delay lines (smoother
+onset, less metallic tail): 12.4 → 17.5 µs per block. The browser figures above were measured
+before that change.
 
 The browser figures include the engine's fixed overhead and the meter's coarse timer, so they
 are higher than the Node sums; they confirm that a reverb is cheap enough to use freely.

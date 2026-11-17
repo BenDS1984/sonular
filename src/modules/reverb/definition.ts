@@ -6,7 +6,7 @@ export const reverb: ModuleDefinition = {
   version: 1,
   title: 'Reverb',
   category: 'Effects',
-  description: 'Stereo room and hall reverb (zita-rev1 design). Patch only L for a mono source.',
+  description: 'Smooth stereo room and hall reverb (zita-rev1 design with input diffusion). Patch only L for a mono source.',
   signal: 'audio',
   width: 204,
   inputs: [
