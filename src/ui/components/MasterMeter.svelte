@@ -102,7 +102,10 @@
     background: rgb(255 255 255 / 0.25);
   }
   .db {
-    min-width: 52px;
+    /* Fixed width ("−60.0 dB" is the longest), so the box never resizes as the level changes. */
+    flex: none;
+    width: 8.5ch;
+    white-space: nowrap;
     text-align: right;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
