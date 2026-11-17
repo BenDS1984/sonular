@@ -1,5 +1,5 @@
 /** Messages between the main thread and the engine running in the AudioWorklet. */
-import type { EnginePatch, MeterLayoutEntry } from './core/types';
+import type { DisplayLayoutEntry, EnginePatch, MeterLayoutEntry } from './core/types';
 import type { FaustMeta } from './faust/FaustDsp';
 
 export const PROCESSOR_NAME = 'sonular-engine';
@@ -31,14 +31,16 @@ export interface EngineStats {
   beat: number;
   /** Module meter values, ordered as in the latest `meterLayout` message. */
   meters: Float32Array;
+  /** Module display values (scope traces), ordered as in the latest `meterLayout` message. */
+  displays: Float32Array;
 }
 
 export type FromEngine =
   /** `hiResTimer`: whether the worklet has performance.now() (CPU readings are coarse without it). */
   | { type: 'ready'; sampleRate: number; hiResTimer: boolean }
   | { type: 'stats'; stats: EngineStats }
-  /** Sent after every patch change: which module meters `stats.meters` contains. */
-  | { type: 'meterLayout'; layout: MeterLayoutEntry[] }
+  /** Sent after every patch change: which meters and displays `stats` contains. */
+  | { type: 'meterLayout'; layout: MeterLayoutEntry[]; displays: DisplayLayoutEntry[] }
   /** Sent once the fade-out after `run: false` has finished. */
   | { type: 'stopped' }
   | { type: 'error'; message: string };

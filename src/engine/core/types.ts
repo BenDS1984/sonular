@@ -48,6 +48,15 @@ export interface DspModule {
   readonly meterNames?: readonly string[];
   /** Write the current meter values into `out`, starting at `offset`, in `meterNames` order. */
   readMeters?(out: Float32Array, offset: number): void;
+  /**
+   * Set for modules that only watch signals (scopes). They are processed even when no cable
+   * leads from them to an output, and so are the modules feeding them.
+   */
+  readonly isObserver?: boolean;
+  /** Number of display values (e.g. a scope trace) this module exposes, if any. */
+  readonly displayLength?: number;
+  /** Write the current display values into `out`, starting at `offset`. No allocation. */
+  readDisplay?(out: Float32Array, offset: number): void;
   /** Clear internal state (delay lines, filter memory, phases). */
   reset(): void;
   /** Release resources when removed from the patch. */
@@ -108,4 +117,10 @@ export interface EngineBlockStats {
 export interface MeterLayoutEntry {
   node: string;
   names: readonly string[];
+}
+
+/** Which displays the engine reports: each node's values follow the previous node's. */
+export interface DisplayLayoutEntry {
+  node: string;
+  length: number;
 }

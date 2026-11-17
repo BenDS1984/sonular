@@ -13,6 +13,7 @@ import { Transport } from '../engine/core/Transport';
 import { BLOCK_SIZE, type DspModule } from '../engine/core/types';
 import { Clock } from '../engine/modules/Clock';
 import { Envelope } from '../engine/modules/Envelope';
+import { Scope } from '../engine/modules/Scope';
 import { Sequencer } from '../engine/modules/Sequencer';
 import { FaustDsp, type FaustMeta } from '../engine/faust/FaustDsp';
 
@@ -53,6 +54,14 @@ function msPerBlock(dsp: DspModule, transport?: Transport): number {
   return rounds[3]!;
 }
 
+/** A scope with both inputs connected and a given time window. */
+function scope(time: number): Scope {
+  const s = new Scope(SR);
+  s.onConnectionsChanged([true, true]);
+  s.setParam('time', time);
+  return s;
+}
+
 describe.skipIf(import.meta.env.MODE !== 'bench')('CPU cost per module', () => {
   it('measures each module', () => {
     const transport = new Transport(SR);
@@ -64,6 +73,8 @@ describe.skipIf(import.meta.env.MODE !== 'bench')('CPU cost per module', () => {
       ['Clock', new Clock(transport)],
       ['Sequencer', new Sequencer()],
       ['Envelope', new Envelope(SR)],
+      ['Scope (2 ms)', scope(0.002)],
+      ['Scope (1 s)', scope(1)],
     ];
     const rows = modules.map(([name, dsp]) => {
       const ms = msPerBlock(dsp, dsp instanceof Clock ? transport : undefined);

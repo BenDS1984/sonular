@@ -44,6 +44,7 @@ class SonularProcessor extends AudioWorkletProcessor {
     unreachable: 0,
     beat: 0,
     meters: new Float32Array(0),
+    displays: new Float32Array(0),
   };
   private readonly statsMessage: FromEngine = { type: 'stats', stats: this.stats };
 
@@ -88,7 +89,10 @@ class SonularProcessor extends AudioWorkletProcessor {
         if (engine.meterValueCount !== this.stats.meters.length) {
           this.stats.meters = new Float32Array(engine.meterValueCount);
         }
-        this.post({ type: 'meterLayout', layout: [...engine.meterLayout] });
+        if (engine.displayValueCount !== this.stats.displays.length) {
+          this.stats.displays = new Float32Array(engine.displayValueCount);
+        }
+        this.post({ type: 'meterLayout', layout: [...engine.meterLayout], displays: [...engine.displayLayout] });
         break;
       }
       case 'param':
@@ -154,6 +158,7 @@ class SonularProcessor extends AudioWorkletProcessor {
     st.unreachable = engine.stats.unreachable;
     st.beat = engine.transport.beat;
     engine.readMeters(st.meters);
+    engine.readDisplays(st.displays);
     this.post(this.statsMessage);
     this.busyMs = 0;
     this.renderedFrames = 0;

@@ -26,6 +26,8 @@ export type ParamFormat =
   | 'ms'
   /** Semitones from middle C shown as a note name ("C4", "F#3"). */
   | 'note'
+  /** A multiplication factor, e.g. "×2.0". */
+  | 'times'
   | 'toggle'
   | 'choice';
 

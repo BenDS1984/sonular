@@ -3,7 +3,7 @@
  */
 import { untrack } from 'svelte';
 import { AudioEngine, DEFAULT_BUFFER, type BufferSize, type EngineStatus } from './AudioEngine';
-import type { MeterLayoutEntry } from './core/types';
+import type { DisplayLayoutEntry, MeterLayoutEntry } from './core/types';
 import { getDefinition } from '../modules/registry';
 import { patch } from '../patch/patch.svelte';
 import { structureKey, toEnginePatch } from './toEnginePatch';
@@ -36,6 +36,13 @@ function bufferFromUrl(): BufferSize {
 }
 
 let meterLayout: MeterLayoutEntry[] = [];
+let displayLayout: DisplayLayoutEntry[] = [];
+
+/**
+ * Latest display values per module (scope traces). Not reactive by itself: `displayValues`
+ * reads `engineState.statsTick`, so views redraw with every stats message.
+ */
+const displays: Record<string, Float32Array> = {};
 
 export const audio = new AudioEngine(
   {
@@ -58,9 +65,18 @@ export const audio = new AudioEngine(
         const target = (engineState.meters[entry.node] ??= {});
         for (const name of entry.names) target[name] = s.meters[i++] ?? 0;
       }
+      let offset = 0;
+      for (const entry of displayLayout) {
+        displays[entry.node] = s.displays.subarray(offset, offset + entry.length);
+        offset += entry.length;
+      }
     },
-    onMeterLayout(layout) {
+    onMeterLayout(layout, displayEntries) {
       meterLayout = layout;
+      displayLayout = displayEntries;
+      for (const id of Object.keys(displays)) {
+        if (!displayEntries.some((e) => e.node === id)) delete displays[id];
+      }
       for (const id of Object.keys(engineState.meters)) {
         if (!layout.some((e) => e.node === id)) delete engineState.meters[id];
       }
@@ -72,6 +88,12 @@ export const audio = new AudioEngine(
 /** Meter value of a module, or 0 while stopped. Reactive. */
 export function meterValue(moduleId: string, name: string): number {
   return engineState.playing ? (engineState.meters[moduleId]?.[name] ?? 0) : 0;
+}
+
+/** Display values of a module (e.g. a scope trace), or null while stopped. Reactive. */
+export function displayValues(moduleId: string): Float32Array | null {
+  void engineState.statsTick;
+  return engineState.playing ? (displays[moduleId] ?? null) : null;
 }
 
 // Development aid: inspect the engine from the browser console as `__sonular`.

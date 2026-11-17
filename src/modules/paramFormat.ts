@@ -33,6 +33,8 @@ export function paramFormatter(spec: ParamSpec): (value: number) => string {
       return formatMs;
     case 'note':
       return formatNote;
+    case 'times':
+      return (v) => `×${v < 9.95 ? v.toFixed(1) : v.toFixed(0)}`;
     case 'toggle':
       return (v) => (v >= 0.5 ? 'On' : 'Off');
     case 'choice':

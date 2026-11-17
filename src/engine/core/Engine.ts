@@ -3,6 +3,7 @@ import {
   isSink,
   type DspModule,
   type EngineBlockStats,
+  type DisplayLayoutEntry,
   type EnginePatch,
   type MeterLayoutEntry,
   type ModuleFactory,
@@ -85,6 +86,9 @@ export class Engine {
   private meterNodes: Node[] = [];
   private meterLayoutCache: MeterLayoutEntry[] = [];
   private meterCount = 0;
+  private displayNodes: Node[] = [];
+  private displayLayoutCache: DisplayLayoutEntry[] = [];
+  private displayCount = 0;
   private readonly zero = new Float32Array(BLOCK_SIZE);
 
   private readonly masterL = new Float32Array(BLOCK_SIZE);
@@ -156,6 +160,33 @@ export class Engine {
     this.meterNodes = [...next.values()].filter((n) => (n.module.meterNames?.length ?? 0) > 0);
     this.meterLayoutCache = this.meterNodes.map((n) => ({ node: n.id, names: n.module.meterNames! }));
     this.meterCount = this.meterLayoutCache.reduce((sum, e) => sum + e.names.length, 0);
+
+    this.displayNodes = [...next.values()].filter((n) => (n.module.displayLength ?? 0) > 0);
+    this.displayLayoutCache = this.displayNodes.map((n) => ({ node: n.id, length: n.module.displayLength! }));
+    this.displayCount = this.displayLayoutCache.reduce((sum, e) => sum + e.length, 0);
+  }
+
+  /** Displays of all modules, in snapshot order. Changes only when the patch changes. */
+  get displayLayout(): readonly DisplayLayoutEntry[] {
+    return this.displayLayoutCache;
+  }
+
+  /** Number of values in a display snapshot. */
+  get displayValueCount(): number {
+    return this.displayCount;
+  }
+
+  /** Fill `out` with every module's current display values (layout order). No allocation. */
+  readDisplays(out: Float32Array): void {
+    let offset = 0;
+    for (let i = 0; i < this.displayNodes.length; i++) {
+      const node = this.displayNodes[i]!;
+      const count = node.module.displayLength!;
+      if (offset + count > out.length) return;
+      if (!node.rendered) out.fill(0, offset, offset + count);
+      else node.module.readDisplay!(out, offset);
+      offset += count;
+    }
   }
 
   /** Meters of all modules, in snapshot order. Changes only when the patch changes. */
@@ -236,7 +267,10 @@ export class Engine {
     };
   }
 
-  /** Depth-first walk from every sink back through its sources; post-order = processing order. */
+  /**
+   * Depth-first walk from every sink (and every observer, such as a scope) back through its
+   * sources; post-order = processing order.
+   */
   private rebuildOrder(): void {
     const order: Node[] = [];
     const done = new Set<Node>();
@@ -257,6 +291,9 @@ export class Engine {
         this.sinks.push({ node, module: node.module });
         visit(node);
       }
+    }
+    for (const node of this.nodes.values()) {
+      if (node.module.isObserver) visit(node);
     }
 
     // Nodes that no longer reach a sink stop rendering: silence their outputs once so that

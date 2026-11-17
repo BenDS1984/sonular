@@ -24,7 +24,7 @@ that every module must follow are listed near the end.
 | Patch sync | `src/engine/engine.svelte.ts`, `toEnginePatch.ts` | Sends the graph when modules or cables change; single values when a parameter moves. |
 | Engine | `src/engine/core/` | Plain TypeScript (runs in the worklet, in offline renders and in Node tests). Orders nodes, routes buffers, sums cables, sleeps idle modules, guards the output. Owns the transport (tempo and position). |
 | DSP | `src/dsp/*.dsp` | Faust, compiled to WebAssembly at build time; each module is its own wasm instance. See [faust-notes.md](faust-notes.md). |
-| Native modules | `src/engine/modules/` | TypeScript for control logic and anything that follows the tempo (Clock, Sequencer, Envelope). Engine kinds `native:<name>`. |
+| Native modules | `src/engine/modules/` | TypeScript for control logic and anything that follows the tempo (Clock, Sequencer, Envelope, Scope). Engine kinds `native:<name>`. |
 | Persistence | `src/patch/`, `src/platform/storage.ts` | Autosave in browser storage, undo history, `.sonular` files with a version number. |
 | Offline | `vite.config.ts`, `src/platform/pwa.svelte.ts` | Service worker precaches every built file; updates wait for the user. |
 
@@ -66,6 +66,7 @@ so a desktop build could swap them out.
 | Clock | 1.4 | 0.05 % |
 | Sequencer | 0.6 | 0.02 % |
 | Envelope | 0.7 | 0.03 % |
+| Scope (2 ms / 1 s window, 2026-11-17) | 1.4 / 0.9 | 0.05 % / 0.03 % |
 
 In the browser on the user's laptop (CPU meter, peak), 2026-11-16:
 - Oscillator, Mixer, Reverb, Output: at most **2 %**.
@@ -93,7 +94,10 @@ Each item lists when it becomes worth doing. Several are inspired by openDAW (se
   crossings as a significant share of the render time.
 
 ### 2. Meters and telemetry through shared memory
-- **Now:** stats and meters are posted 20 times per second (small, reused objects).
+- **Now:** stats and meters are posted 20 times per second (small, reused objects). Scope
+  pictures travel along with them: modules with `displayLength`/`readDisplay` add their values
+  (min/max per screen column) to `stats.displays`. A scope is an *observer*: the engine renders
+  it, and everything feeding it, even when no cable leads from it to an output.
 - **Later:** a lock-free ring buffer in a `SharedArrayBuffer` (openDAW's `LiveStream` does this for
   meters, spectra and note activity). Lighter for the audio thread, and enables richer views such
   as scopes and spectrum analysers.
