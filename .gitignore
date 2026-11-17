@@ -5,6 +5,9 @@ dist/
 # Old prototype, kept locally only as a historical reference
 Idee/
 
+# Third-party GUI reference images, kept locally only
+Gui inspiratie/
+
 # Logs and caches
 *.log
 npm-debug.log*
