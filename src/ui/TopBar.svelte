@@ -180,8 +180,6 @@
   </div>
 
   <div class="group">
-    <MasterMeter left={engineState.peakL} right={engineState.peakR} active={engineState.playing} tick={engineState.statsTick} />
-    <span class="pill readout cpu" title="Audio engine load (share of the real-time budget)">{cpuText}</span>
     <button
       class="pill"
       class:open={!!interaction.browser}
@@ -196,6 +194,8 @@
       </svg>
       <span class="module-label">Module</span>
     </button>
+    <MasterMeter left={engineState.peakL} right={engineState.peakR} active={engineState.playing} tick={engineState.statsTick} />
+    <span class="pill readout cpu" title="Audio engine load (share of the real-time budget)">{cpuText}</span>
     {#if fullscreenSupported}
       <IconButton
         icon={isFullscreen ? 'exit-fullscreen' : 'fullscreen'}
@@ -420,12 +420,12 @@
       display: none;
     }
   }
-  @media (max-width: 1020px) {
+  @media (max-width: 1160px) {
     .module-label {
       display: none;
     }
     .topbar {
-      gap: 8px;
+      gap: 6px;
     }
   }
   @media (max-width: 900px) {
