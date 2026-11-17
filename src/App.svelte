@@ -4,7 +4,13 @@
   import Gallery from './ui/gallery/Gallery.svelte';
   import Toasts from './ui/Toasts.svelte';
   import SaveDialog from './ui/SaveDialog.svelte';
+  import WelcomeDialog from './ui/WelcomeDialog.svelte';
+  import { dialogs } from './ui/dialogs.svelte';
+  import { prefs } from './ui/prefs.svelte';
   import UpdateBanner from './ui/UpdateBanner.svelte';
+
+  // First visit: show the welcome window once.
+  if (!prefs.welcomed) dialogs.welcome = true;
 
   // Minimal hash routing: '#gallery' opens the component gallery, anything else the app.
   let hash = $state(window.location.hash);
@@ -23,6 +29,7 @@
     <Workspace />
   </div>
   <SaveDialog />
+  <WelcomeDialog />
   <Toasts />
   <UpdateBanner />
 {/if}

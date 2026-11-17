@@ -9,6 +9,7 @@
   import { historyState, redo, undo } from '../patch/history.svelte';
   import { choosePatchFile, newPatch, requestSave } from '../patch/fileActions';
   import { interaction, closeBrowser, openBrowser } from './workspace/interaction.svelte';
+  import { dialogs } from './dialogs.svelte';
 
   // ---------- New patch (with confirmation when there is something to lose) ----------
 
@@ -102,6 +103,7 @@
     <img src="/favicon.svg" alt="" width="20" height="20" />
     <span>SONULAR</span>
   </div>
+  <button class="about" type="button" title="About Sonular" onclick={() => (dialogs.welcome = true)}>About</button>
 
   <div class="group doc">
     <label class="name-wrap" title="Click to rename (also the file name)">
@@ -229,6 +231,21 @@
     letter-spacing: 0.08em;
     color: var(--text-strong);
     font-size: 13px;
+  }
+  .about {
+    height: 24px;
+    margin-left: -4px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    cursor: pointer;
+  }
+  .about:hover {
+    background: var(--surface-control);
+    color: var(--text-strong);
   }
   .group {
     display: flex;

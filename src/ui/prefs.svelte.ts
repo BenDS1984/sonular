@@ -5,9 +5,11 @@ const KEY = 'sonular.ui';
 
 interface Prefs {
   minimap: boolean;
+  /** The welcome window has been seen and closed once. */
+  welcomed: boolean;
 }
 
-const DEFAULTS: Prefs = { minimap: true };
+const DEFAULTS: Prefs = { minimap: true, welcomed: false };
 
 function load(): Prefs {
   try {
