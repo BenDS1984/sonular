@@ -8,15 +8,21 @@ import { startPatchSync } from './engine/engine.svelte';
 import { restoreAutosave, startAutosave } from './patch/autosave.svelte';
 import { startHistory } from './patch/history.svelte';
 import { startPwa } from './platform/pwa.svelte';
+import { isUnsupportedDevice } from './platform/device';
+import UnsupportedDevice from './ui/UnsupportedDevice.svelte';
 
 const target = document.getElementById('app');
 if (!target) throw new Error('Sonular: #app element not found');
 
-// Order matters: restore the saved patch first, so it becomes the start of the undo history.
-restoreAutosave();
-startHistory();
-startAutosave();
-startPatchSync();
-startPwa();
+function startApp(el: HTMLElement) {
+  // Order matters: restore the saved patch first, so it becomes the start of the undo history.
+  restoreAutosave();
+  startHistory();
+  startAutosave();
+  startPatchSync();
+  startPwa();
+  return mount(App, { target: el });
+}
 
-export default mount(App, { target });
+// Phones and tablets get a message instead of the app; nothing else is started.
+export default isUnsupportedDevice() ? mount(UnsupportedDevice, { target }) : startApp(target);
