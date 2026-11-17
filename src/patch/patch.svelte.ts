@@ -3,6 +3,7 @@
  */
 import { DEFAULT_TEMPO } from '../engine/core/Transport';
 import { getDefinition } from '../modules/registry';
+import { fitView } from './geometry';
 import * as ops from './operations';
 import type { Patch, PortRef } from './types';
 
@@ -88,23 +89,11 @@ export function setParam(moduleId: string, paramId: string, value: number) {
   if (m) m.params[paramId] = value;
 }
 
-/**
- * A small working patch for an empty canvas: Oscillator -> Mixer channel 1 -> Output.
- * Placed around the centre of the visible area.
- */
-export function loadStarterPatch() {
-  const { w, h } = canvasState.viewport;
-  const cx = (w / 2 - patch.view.x) / patch.view.zoom;
-  const cy = (h / 2 - patch.view.y) / patch.view.zoom;
-  const snap10 = (v: number) => Math.round(v / 10) * 10;
-  const left = snap10(cx - 400);
-  const top = snap10(cy - 130);
-  const osc = addModule('osc', left, top);
-  const mix = addModule('mixer', left + 240, top);
-  const out = addModule('output', left + 680, top);
-  if (!osc || !mix || !out) return;
-  connect({ module: osc.id, port: 'out' }, { module: mix.id, port: 'in1' });
-  connect({ module: mix.id, port: 'outL' }, { module: out.id, port: 'L' });
-  connect({ module: mix.id, port: 'outR' }, { module: out.id, port: 'R' });
-  canvasState.selection = null;
+/** Zoom and pan so every module is in view. */
+export function fitAll() {
+  const rects = patch.modules.map((m) => {
+    const s = canvasState.moduleSizes[m.id] ?? { w: getDefinition(m.type)?.width ?? 200, h: 240 };
+    return { x: m.x, y: m.y, w: s.w, h: s.h };
+  });
+  patch.view = fitView(rects, canvasState.viewport.w, canvasState.viewport.h);
 }

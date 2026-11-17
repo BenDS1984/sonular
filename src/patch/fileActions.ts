@@ -7,7 +7,9 @@ import { getDefinition } from '../modules/registry';
 import { dialogs } from '../ui/dialogs.svelte';
 import { showToast } from '../ui/toast.svelte';
 import { FILE_EXTENSION, PatchFileError, fileNameFor, parsePatchFile, serializePatch } from './fileFormat';
-import { canvasState, DEFAULT_PATCH_NAME, patch } from './patch.svelte';
+import { canvasState, DEFAULT_PATCH_NAME, fitAll, patch } from './patch.svelte';
+import type { Patch } from './types';
+import welcomePreset from '../presets/welcome.sonular?raw';
 
 /**
  * Save, asking for a name first while the patch is still untitled. The browser doesn't tell us
@@ -41,18 +43,33 @@ export async function openPatchFile(file: File) {
   try {
     const fallbackName = file.name.replace(/\.[^.]+$/, '') || DEFAULT_PATCH_NAME;
     const { patch: loaded, warnings } = parsePatchFile(await file.text(), getDefinition, fallbackName);
-    canvasState.selection = null;
-    patch.name = loaded.name;
-    patch.tempo = loaded.tempo;
-    patch.modules = loaded.modules;
-    patch.cables = loaded.cables;
-    patch.view = loaded.view;
+    applyPatch(loaded);
     showToast(`Opened “${loaded.name}”`);
     for (const w of warnings) showToast(w, 'warning');
   } catch (err) {
     const message = err instanceof PatchFileError ? err.message : 'This file could not be opened.';
     showToast(message, 'error');
   }
+}
+
+function applyPatch(loaded: Patch) {
+  canvasState.selection = null;
+  patch.name = loaded.name;
+  patch.tempo = loaded.tempo;
+  patch.modules = loaded.modules;
+  patch.cables = loaded.cables;
+  patch.view = loaded.view;
+}
+
+/**
+ * The starter patch ("Welcome!", from src/presets): Clock -> Sequencer -> Oscillator ->
+ * Envelope -> Reverb -> Mixer -> Output. Built into the app, so it also works offline.
+ * Zooms to fit once the modules have been drawn and measured.
+ */
+export function loadStarterPatch() {
+  const { patch: loaded } = parsePatchFile(welcomePreset, getDefinition, 'Welcome!');
+  applyPatch(loaded);
+  requestAnimationFrame(() => requestAnimationFrame(fitAll));
 }
 
 /** Let the user pick a .sonular file. */

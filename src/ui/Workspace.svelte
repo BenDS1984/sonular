@@ -15,8 +15,9 @@
   import ZoomControls from './workspace/ZoomControls.svelte';
   import Minimap from './workspace/Minimap.svelte';
   import { prefs } from './prefs.svelte';
-  import { addModule, canvasState, deleteSelection, loadStarterPatch, patch } from '../patch/patch.svelte';
-  import { GRID, SNAP, fitView, snap, toCanvas, zoomAt } from '../patch/geometry';
+  import { addModule, canvasState, deleteSelection, fitAll, patch } from '../patch/patch.svelte';
+  import { loadStarterPatch } from '../patch/fileActions';
+  import { GRID, SNAP, snap, toCanvas, zoomAt } from '../patch/geometry';
   import type { ModuleDefinition } from '../modules/types';
   import { openPatchFile } from '../patch/fileActions';
   import {
@@ -155,13 +156,8 @@
     patch.view = zoomAt(patch.view, w / 2, h / 2, 1);
   }
 
-  function fit() {
-    const rects = patch.modules.map((m) => {
-      const s = canvasState.moduleSizes[m.id] ?? { w: 200, h: 200 };
-      return { x: m.x, y: m.y, w: s.w, h: s.h };
-    });
-    patch.view = fitView(rects, canvasState.viewport.w, canvasState.viewport.h);
-  }
+  const fit = fitAll;
+
 
   // ---------- Adding modules ----------
 

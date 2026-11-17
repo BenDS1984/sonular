@@ -1,0 +1,219 @@
+{
+  "format": "sonular-patch",
+  "version": 1,
+  "savedAt": "2026-11-17T17:23:05.334Z",
+  "patch": {
+    "name": "Welcome!",
+    "tempo": 137,
+    "modules": [
+      {
+        "id": "osc1",
+        "type": "osc",
+        "x": 110,
+        "y": 330,
+        "params": {
+          "wave": 0,
+          "tune": 0,
+          "fine": 0,
+          "level": 0.5759996032714841
+        }
+      },
+      {
+        "id": "clock1",
+        "type": "clock",
+        "x": 110,
+        "y": 40,
+        "params": {
+          "ratio1": 1,
+          "ratio2": 1,
+          "ratio3": 2,
+          "ratio4": 5
+        }
+      },
+      {
+        "id": "sequencer1",
+        "type": "sequencer",
+        "x": 390,
+        "y": 70,
+        "params": {
+          "pitch1": 0,
+          "pitch2": -3,
+          "pitch3": 7,
+          "pitch4": -5,
+          "pitch5": 4,
+          "pitch6": 0,
+          "pitch7": 5,
+          "pitch8": 2,
+          "on1": 1,
+          "on2": 1,
+          "on3": 1,
+          "on4": 1,
+          "on5": 1,
+          "on6": 0,
+          "on7": 1,
+          "on8": 1
+        }
+      },
+      {
+        "id": "envelope1",
+        "type": "envelope",
+        "x": 350,
+        "y": 320,
+        "params": {
+          "attack": 0.00946232639958516,
+          "decay": 0.02449744359804275,
+          "sustain": 0.2920001220703122,
+          "release": 0.09864146258581429
+        }
+      },
+      {
+        "id": "reverb1",
+        "type": "reverb",
+        "x": 590,
+        "y": 340,
+        "params": {
+          "size": 1.1269254767207262,
+          "predelay": 44.799972534179695,
+          "damping": 0,
+          "mix": 0.3920001220703126
+        }
+      },
+      {
+        "id": "mixer1",
+        "type": "mixer",
+        "x": 820,
+        "y": 300,
+        "params": {
+          "gain1": 1,
+          "pan1": -0.5039993286132811,
+          "mute1": 0,
+          "gain2": 1.2080004882812498,
+          "pan2": 0.2879998779296882,
+          "mute2": 0,
+          "gain3": 1,
+          "pan3": 0,
+          "mute3": 0,
+          "gain4": 1,
+          "pan4": 0,
+          "mute4": 0,
+          "main": 1.2160000610351562
+        }
+      },
+      {
+        "id": "output1",
+        "type": "output",
+        "x": 1250,
+        "y": 270,
+        "params": {
+          "volume": 0.6599999999999998
+        }
+      }
+    ],
+    "cables": [
+      {
+        "id": "c1",
+        "from": {
+          "module": "clock1",
+          "port": "out1"
+        },
+        "to": {
+          "module": "sequencer1",
+          "port": "clock"
+        }
+      },
+      {
+        "id": "c2",
+        "from": {
+          "module": "sequencer1",
+          "port": "pitch"
+        },
+        "to": {
+          "module": "osc1",
+          "port": "pitch"
+        }
+      },
+      {
+        "id": "c3",
+        "from": {
+          "module": "sequencer1",
+          "port": "gate"
+        },
+        "to": {
+          "module": "envelope1",
+          "port": "gate"
+        }
+      },
+      {
+        "id": "c4",
+        "from": {
+          "module": "osc1",
+          "port": "out"
+        },
+        "to": {
+          "module": "envelope1",
+          "port": "in"
+        }
+      },
+      {
+        "id": "c5",
+        "from": {
+          "module": "envelope1",
+          "port": "out"
+        },
+        "to": {
+          "module": "reverb1",
+          "port": "inL"
+        }
+      },
+      {
+        "id": "c6",
+        "from": {
+          "module": "reverb1",
+          "port": "outL"
+        },
+        "to": {
+          "module": "mixer1",
+          "port": "in1"
+        }
+      },
+      {
+        "id": "c7",
+        "from": {
+          "module": "reverb1",
+          "port": "outR"
+        },
+        "to": {
+          "module": "mixer1",
+          "port": "in2"
+        }
+      },
+      {
+        "id": "c8",
+        "from": {
+          "module": "mixer1",
+          "port": "outL"
+        },
+        "to": {
+          "module": "output1",
+          "port": "L"
+        }
+      },
+      {
+        "id": "c9",
+        "from": {
+          "module": "mixer1",
+          "port": "outR"
+        },
+        "to": {
+          "module": "output1",
+          "port": "R"
+        }
+      }
+    ],
+    "view": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  }
+}

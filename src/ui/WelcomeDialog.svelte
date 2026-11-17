@@ -3,7 +3,8 @@
   Explains what Sonular is and that it is an early-stage hobby project.
 -->
 <script lang="ts">
-  import { loadStarterPatch, patch } from '../patch/patch.svelte';
+  import { loadStarterPatch } from '../patch/fileActions';
+  import { patch } from '../patch/patch.svelte';
   import { dialogs } from './dialogs.svelte';
   import { prefs } from './prefs.svelte';
 
