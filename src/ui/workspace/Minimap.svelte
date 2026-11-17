@@ -29,7 +29,8 @@
   const moduleRects = $derived(
     patch.modules.map((m) => {
       const size = canvasState.moduleSizes[m.id] ?? { w: getDefinition(m.type)?.width ?? 200, h: 200 };
-      return { id: m.id, signal: getDefinition(m.type)?.signal ?? 'audio', x: m.x, y: m.y, w: size.w, h: size.h };
+      const family = (getDefinition(m.type)?.category ?? 'Utilities').toLowerCase();
+      return { id: m.id, family, x: m.x, y: m.y, w: size.w, h: size.h };
     }),
   );
 
@@ -143,7 +144,7 @@
         width={Math.max(2, r.w * scale)}
         height={Math.max(2, r.h * scale)}
         rx="1.5"
-        style:stroke={`var(--signal-${r.signal})`}
+        style:--family={`var(--family-${r.family})`}
       />
     {/each}
     <rect
@@ -178,8 +179,10 @@
   svg {
     display: block;
   }
+  /* Same family colour as the module's header on the canvas. */
   .module {
-    fill: var(--surface-module-header);
+    fill: var(--family);
+    stroke: color-mix(in srgb, var(--family) 60%, white);
     stroke-width: 1;
   }
   .cable {
