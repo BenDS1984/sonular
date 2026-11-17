@@ -8,6 +8,8 @@
  */
 export function isUnsupportedDevice(): boolean {
   const hasFinePointer = window.matchMedia('(any-pointer: fine)').matches;
-  const phoneSizedScreen = Math.min(window.screen.width, window.screen.height) < 500;
+  // Some embedded or hidden browsers report a screen of 0 × 0: unknown, so not phone-sized.
+  const shortSide = Math.min(window.screen.width, window.screen.height);
+  const phoneSizedScreen = shortSide > 0 && shortSide < 500;
   return !hasFinePointer || phoneSizedScreen;
 }
