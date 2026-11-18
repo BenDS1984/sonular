@@ -63,7 +63,13 @@ CPU cost, how you will test it silently. End with a wrap_up question ("Zal ik ..
 - Implement `numInputs`, `numOutputs`, `tailSeconds` (0 stateless, decay time for effects,
   `Infinity` never sleeps), `setParam`, `process`, `reset`; optional `onConnectionsChanged`,
   `meterNames`/`readMeters` (single values, e.g. an LED), `displayLength`/`readDisplay` (arrays,
-  e.g. a scope trace), `isObserver` (rendered even when no cable leads to an output).
+  e.g. a scope trace), `isObserver` (rendered even when no cable leads to an output),
+  `takeRecorded` (hand audio to the main thread, as the Tape Recorder does).
+- Controls that are not settings (Rec, arm, reset buttons) go through
+  `audio.setParam(id, name, value)` from the panel, not through the patch parameters: they must
+  not be saved in patch files or end up in undo. Re-send them when the engine (re)starts.
+- `reset()` is called on every Play (the transport restarts): use it to start things on the
+  first beat.
 - Hot loop: indexed `for` loops, locals copied from `this`, no `subarray`, no new objects.
 - Register the factory in `src/engine/modules/native.ts`.
 - Gates: rising above 0.6 / falling below 0.4 (hysteresis), as in Envelope.
@@ -100,9 +106,17 @@ All tests render offline; never play sound unless the user asks.
 2. Build a test patch via `__sonular.patch` (push modules/cables) and **remove every cable into
    the Output module**, so playing produces no sound. Check `__sonular.engineState.peakL` is 0.
 3. Check the panel in the DOM (read_page / javascript), not only screenshots: the pane may be
-   hidden and screenshots stale. `computer zoom` on the module's rect gives a reliable picture.
+   hidden and screenshots stale. `computer zoom` on the module's rect (in CSS pixels) gives a
+   reliable picture.
+   - A hidden pane pauses `requestAnimationFrame`, so animations (reels, meters) seem frozen.
+     Check `tabs_context`; to test an animation anyway, temporarily replace
+     `window.requestAnimationFrame` with a `setTimeout` version, then put the original back.
+   - Never click buttons that download files or open dialogs (Save, Export): they would land in
+     the user's downloads. Test the file contents in unit tests instead, and ask the user to try
+     the button.
 4. Stop, restore: `localStorage.setItem('sonular.autosave', sessionStorage.getItem('backup'))`,
-   reload, confirm the original modules and cables are back.
+   reload, confirm the original modules and cables are back. Clear test data that would make the
+   page ask before leaving (e.g. an unsaved recording) before reloading.
 5. Check console errors and `preview_logs` (errors from before a file existed are stale).
 
 ## 6. Wrap up
@@ -125,3 +139,7 @@ All tests render offline; never play sound unless the user asks.
   reach the Output.
 - Restarting internal state on every parameter change looks jumpy while a knob turns (Scope):
   carry state over to the new value instead.
+- Large data (recordings) must not live in Svelte `$state`: keep it in a plain object and keep
+  only small numbers (length, flags) reactive. Convert to the final file format as it arrives.
+- Data that arrives after Stop belongs to the take that just ended: number takes in the engine so
+  the main thread can tell a late piece from a new take.
