@@ -69,6 +69,10 @@
       will change, and patches may not always open in later versions. Save your work as a file now
       and then.
     </p>
+    <p class="note">
+      <strong>No audio export yet:</strong> you can't save what you hear as an audio file (such as
+      WAV) yet. That will of course be possible in a later version.
+    </p>
     <p class="small">
       Sonular is free and open source (GPL-3.0).
       <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Source on GitHub</a>
