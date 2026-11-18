@@ -1,9 +1,9 @@
 <!--
-  Tape Recorder panel: a small tape deck. The reels turn while recording; the left reel slowly
-  empties and the right one fills as the take grows.
+  Tape Recorder panel: a compact tape deck, reels on the left and the counter with level bars on
+  the right. The reels turn while recording; the left reel slowly empties and the right one fills
+  as the take grows.
 -->
 <script lang="ts">
-  import Meter from '../../ui/components/Meter.svelte';
   import { engineState, meterValue } from '../../engine/engine.svelte';
   import {
     MAX_RECORDING_SECONDS,
@@ -38,26 +38,26 @@
     recording
       ? 'Recording'
       : st.armed
-        ? 'Armed — press Play'
+        ? 'Armed'
         : st.full
-          ? 'Full (15 min) — stopped'
+          ? 'Full (15 min)'
           : st.frames > 0
             ? st.saved
               ? 'Saved'
-              : 'Not saved yet'
-            : 'Press Rec, then Play',
+              : 'Not saved'
+            : 'Press Rec',
   );
 
   // ---------- Reels ----------
-  const W = 240;
-  const H = 112;
-  const REEL_Y = 50;
-  const LEFT_X = 62;
-  const RIGHT_X = 178;
-  const R_FLANGE = 44;
-  const R_HUB = 13;
-  const R_MAX = 40;
-  const R_MIN = 17;
+  const W = 104;
+  const H = 60;
+  const REEL_Y = 25;
+  const LEFT_X = 26;
+  const RIGHT_X = 78;
+  const R_FLANGE = 22;
+  const R_HUB = 6;
+  const R_MAX = 19.5;
+  const R_MIN = 8;
 
   // How much tape has moved from the left reel to the right one (0..1 over the longest take).
   const progress = $derived(Math.min(1, seconds / MAX_RECORDING_SECONDS));
@@ -69,7 +69,7 @@
   let angleLeft = $state(0);
   let angleRight = $state(0);
   /** Tape speed in pixels per second: a fuller reel turns more slowly, like real tape. */
-  const TAPE_SPEED = 70;
+  const TAPE_SPEED = 36;
 
   $effect(() => {
     if (!recording) return;
@@ -86,11 +86,16 @@
 
   const SPOKES = [0, 120, 240];
 
-  // Tape: from the bottom of the left pack, over two guides and the head, to the right pack.
-  const GUIDE_Y = 100;
+  // Tape: from the bottom of each pack down to a guide, along the head in the middle.
+  const GUIDE_Y = 54;
   const tape = $derived(
-    `M${LEFT_X - rLeft * 0.5} ${REEL_Y + rLeft * 0.87} L34 ${GUIDE_Y} L206 ${GUIDE_Y} L${RIGHT_X + rRight * 0.5} ${REEL_Y + rRight * 0.87}`,
+    `M${LEFT_X - rLeft * 0.5} ${REEL_Y + rLeft * 0.87} L5 ${GUIDE_Y} L99 ${GUIDE_Y} L${RIGHT_X + rRight * 0.5} ${REEL_Y + rRight * 0.87}`,
   );
+
+  // ---------- Level bars (dB scale −60 … +6, like the other meters) ----------
+  const levelWidth = (gain: number) =>
+    gain <= 1e-6 ? 0 : Math.min(1, Math.max(0, (20 * Math.log10(gain) + 60) / 66)) * 100;
+  const levels = $derived([meterValue(module.id, 'peakL'), meterValue(module.id, 'peakR')]);
 
   function toggleRec() {
     setArmed(module.id, !st.armed);
@@ -110,43 +115,40 @@
         <g transform={`rotate(${reel.a} ${reel.x} ${REEL_Y})`}>
           <circle class="flange" cx={reel.x} cy={REEL_Y} r={R_FLANGE} />
           <circle class="pack" cx={reel.x} cy={REEL_Y} r={reel.r} />
-          <circle class="pack-shine" cx={reel.x} cy={REEL_Y} r={reel.r - 2} />
           {#each SPOKES as s (s)}
             <path
               class="window"
               transform={`rotate(${s} ${reel.x} ${REEL_Y})`}
-              d={`M${reel.x - 9} ${REEL_Y - R_HUB - 3} L${reel.x + 9} ${REEL_Y - R_HUB - 3} L${reel.x + 5} ${REEL_Y - R_FLANGE + 6} L${reel.x - 5} ${REEL_Y - R_FLANGE + 6} Z`}
+              d={`M${reel.x - 4.5} ${REEL_Y - R_HUB - 1.5} L${reel.x + 4.5} ${REEL_Y - R_HUB - 1.5} L${reel.x + 2.5} ${REEL_Y - R_FLANGE + 3} L${reel.x - 2.5} ${REEL_Y - R_FLANGE + 3} Z`}
             />
           {/each}
           <circle class="hub" cx={reel.x} cy={REEL_Y} r={R_HUB} />
           {#each SPOKES as s (s)}
             <rect
               class="tooth"
-              x={reel.x - 1.5}
-              y={REEL_Y - R_HUB + 1}
-              width="3"
-              height="5"
+              x={reel.x - 0.75}
+              y={REEL_Y - R_HUB + 0.4}
+              width="1.5"
+              height="2.5"
               transform={`rotate(${s} ${reel.x} ${REEL_Y})`}
             />
           {/each}
-          <circle class="spindle" cx={reel.x} cy={REEL_Y} r="3.5" />
+          <circle class="spindle" cx={reel.x} cy={REEL_Y} r="1.8" />
         </g>
       {/each}
-      <circle class="guide" cx="34" cy={GUIDE_Y} r="4" />
-      <circle class="guide" cx="206" cy={GUIDE_Y} r="4" />
-      <rect class="head" x="108" y={GUIDE_Y - 2} width="24" height="10" rx="2" />
-      <circle class="head-led" cx="120" cy={GUIDE_Y + 3} r="2" />
+      <circle class="guide" cx="5" cy={GUIDE_Y} r="2.2" />
+      <circle class="guide" cx="99" cy={GUIDE_Y} r="2.2" />
+      <rect class="head" x="45" y={GUIDE_Y - 1.5} width="14" height="5" rx="1" />
+      <circle class="head-led" cx="52" cy={GUIDE_Y + 1} r="1.1" />
     </svg>
-  </div>
-
-  <div class="info">
-    <div class="counter lcd small">
+    <div class="counter lcd small" title="Press Rec, then Play: recording starts on the first beat">
       <span class="time">{counter}</span>
       <span class="status" class:warn={st.full || (st.frames > 0 && !st.saved && !recording)}>{status}</span>
-    </div>
-    <div class="meters">
-      <Meter level={meterValue(module.id, 'peakL')} height={40} width={5} label="Left level" />
-      <Meter level={meterValue(module.id, 'peakR')} height={40} width={5} label="Right level" />
+      <div class="levels" role="img" aria-label="Input level, left and right">
+        {#each levels as level, i (i)}
+          <div class="bar"><div class="fill" class:over={level > 1} style:width={`${levelWidth(level)}%`}></div></div>
+        {/each}
+      </div>
     </div>
   </div>
 
@@ -184,40 +186,39 @@
     gap: var(--space-2);
   }
   .deck {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 4px 4px 2px;
     border-radius: var(--radius-md);
     background: linear-gradient(180deg, #2a2f37, #1b1f25);
     box-shadow: var(--shadow-recess);
-    padding: 4px;
   }
-  svg {
+  .deck > svg {
     display: block;
-    width: 100%;
-    height: auto;
+    width: 94px;
+    height: 54px;
+    flex: none;
   }
   .flange {
     fill: rgb(200 210 225 / 0.07);
     stroke: rgb(200 210 225 / 0.28);
-    stroke-width: 1.2;
+    stroke-width: 0.8;
   }
   .pack {
     fill: #4a3426;
     stroke: #2d1f16;
-    stroke-width: 1;
-  }
-  .pack-shine {
-    fill: none;
-    stroke: rgb(255 220 180 / 0.12);
-    stroke-width: 1.5;
+    stroke-width: 0.8;
   }
   .window {
     fill: #15181d;
     stroke: rgb(200 210 225 / 0.22);
-    stroke-width: 1;
+    stroke-width: 0.6;
   }
   .hub {
     fill: #c9ced6;
     stroke: #8b929c;
-    stroke-width: 1;
+    stroke-width: 0.6;
   }
   .tooth {
     fill: #6b727c;
@@ -228,57 +229,70 @@
   .tape {
     fill: none;
     stroke: #3d2a1f;
-    stroke-width: 2.5;
+    stroke-width: 1.6;
   }
   .guide {
     fill: #9aa1ab;
     stroke: #5d646e;
+    stroke-width: 0.6;
   }
   .head {
     fill: #7c838d;
     stroke: #4b5159;
+    stroke-width: 0.6;
   }
   .head-led {
     fill: #3a2020;
   }
   .recording .head-led {
     fill: var(--danger, #ff5a5a);
-    filter: drop-shadow(0 0 3px var(--danger, #ff5a5a));
-  }
-  .info {
-    display: flex;
-    gap: var(--space-2);
-    align-items: stretch;
+    filter: drop-shadow(0 0 2px var(--danger, #ff5a5a));
   }
   .counter {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     gap: 2px;
-    padding: 4px 10px;
+    padding: 5px 5px 6px;
     background: var(--surface-inset);
     border-radius: var(--radius-md);
   }
   .time {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: 20px;
+    font-size: 14px;
+    line-height: 1.1;
     color: var(--signal-audio-soft);
     text-shadow: 0 0 6px rgb(245 173 66 / 0.35);
   }
   .status {
-    font-size: var(--text-xs);
+    font-size: 10px;
     color: var(--text-muted);
+    white-space: nowrap;
   }
   .status.warn {
     color: var(--signal-audio);
   }
-  .meters {
+  .levels {
     display: flex;
-    gap: 4px;
-    align-items: center;
-    padding: 0 2px;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 2px;
+  }
+  .bar {
+    height: 4px;
+    border-radius: 2px;
+    background: rgb(255 255 255 / 0.06);
+    overflow: hidden;
+  }
+  .fill {
+    height: 100%;
+    background: var(--signal-cv);
+    transition: width 80ms linear;
+  }
+  .fill.over {
+    background: var(--danger, #ff5a5a);
   }
   .buttons {
     display: flex;
@@ -287,7 +301,8 @@
   .rec,
   .btn {
     flex: 1;
-    height: 28px;
+    height: 26px;
+    padding: 0;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-md);
     background: var(--surface-control);
@@ -307,14 +322,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 5px;
     font-weight: var(--weight-bold);
   }
   .dot {
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
-    background: #6b2a2a;
+    background: #8a3030;
     box-shadow: inset 0 1px 1px rgb(0 0 0 / 0.5);
   }
   .rec.armed {
