@@ -82,11 +82,11 @@ export function recordingBlob(id: string): Blob | null {
   return new Blob([wavHeader(st.frames, st.sampleRate), ...t.parts] as BlobPart[], { type: 'audio/wav' });
 }
 
-/** Download the take as "<patch name> recording.wav". */
-export function saveRecording(id: string, patchName: string): string | null {
+/** Download the take as "<project name> recording.wav". */
+export function saveRecording(id: string, projectName: string): string | null {
   const blob = recordingBlob(id);
   if (!blob) return null;
-  const safe = patchName.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim() || 'Sonular';
+  const safe = projectName.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim() || 'Sonular';
   const name = `${safe} recording.wav`;
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

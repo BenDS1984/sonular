@@ -1,11 +1,33 @@
 /**
- * Editing operations on a patch. Plain functions that mutate the given patch in place, so they
+ * Editing operations on a project and its patches. Plain functions that mutate in place, so they
  * work on Svelte state proxies and on plain objects in tests alike.
  */
 import type { ModuleDefinition } from '../modules/types';
-import type { Cable, ModuleInstance, Patch, PortRef } from './types';
+import type { Cable, ModuleInstance, Patch, PortRef, Project } from './types';
 
 export type DefinitionLookup = (type: string) => ModuleDefinition | undefined;
+
+/**
+ * Patch ids p1, p2, ...: one past the highest number in use, so deleting a patch in the middle
+ * never hands its id to a new patch.
+ */
+export function nextPatchId(project: Pick<Project, 'patches'>): string {
+  let max = 0;
+  for (const p of project.patches) {
+    const n = /^p(\d+)$/.exec(p.id);
+    if (n) max = Math.max(max, Number(n[1]));
+  }
+  return `p${max + 1}`;
+}
+
+export function emptyPatch(id: string, name: string, color = 0): Patch {
+  return { id, name, color, modules: [], cables: [], view: { x: 0, y: 0, zoom: 1 } };
+}
+
+/** A project with one empty patch. */
+export function emptyProject(name: string, tempo: number): Project {
+  return { name, tempo, patches: [emptyPatch('p1', 'Patch 1')], activePatch: 'p1' };
+}
 
 /** Short readable ids: osc1, osc2, mixer1, ... (never reused within a patch). */
 export function nextModuleId(patch: Patch, prefix: string): string {

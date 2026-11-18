@@ -13,7 +13,7 @@
     saveRecording,
     setArmed,
   } from '../../engine/recordings.svelte';
-  import { patch } from '../../patch/patch.svelte';
+  import { project } from '../../patch/patch.svelte';
   import { showToast } from '../../ui/toast.svelte';
   import type { ModulePanelProps } from '../types';
 
@@ -102,7 +102,7 @@
   }
 
   function save() {
-    const name = saveRecording(module.id, patch.name);
+    const name = saveRecording(module.id, project.name);
     if (name) showToast(`Saved “${name}” to your downloads`);
   }
 </script>

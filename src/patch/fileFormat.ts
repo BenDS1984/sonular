@@ -7,85 +7,146 @@
  */
 import { clampTempo, DEFAULT_TEMPO } from '../engine/core/Transport';
 import type { ModuleDefinition } from '../modules/types';
-import type { Cable, ModuleInstance, Patch } from './types';
+import type { Cable, ModuleInstance, Patch, Project } from './types';
 
-export const FILE_FORMAT = 'sonular-patch';
-export const FILE_VERSION = 1;
+export const FILE_FORMAT = 'sonular-project';
+/** Format name of version 1 files, which held a single patch. */
+const LEGACY_FORMAT = 'sonular-patch';
+export const FILE_VERSION = 2;
 export const FILE_EXTENSION = '.sonular';
 
-export interface PatchFile {
+export interface ProjectFile {
   format: typeof FILE_FORMAT;
   version: number;
   savedAt: string;
-  patch: Patch;
+  project: Project;
 }
 
 export type DefinitionLookup = (type: string) => ModuleDefinition | undefined;
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const isFiniteNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const asString = (v: unknown, fallback: string) => (typeof v === 'string' && v.trim() ? v : fallback);
 
 /**
  * Upgrades from version N to N+1, keyed by N. When the format changes, bump FILE_VERSION and add
  * a function here that rewrites the old data into the new shape.
  */
-const MIGRATIONS: Record<number, (data: Record<string, unknown>) => Record<string, unknown>> = {};
+const MIGRATIONS: Record<number, (data: Record<string, unknown>) => Record<string, unknown>> = {
+  // 1 → 2: a file held one patch; now it holds a project with a list of patches. The old patch
+  // becomes the project's only patch, and its name and tempo become the project's.
+  1: (data) => {
+    const old = isObject(data['patch']) ? data['patch'] : {};
+    return {
+      ...data,
+      format: FILE_FORMAT,
+      project: {
+        // The old default name becomes the new default, so saving still asks for a real name.
+        name: old['name'] === 'Untitled patch' ? undefined : old['name'],
+        tempo: old['tempo'],
+        activePatch: 'p1',
+        patches: [{ id: 'p1', name: 'Patch 1', color: 0, modules: old['modules'], cables: old['cables'], view: old['view'] }],
+      },
+    };
+  },
+};
 
-export function serializePatch(patch: Patch, now = new Date()): string {
-  const file: PatchFile = {
+export function serializeProject(project: Project, now = new Date()): string {
+  const file: ProjectFile = {
     format: FILE_FORMAT,
     version: FILE_VERSION,
     savedAt: now.toISOString(),
-    patch: {
-      name: patch.name,
-      tempo: patch.tempo,
-      modules: patch.modules.map((m) => ({ id: m.id, type: m.type, x: m.x, y: m.y, params: { ...m.params } })),
-      cables: patch.cables.map((c) => ({ id: c.id, from: { ...c.from }, to: { ...c.to } })),
-      view: { ...patch.view },
+    project: {
+      name: project.name,
+      tempo: project.tempo,
+      activePatch: project.activePatch,
+      patches: project.patches.map((p) => ({
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        modules: p.modules.map((m) => ({ id: m.id, type: m.type, x: m.x, y: m.y, params: { ...m.params } })),
+        cables: p.cables.map((c) => ({ id: c.id, from: { ...c.from }, to: { ...c.to } })),
+        view: { ...p.view },
+      })),
     },
   };
   return JSON.stringify(file, null, 2);
 }
 
 export interface ParseResult {
-  patch: Patch;
+  project: Project;
   /** Human-readable notes about anything that had to be repaired or dropped. */
   warnings: string[];
 }
 
-export class PatchFileError extends Error {}
+export class ProjectFileError extends Error {}
 
-const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
-const isFiniteNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-const asString = (v: unknown, fallback: string) => (typeof v === 'string' && v.trim() ? v : fallback);
-
-/** Parse and validate a .sonular file. Throws PatchFileError if it isn't a Sonular patch at all. */
-export function parsePatchFile(text: string, getDef: DefinitionLookup, fallbackName = 'Untitled patch'): ParseResult {
+/** Parse and validate a .sonular file. Throws ProjectFileError if it isn't a Sonular file at all. */
+export function parseProjectFile(text: string, getDef: DefinitionLookup, fallbackName = 'Untitled project'): ParseResult {
   let data: unknown;
   try {
     data = JSON.parse(text);
   } catch {
-    throw new PatchFileError('This file is not a Sonular patch (it is not valid JSON).');
+    throw new ProjectFileError('This file is not a Sonular project (it is not valid JSON).');
   }
-  if (!isObject(data) || data['format'] !== FILE_FORMAT) {
-    throw new PatchFileError('This file is not a Sonular patch.');
+  if (!isObject(data) || (data['format'] !== FILE_FORMAT && data['format'] !== LEGACY_FORMAT)) {
+    throw new ProjectFileError('This file is not a Sonular project.');
   }
   let version = data['version'];
-  if (!isFiniteNumber(version) || version < 1) throw new PatchFileError('This patch file has no valid version.');
+  if (!isFiniteNumber(version) || version < 1) throw new ProjectFileError('This file has no valid version.');
   if (version > FILE_VERSION) {
-    throw new PatchFileError('This patch was saved by a newer version of Sonular. Update Sonular to open it.');
+    throw new ProjectFileError('This project was saved by a newer version of Sonular. Update Sonular to open it.');
   }
   let current: Record<string, unknown> = data;
   while (version < FILE_VERSION) {
     const migrate = MIGRATIONS[version];
-    if (!migrate) throw new PatchFileError(`Cannot upgrade patch files of version ${version}.`);
+    if (!migrate) throw new ProjectFileError(`Cannot upgrade files of version ${version}.`);
     current = migrate(current);
     version++;
   }
-  return validatePatch(current['patch'], getDef, fallbackName);
+  return validateProject(current['project'], getDef, fallbackName);
 }
 
-/** Repair a patch-shaped value into a valid Patch. Also used for the autosaved copy. */
-export function validatePatch(raw: unknown, getDef: DefinitionLookup, fallbackName = 'Untitled patch'): ParseResult {
-  const warnings: string[] = [];
+/** Repair a project-shaped value into a valid Project (at least one patch, unique ids). */
+export function validateProject(raw: unknown, getDef: DefinitionLookup, fallbackName = 'Untitled project'): ParseResult {
   const src = isObject(raw) ? raw : {};
+  const warnings: string[] = [];
+  const rawPatches = (Array.isArray(src['patches']) ? src['patches'] : []).filter(isObject);
+  const valid = (id: unknown): id is string => typeof id === 'string' && /^p\d+$/.test(id);
+  const patches: Patch[] = [];
+  const ids = new Set<string>();
+  for (const [i, rp] of rawPatches.entries()) {
+    let id = valid(rp['id']) ? rp['id'] : '';
+    if (!id || ids.has(id)) {
+      let n = 1;
+      while (ids.has(`p${n}`) || rawPatches.some((o) => o['id'] === `p${n}`)) n++;
+      id = `p${n}`;
+    }
+    ids.add(id);
+    const name = asString(rp['name'], `Patch ${i + 1}`);
+    const color = isFiniteNumber(rp['color']) && rp['color'] >= 0 ? Math.floor(rp['color']) : 0;
+    const { modules, cables, view, warnings: w } = validatePatchContent(rp, getDef);
+    const prefix = rawPatches.length > 1 ? `${name}: ` : '';
+    for (const msg of w) warnings.push(prefix + msg);
+    patches.push({ id, name, color, modules, cables, view });
+  }
+  if (patches.length === 0) {
+    patches.push({ id: 'p1', name: 'Patch 1', color: 0, modules: [], cables: [], view: { x: 0, y: 0, zoom: 1 } });
+  }
+  const activePatch = valid(src['activePatch']) && ids.has(src['activePatch']) ? src['activePatch'] : patches[0]!.id;
+
+  // Files from before the tempo existed play at the default tempo.
+  const tempo = isFiniteNumber(src['tempo']) ? clampTempo(src['tempo']) : DEFAULT_TEMPO;
+
+  return { project: { name: asString(src['name'], fallbackName), tempo, patches, activePatch }, warnings };
+}
+
+/** Repair the modules, cables and view of one patch. */
+function validatePatchContent(
+  src: Record<string, unknown>,
+  getDef: DefinitionLookup,
+): Pick<Patch, 'modules' | 'cables' | 'view'> & { warnings: string[] } {
+  const warnings: string[] = [];
 
   const modules: ModuleInstance[] = [];
   const seen = new Set<string>();
@@ -157,14 +218,11 @@ export function validatePatch(raw: unknown, getDef: DefinitionLookup, fallbackNa
     zoom: isFiniteNumber(v['zoom']) && v['zoom'] > 0 ? v['zoom'] : 1,
   };
 
-  // Files from before the tempo existed play at the default tempo.
-  const tempo = isFiniteNumber(src['tempo']) ? clampTempo(src['tempo']) : DEFAULT_TEMPO;
-
-  return { patch: { name: asString(src['name'], fallbackName), tempo, modules, cables, view }, warnings };
+  return { modules, cables, view, warnings };
 }
 
-/** File name for downloads: the patch name made safe for file systems. */
+/** File name for downloads: the project name made safe for file systems. */
 export function fileNameFor(name: string): string {
-  const safe = name.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim() || 'Untitled patch';
+  const safe = name.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim() || 'Untitled project';
   return `${safe}${FILE_EXTENSION}`;
 }

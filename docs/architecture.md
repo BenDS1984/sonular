@@ -19,13 +19,13 @@ that every module must follow are listed near the end.
 
 | Part | Where | What it does |
 |---|---|---|
-| Patch model | `src/patch/` | Modules, cables, parameters, view. The single source of truth, owned by the main thread. |
+| Project model | `src/patch/` | A project (name, tempo) holds one or more patches (id, name, colour, modules, cables, parameters, view). Every control is addressed as patch → module → parameter id, ready for mixer channels and later timeline automation. The single source of truth, owned by the main thread. |
 | Module definitions | `src/modules/` | Per module type: ports, parameter specs, panel, and the engine kind that does its DSP. |
 | Patch sync | `src/engine/engine.svelte.ts`, `toEnginePatch.ts` | Sends the graph when modules or cables change; single values when a parameter moves. |
 | Engine | `src/engine/core/` | Plain TypeScript (runs in the worklet, in offline renders and in Node tests). Orders nodes, routes buffers, sums cables, sleeps idle modules, guards the output. Owns the transport (tempo and position). |
 | DSP | `src/dsp/*.dsp` | Faust, compiled to WebAssembly at build time; each module is its own wasm instance. See [faust-notes.md](faust-notes.md). |
 | Native modules | `src/engine/modules/` | TypeScript for control logic and anything that follows the tempo (Clock, Sequencer, Envelope, Scope, Recorder). Engine kinds `native:<name>`. |
-| Persistence | `src/patch/`, `src/platform/storage.ts` | Autosave in browser storage, undo history, `.sonular` files with a version number. |
+| Persistence | `src/patch/`, `src/platform/storage.ts` | Autosave in browser storage, one undo history per project, `.sonular` files with a version number (version 1 single-patch files are upgraded on load). |
 | Offline | `vite.config.ts`, `src/platform/pwa.svelte.ts` | Service worker precaches every built file; updates wait for the user. |
 
 Browser-specific code is kept behind small modules in `src/platform/` (storage, service worker),

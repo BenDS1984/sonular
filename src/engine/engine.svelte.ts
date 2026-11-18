@@ -7,7 +7,7 @@ import { pruneRecorders, receiveRecording, resendArmed, transportStopped } from 
 import { AudioEngine, DEFAULT_BUFFER, type BufferSize, type EngineStatus } from './AudioEngine';
 import type { DisplayLayoutEntry, MeterLayoutEntry } from './core/types';
 import { getDefinition } from '../modules/registry';
-import { patch } from '../patch/patch.svelte';
+import { patch, project } from '../patch/patch.svelte';
 import { structureKey, toEnginePatch } from './toEnginePatch';
 
 export const engineState = $state({
@@ -112,7 +112,7 @@ export function displayValues(moduleId: string): Float32Array | null {
 
 // Development aid: inspect the engine from the browser console as `__sonular`.
 if (import.meta.env.DEV) {
-  (globalThis as Record<string, unknown>).__sonular = { audio, engineState, patch, cpuHistory, cpuHistoryState };
+  (globalThis as Record<string, unknown>).__sonular = { audio, engineState, project, patch, cpuHistory, cpuHistoryState };
 }
 
 // ---------- Live patch sync ----------
@@ -121,7 +121,8 @@ if (import.meta.env.DEV) {
 let sentParams: Record<string, Record<string, number>> = {};
 
 /**
- * Keep the engine in step with the patch while it runs:
+ * Keep the engine in step with the patch while it runs (for now the patch shown in the workspace;
+ * playing all patches of the project together comes with the mixer):
  * - modules or cables change -> send the whole graph (existing modules keep their state);
  * - a parameter changes -> send just that value.
  */
@@ -140,7 +141,7 @@ export function startPatchSync(): () => void {
 
     // The tempo is remembered by `audio` even while the engine is off, so start-up uses it too.
     $effect(() => {
-      audio.setTempo(patch.tempo);
+      audio.setTempo(project.tempo);
     });
 
     $effect(() => {

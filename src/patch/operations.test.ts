@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ModuleDefinition } from '../modules/types';
-import { addModule, connect, isPortConnected, nextModuleId, removeModule } from './operations';
+import { addModule, connect, emptyPatch, isPortConnected, nextModuleId, nextPatchId, removeModule } from './operations';
 import { cablePath, fitView, toCanvas, zoomAt } from './geometry';
 import type { Patch } from './types';
 
@@ -21,7 +21,7 @@ const def = (type: string, inputs: string[], outputs: string[]): ModuleDefinitio
 
 const DEFS = [def('src', [], ['out']), def('fx', ['in'], ['out']), def('sink', ['L', 'R'], [])];
 const getDef = (t: string) => DEFS.find((d) => d.type === t);
-const empty = (): Patch => ({ name: 'test', tempo: 120, modules: [], cables: [], view: { x: 0, y: 0, zoom: 1 } });
+const empty = (): Patch => emptyPatch('p1', 'test');
 
 describe('patch operations', () => {
   it('creates modules with readable unique ids and default parameters', () => {
@@ -87,5 +87,11 @@ describe('canvas geometry', () => {
     const d = cablePath({ x: 0, y: 100 }, { x: 300, y: 100 });
     const ys = d.match(/-?\d+(\.\d+)?/g)!.map(Number).filter((_, i) => i % 2 === 1);
     expect(Math.max(...ys)).toBeGreaterThan(100);
+  });
+
+  it('gives new patches an id past the highest in use', () => {
+    const p = (id: string) => emptyPatch(id, id);
+    expect(nextPatchId({ patches: [] })).toBe('p1');
+    expect(nextPatchId({ patches: [p('p1'), p('p3')] })).toBe('p4');
   });
 });

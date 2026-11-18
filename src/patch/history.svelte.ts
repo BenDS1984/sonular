@@ -1,26 +1,34 @@
 /**
- * Undo/redo for the patch.
+ * Undo/redo for the whole project: one history across all patches.
  *
- * Every change to modules, cables, parameters, the tempo or the patch name becomes an undo step, but changes that belong
+ * Every change to modules, cables, parameters, the tempo, the project or a patch's name, colour
+ * or the list of patches becomes an undo step, but changes that belong
  * together are merged: while a mouse button is held (dragging a module or turning a knob) nothing
  * is recorded until release, and other bursts (scroll wheel, arrow keys) are merged when they
- * come within a short pause of each other. Panning and zooming the view is not undoable.
+ * come within a short pause of each other. Panning and zooming a view and switching between
+ * patches are not undoable.
  */
 import { untrack } from 'svelte';
-import { canvasState, patch } from './patch.svelte';
+import { canvasState, patch, project } from './patch.svelte';
 import { UndoStack } from './UndoStack';
-import type { Cable, ModuleInstance } from './types';
+import type { Patch } from './types';
 
 const MERGE_MS = 350;
+
+type PatchContent = Omit<Patch, 'view'>;
 
 interface Content {
   name: string;
   tempo: number;
-  modules: ModuleInstance[];
-  cables: Cable[];
+  patches: PatchContent[];
 }
 
-const snapshot = (): string => JSON.stringify({ name: patch.name, tempo: patch.tempo, modules: patch.modules, cables: patch.cables });
+const snapshot = (): string =>
+  JSON.stringify({
+    name: project.name,
+    tempo: project.tempo,
+    patches: project.patches.map((p) => ({ id: p.id, name: p.name, color: p.color, modules: p.modules, cables: p.cables })),
+  });
 
 export const historyState = $state({ canUndo: false, canRedo: false });
 
@@ -50,13 +58,15 @@ function schedule() {
 
 function restore(state: string) {
   const content = JSON.parse(state) as Content;
-  patch.name = content.name;
-  patch.tempo = content.tempo;
-  patch.modules = content.modules;
-  patch.cables = content.cables;
+  project.name = content.name;
+  project.tempo = content.tempo;
+  // Views are not part of the history: patches that still exist keep where they were scrolled to.
+  const views = new Map(project.patches.map((p) => [p.id, p.view]));
+  project.patches = content.patches.map((p) => ({ ...p, view: views.get(p.id) ?? { x: 0, y: 0, zoom: 1 } }));
+  if (!project.patches.some((p) => p.id === project.activePatch)) project.activePatch = project.patches[0]!.id;
   const sel = canvasState.selection;
-  if (sel?.kind === 'module' && !content.modules.some((m) => m.id === sel.id)) canvasState.selection = null;
-  if (sel?.kind === 'cable' && !content.cables.some((c) => c.id === sel.id)) canvasState.selection = null;
+  if (sel?.kind === 'module' && !patch.modules.some((m) => m.id === sel.id)) canvasState.selection = null;
+  if (sel?.kind === 'cable' && !patch.cables.some((c) => c.id === sel.id)) canvasState.selection = null;
   updateFlags();
 }
 
@@ -95,7 +105,7 @@ export function startHistory(): () => void {
 
   const stopEffects = $effect.root(() => {
     $effect(() => {
-      const state = snapshot(); // deep dependency on name, modules and cables
+      const state = snapshot(); // deep dependency on everything except the views
       untrack(() => {
         // Equal to the recorded state: nothing new (e.g. right after an undo restored it).
         if (state === stack?.currentSnapshot) {

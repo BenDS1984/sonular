@@ -5,19 +5,19 @@
   import IconButton from './components/IconButton.svelte';
   import TempoField from './components/TempoField.svelte';
   import CpuGraph from './CpuGraph.svelte';
-  import { canvasState, DEFAULT_PATCH_NAME, patch } from '../patch/patch.svelte';
+  import { canvasState, DEFAULT_PROJECT_NAME, patch, project } from '../patch/patch.svelte';
   import { toCanvas } from '../patch/geometry';
   import { historyState, redo, undo } from '../patch/history.svelte';
-  import { choosePatchFile, newPatch, requestSave } from '../patch/fileActions';
+  import { chooseProjectFile, newProject, requestSave } from '../patch/fileActions';
   import { interaction, closeBrowser, openBrowser } from './workspace/interaction.svelte';
   import { dialogs } from './dialogs.svelte';
 
-  // ---------- New patch (with confirmation when there is something to lose) ----------
+  // ---------- New project (with confirmation when there is something to lose) ----------
 
   let confirmNew = $state(false);
 
   function askNew() {
-    if (patch.modules.length === 0) newPatch();
+    if (project.patches.length === 1 && patch.modules.length === 0) newProject();
     else confirmNew = !confirmNew;
   }
 
@@ -83,7 +83,7 @@
         requestSave();
       } else if (key === 'o') {
         e.preventDefault();
-        choosePatchFile();
+        chooseProjectFile();
       } else if (!typing && key === 'z' && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -112,18 +112,18 @@
   <button class="about" type="button" title="About Sonular" onclick={() => (dialogs.welcome = true)}>About</button>
 
   <div class="group doc">
-    <label class="name-wrap" title="Click to rename (also the file name)">
+    <label class="name-wrap" title="Click to rename the project (also the file name)">
     <input
       class="name"
-      bind:value={patch.name}
-      aria-label="Patch name"
+      bind:value={project.name}
+      aria-label="Project name"
       spellcheck="false"
       maxlength="80"
       onkeydown={(e) => {
         if (e.key === 'Enter' || e.key === 'Escape') (e.currentTarget as HTMLInputElement).blur();
       }}
       onblur={() => {
-        if (!patch.name.trim()) patch.name = DEFAULT_PATCH_NAME;
+        if (!project.name.trim()) project.name = DEFAULT_PROJECT_NAME;
       }}
     />
       <svg class="pencil" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
@@ -131,10 +131,10 @@
       </svg>
     </label>
     <span class="new-wrap">
-      <IconButton icon="new" label="New patch" active={confirmNew} onclick={askNew} />
+      <IconButton icon="new" label="New project" active={confirmNew} onclick={askNew} />
       {#if confirmNew}
-        <div class="confirm" role="dialog" aria-label="Start a new patch">
-          <p>Start a new patch? The current one is cleared — you can undo this.</p>
+        <div class="confirm" role="dialog" aria-label="Start a new project">
+          <p>Start a new project? The current one is cleared — you can undo this.</p>
           <div class="confirm-actions">
             <button type="button" class="pill" onclick={() => (confirmNew = false)}>Cancel</button>
             <button
@@ -142,15 +142,15 @@
               class="pill primary"
               onclick={() => {
                 confirmNew = false;
-                newPatch();
-              }}>New patch</button
+                newProject();
+              }}>New project</button
             >
           </div>
         </div>
       {/if}
     </span>
-    <IconButton icon="open" label="Open patch file (Ctrl+O)" onclick={choosePatchFile} />
-    <IconButton icon="save" label="Save patch as file (Ctrl+S)" onclick={requestSave} />
+    <IconButton icon="open" label="Open project file (Ctrl+O)" onclick={chooseProjectFile} />
+    <IconButton icon="save" label="Save project as file (Ctrl+S)" onclick={requestSave} />
     <span class="sep" aria-hidden="true"></span>
     <IconButton icon="undo" label="Undo (Ctrl+Z)" disabled={!historyState.canUndo} onclick={undo} />
     <IconButton icon="redo" label="Redo (Ctrl+Y)" disabled={!historyState.canRedo} onclick={redo} />
@@ -175,7 +175,7 @@
       </svg>
       {playLabel}
     </button>
-    <TempoField value={patch.tempo} onchange={(bpm) => (patch.tempo = bpm)} />
+    <TempoField value={project.tempo} onchange={(bpm) => (project.tempo = bpm)} />
     <span class="pill readout position" title="Position (bar.beat.sixteenth)">{position}</span>
   </div>
 

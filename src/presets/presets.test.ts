@@ -7,14 +7,16 @@ vi.mock('../engine/engine.svelte', () => ({
   meterValue: () => 0,
 }));
 import { getDefinition } from '../modules/registry';
-import { parsePatchFile } from '../patch/fileFormat';
+import { parseProjectFile } from '../patch/fileFormat';
 import welcome from './welcome.sonular?raw';
 
 describe('built-in presets', () => {
   it('the Welcome! starter patch loads completely, without warnings', () => {
-    const { patch, warnings } = parsePatchFile(welcome, getDefinition, 'Welcome!');
+    const { project, warnings } = parseProjectFile(welcome, getDefinition, 'Welcome!');
     expect(warnings).toEqual([]);
-    expect(patch.name).toBe('Welcome!');
+    expect(project.name).toBe('Welcome!');
+    expect(project.patches).toHaveLength(1);
+    const patch = project.patches[0]!;
     expect(patch.modules).toHaveLength(7);
     expect(patch.cables).toHaveLength(9);
   });

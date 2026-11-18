@@ -3,7 +3,7 @@
   import { formatNumber } from '../../ui/format';
   import { CLOCK_RATIOS } from '../../engine/modules/Clock';
   import { engineState, meterValue } from '../../engine/engine.svelte';
-  import { patch } from '../../patch/patch.svelte';
+  import { project } from '../../patch/patch.svelte';
   import ParamKnob from '../ParamKnob.svelte';
   import type { ModulePanelProps } from '../types';
 
@@ -14,7 +14,7 @@
   /** Pulses per minute of an output: the tempo times its ratio. */
   function rate(n: number): string {
     const ratio = CLOCK_RATIOS[Math.round(module.params[`ratio${n}`] ?? 0)] ?? CLOCK_RATIOS[2]!;
-    const bpm = patch.tempo * ratio.perBeat;
+    const bpm = project.tempo * ratio.perBeat;
     return Number.isInteger(bpm) ? String(bpm) : formatNumber(bpm);
   }
 
@@ -25,7 +25,7 @@
 <div class="clock">
   <div class="display lcd">
     <Led level={beatOn} label="Beat" />
-    <span class="tempo">{Math.round(patch.tempo)}</span>
+    <span class="tempo">{Math.round(project.tempo)}</span>
     <span class="unit">BPM</span>
   </div>
   <div class="outs">

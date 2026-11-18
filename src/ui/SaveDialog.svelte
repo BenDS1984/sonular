@@ -1,4 +1,4 @@
-<!-- "Save patch" dialog: asks for a name before the first save of an untitled patch. -->
+<!-- "Save project" dialog: asks for a name before the first save of an untitled project. -->
 <script lang="ts">
   import { saveAs } from '../patch/fileActions';
   import { FILE_EXTENSION, fileNameFor } from '../patch/fileFormat';
@@ -41,7 +41,7 @@
   <div class="backdrop" role="presentation" onpointerdown={close}></div>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="save-title" tabindex="-1" {onkeydown}>
   <form onsubmit={submit}>
-    <h2 id="save-title">Save patch</h2>
+    <h2 id="save-title">Save project</h2>
     <label for="save-name">Name</label>
     <input
       id="save-name"
@@ -56,7 +56,7 @@
       {#if name.trim()}
         Saves <strong>{fileNameFor(name)}</strong> to your downloads.
       {:else}
-        Give your patch a name. It's saved as a {FILE_EXTENSION} file in your downloads.
+        Give your project a name. It's saved as a {FILE_EXTENSION} file in your downloads.
       {/if}
     </p>
     <div class="actions">

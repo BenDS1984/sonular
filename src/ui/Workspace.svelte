@@ -19,7 +19,7 @@
   import { loadStarterPatch } from '../patch/fileActions';
   import { GRID, SNAP, snap, toCanvas, zoomAt } from '../patch/geometry';
   import type { ModuleDefinition } from '../modules/types';
-  import { openPatchFile } from '../patch/fileActions';
+  import { openProjectFile } from '../patch/fileActions';
   import {
     beginCableDrag,
     cancelCableDrag,
@@ -198,7 +198,7 @@
     }
   }
 
-  // ---------- Dropping a patch file onto the canvas ----------
+  // ---------- Dropping a project file onto the canvas ----------
 
   let dropping = $state(false);
 
@@ -218,7 +218,7 @@
     e.preventDefault();
     dropping = false;
     const file = e.dataTransfer!.files[0];
-    if (file) void openPatchFile(file);
+    if (file) void openProjectFile(file);
   }
 
   const browserPos = $derived.by(() => {

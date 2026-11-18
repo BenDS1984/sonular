@@ -1,21 +1,69 @@
 /**
- * The open patch as reactive app state, plus UI state of the canvas (selection, port positions).
+ * The open project as reactive app state, plus UI state of the canvas (selection, port positions).
+ *
+ * `patch` is the patch shown in the workspace: a live view onto the active patch of `project`,
+ * so editing code and canvas components can keep working on "the patch" without caring which
+ * one is active.
  */
 import { DEFAULT_TEMPO } from '../engine/core/Transport';
 import { getDefinition } from '../modules/registry';
 import { fitView } from './geometry';
 import * as ops from './operations';
-import type { Patch, PortRef } from './types';
+import type { Patch, PortRef, Project } from './types';
 
-export const DEFAULT_PATCH_NAME = 'Untitled patch';
+export const DEFAULT_PROJECT_NAME = 'Untitled project';
 
-export const patch = $state<Patch>({
-  name: DEFAULT_PATCH_NAME,
-  tempo: DEFAULT_TEMPO,
-  modules: [],
-  cables: [],
-  view: { x: 0, y: 0, zoom: 1 },
-});
+export const project = $state<Project>(ops.emptyProject(DEFAULT_PROJECT_NAME, DEFAULT_TEMPO));
+
+/** The patch shown in the workspace (falls back to the first, so there always is one). */
+export function activePatch(): Patch {
+  return project.patches.find((p) => p.id === project.activePatch) ?? project.patches[0]!;
+}
+
+export const patch: Patch = {
+  get id() {
+    return activePatch().id;
+  },
+  get name() {
+    return activePatch().name;
+  },
+  set name(v) {
+    activePatch().name = v;
+  },
+  get color() {
+    return activePatch().color;
+  },
+  set color(v) {
+    activePatch().color = v;
+  },
+  get modules() {
+    return activePatch().modules;
+  },
+  set modules(v) {
+    activePatch().modules = v;
+  },
+  get cables() {
+    return activePatch().cables;
+  },
+  set cables(v) {
+    activePatch().cables = v;
+  },
+  get view() {
+    return activePatch().view;
+  },
+  set view(v) {
+    activePatch().view = v;
+  },
+};
+
+/** Replace the whole project (open file, new project, autosave restore, starter patch). */
+export function replaceProject(next: Project) {
+  canvasState.selection = null;
+  project.name = next.name;
+  project.tempo = next.tempo;
+  project.patches = next.patches;
+  project.activePatch = next.activePatch;
+}
 
 export type Selection = { kind: 'module'; id: string } | { kind: 'cable'; id: string } | null;
 
