@@ -1,10 +1,11 @@
 /**
  * Modules written in TypeScript instead of Faust: the ones that need the transport or are pure
- * control logic (clocks, sequencers, envelopes, scopes). Engine kinds are "native:<name>".
+ * control logic (clocks, sequencers, envelopes, scopes, recorders). Engine kinds are "native:<name>".
  */
 import type { ModuleFactory } from '../core/types';
 import { Clock } from './Clock';
 import { Envelope } from './Envelope';
+import { Recorder } from './Recorder';
 import { Scope } from './Scope';
 import { Sequencer } from './Sequencer';
 
@@ -13,4 +14,5 @@ export const NATIVE_MODULES: Readonly<Record<string, ModuleFactory>> = {
   'native:sequencer': () => new Sequencer(),
   'native:envelope': (sr) => new Envelope(sr),
   'native:scope': (sr) => new Scope(sr),
+  'native:recorder': () => new Recorder(),
 };

@@ -24,7 +24,7 @@ that every module must follow are listed near the end.
 | Patch sync | `src/engine/engine.svelte.ts`, `toEnginePatch.ts` | Sends the graph when modules or cables change; single values when a parameter moves. |
 | Engine | `src/engine/core/` | Plain TypeScript (runs in the worklet, in offline renders and in Node tests). Orders nodes, routes buffers, sums cables, sleeps idle modules, guards the output. Owns the transport (tempo and position). |
 | DSP | `src/dsp/*.dsp` | Faust, compiled to WebAssembly at build time; each module is its own wasm instance. See [faust-notes.md](faust-notes.md). |
-| Native modules | `src/engine/modules/` | TypeScript for control logic and anything that follows the tempo (Clock, Sequencer, Envelope, Scope). Engine kinds `native:<name>`. |
+| Native modules | `src/engine/modules/` | TypeScript for control logic and anything that follows the tempo (Clock, Sequencer, Envelope, Scope, Tape Recorder). Engine kinds `native:<name>`. |
 | Persistence | `src/patch/`, `src/platform/storage.ts` | Autosave in browser storage, undo history, `.sonular` files with a version number. |
 | Offline | `vite.config.ts`, `src/platform/pwa.svelte.ts` | Service worker precaches every built file; updates wait for the user. |
 
@@ -67,6 +67,7 @@ so a desktop build could swap them out.
 | Sequencer | 0.6 | 0.02 % |
 | Envelope | 0.7 | 0.03 % |
 | Scope (2 ms / 1 s window, 2026-11-17) | 1.4 / 0.9 | 0.05 % / 0.03 % |
+| Tape Recorder (recording, 2026-11-18) | 1.0 | 0.04 % |
 
 In the browser on the user's laptop (CPU meter, peak), 2026-11-16:
 - Oscillator, Mixer, Reverb, Output: at most **2 %**.
@@ -101,6 +102,10 @@ Each item lists when it becomes worth doing. Several are inspired by openDAW (se
   pictures travel along with them: modules with `displayLength`/`readDisplay` add their values
   (min/max per screen column) to `stats.displays`. A scope is an *observer*: the engine renders
   it, and everything feeding it, even when no cable leads from it to an output.
+  Recorders hand their audio over in the same rhythm: `takeRecorded()` returns the samples since
+  the previous call (with a take number), sent as a `recorded` message whose buffers are
+  transferred, not copied. The main thread (`src/engine/recordings.svelte.ts`) turns each piece
+  into 24-bit WAV bytes straight away, so saving only prepends a header. Takes stop at 15 minutes.
 - **Later:** a lock-free ring buffer in a `SharedArrayBuffer` (openDAW's `LiveStream` does this for
   meters, spectra and note activity). Lighter for the audio thread, and enables richer views such
   as scopes and spectrum analysers.

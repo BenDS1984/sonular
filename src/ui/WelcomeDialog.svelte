@@ -70,8 +70,8 @@
       and then.
     </p>
     <p class="note">
-      <strong>No audio export yet:</strong> you can't save what you hear as an audio file (such as
-      WAV) yet. That will of course be possible in a later version.
+      <strong>Saving your sound:</strong> add a <strong>Tape Recorder</strong> module, press Rec and
+      then Play, and save the take as a WAV file.
     </p>
     <p class="small">
       Sonular is free and open source (GPL-3.0).

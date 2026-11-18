@@ -57,6 +57,11 @@ export interface DspModule {
   readonly displayLength?: number;
   /** Write the current display values into `out`, starting at `offset`. No allocation. */
   readDisplay?(out: Float32Array, offset: number): void;
+  /**
+   * Recorders: hand over the audio recorded since the previous call, or null when there is
+   * none. Called about 20 times per second; the arrays are moved to the main thread.
+   */
+  takeRecorded?(): RecordedAudio | null;
   /** Clear internal state (delay lines, filter memory, phases). */
   reset(): void;
   /** Release resources when removed from the patch. */
@@ -117,6 +122,14 @@ export interface EngineBlockStats {
 export interface MeterLayoutEntry {
   node: string;
   names: readonly string[];
+}
+
+/** A piece of a recording, handed from a recorder module to the main thread. */
+export interface RecordedAudio {
+  /** Number of the take (recording run) this audio belongs to. */
+  take: number;
+  left: Float32Array;
+  right: Float32Array;
 }
 
 /** Which displays the engine reports: each node's values follow the previous node's. */

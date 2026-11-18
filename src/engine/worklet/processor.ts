@@ -3,7 +3,7 @@
  * Bundled separately by Vite (imported with `?worker&url`) and loaded via audioWorklet.addModule.
  */
 import { Engine, type MasterMeters } from '../core/Engine';
-import type { ModuleFactory } from '../core/types';
+import type { ModuleFactory, RecordedAudio } from '../core/types';
 import { FaustDsp, declaredSink } from '../faust/FaustDsp';
 import { FaustSink } from '../faust/FaustSink';
 import { Master } from '../modules/Master';
@@ -62,6 +62,12 @@ class SonularProcessor extends AudioWorkletProcessor {
   private post(msg: FromEngine) {
     this.port.postMessage(msg);
   }
+
+  // Moves (not copies) the recorded audio to the main thread.
+  private readonly sendRecording = (node: string, audio: RecordedAudio) => {
+    const msg: FromEngine = { type: 'recorded', node, sampleRate, audio };
+    this.port.postMessage(msg, [audio.left.buffer, audio.right.buffer]);
+  };
 
   private handle(msg: ToEngine) {
     switch (msg.type) {
@@ -160,6 +166,7 @@ class SonularProcessor extends AudioWorkletProcessor {
     engine.readMeters(st.meters);
     engine.readDisplays(st.displays);
     this.post(this.statsMessage);
+    engine.collectRecordings(this.sendRecording);
     this.busyMs = 0;
     this.renderedFrames = 0;
   }

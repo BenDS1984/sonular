@@ -1,5 +1,5 @@
 /** Messages between the main thread and the engine running in the AudioWorklet. */
-import type { DisplayLayoutEntry, EnginePatch, MeterLayoutEntry } from './core/types';
+import type { DisplayLayoutEntry, EnginePatch, MeterLayoutEntry, RecordedAudio } from './core/types';
 import type { FaustMeta } from './faust/FaustDsp';
 
 export const PROCESSOR_NAME = 'sonular-engine';
@@ -41,6 +41,8 @@ export type FromEngine =
   | { type: 'stats'; stats: EngineStats }
   /** Sent after every patch change: which meters and displays `stats` contains. */
   | { type: 'meterLayout'; layout: MeterLayoutEntry[]; displays: DisplayLayoutEntry[] }
+  /** Audio recorded by a recorder module since the previous message. */
+  | { type: 'recorded'; node: string; sampleRate: number; audio: RecordedAudio }
   /** Sent once the fade-out after `run: false` has finished. */
   | { type: 'stopped' }
   | { type: 'error'; message: string };

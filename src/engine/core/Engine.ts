@@ -7,6 +7,7 @@ import {
   type EnginePatch,
   type MeterLayoutEntry,
   type ModuleFactory,
+  type RecordedAudio,
   type SinkModule,
 } from './types';
 import { Transport } from './Transport';
@@ -89,6 +90,7 @@ export class Engine {
   private displayNodes: Node[] = [];
   private displayLayoutCache: DisplayLayoutEntry[] = [];
   private displayCount = 0;
+  private recorderNodes: Node[] = [];
   private readonly zero = new Float32Array(BLOCK_SIZE);
 
   private readonly masterL = new Float32Array(BLOCK_SIZE);
@@ -164,6 +166,16 @@ export class Engine {
     this.displayNodes = [...next.values()].filter((n) => (n.module.displayLength ?? 0) > 0);
     this.displayLayoutCache = this.displayNodes.map((n) => ({ node: n.id, length: n.module.displayLength! }));
     this.displayCount = this.displayLayoutCache.reduce((sum, e) => sum + e.length, 0);
+    this.recorderNodes = [...next.values()].filter((n) => typeof n.module.takeRecorded === 'function');
+  }
+
+  /** Hand every recorder's new audio to `use` (nothing happens when nobody is recording). */
+  collectRecordings(use: (node: string, audio: RecordedAudio) => void): void {
+    for (let i = 0; i < this.recorderNodes.length; i++) {
+      const node = this.recorderNodes[i]!;
+      const audio = node.module.takeRecorded!();
+      if (audio) use(node.id, audio);
+    }
   }
 
   /** Displays of all modules, in snapshot order. Changes only when the patch changes. */

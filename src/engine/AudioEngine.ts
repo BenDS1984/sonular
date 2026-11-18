@@ -3,7 +3,7 @@
  * Faust programs, and forwards patch/parameter changes. All DSP happens in the worklet.
  */
 import workletUrl from './worklet/processor.ts?worker&url';
-import type { DisplayLayoutEntry, EnginePatch, MeterLayoutEntry } from './core/types';
+import type { DisplayLayoutEntry, EnginePatch, MeterLayoutEntry, RecordedAudio } from './core/types';
 import { DEFAULT_TEMPO } from './core/Transport';
 import { compileFaustPrograms } from './faustPrograms';
 import { PROCESSOR_NAME, type EngineStats, type FromEngine, type ToEngine } from './protocol';
@@ -24,6 +24,7 @@ export interface AudioEngineEvents {
   onStats?(stats: EngineStats): void;
   onMeterLayout?(layout: MeterLayoutEntry[], displays: DisplayLayoutEntry[]): void;
   onStopped?(): void;
+  onRecorded?(node: string, sampleRate: number, audio: RecordedAudio): void;
 }
 
 export class AudioEngine {
@@ -99,6 +100,9 @@ export class AudioEngine {
             break;
           case 'stopped':
             this.events.onStopped?.();
+            break;
+          case 'recorded':
+            this.events.onRecorded?.(msg.node, msg.sampleRate, msg.audio);
             break;
           case 'error':
             reject(new Error(msg.message));

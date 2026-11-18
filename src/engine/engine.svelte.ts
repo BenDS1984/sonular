@@ -3,6 +3,7 @@
  */
 import { untrack } from 'svelte';
 import { CpuHistory } from './cpuHistory';
+import { pruneRecorders, receiveRecording, resendArmed, transportStopped } from './recordings.svelte';
 import { AudioEngine, DEFAULT_BUFFER, type BufferSize, type EngineStatus } from './AudioEngine';
 import type { DisplayLayoutEntry, MeterLayoutEntry } from './core/types';
 import { getDefinition } from '../modules/registry';
@@ -55,7 +56,10 @@ export const audio = new AudioEngine(
     onStatus(status, error) {
       engineState.status = status;
       engineState.error = error ?? '';
-      if (status === 'error') engineState.playing = false;
+      if (status === 'error') {
+        engineState.playing = false;
+        transportStopped();
+      }
     },
     onStats(s) {
       engineState.cpu = s.cpu;
@@ -77,6 +81,9 @@ export const audio = new AudioEngine(
         displays[entry.node] = s.displays.subarray(offset, offset + entry.length);
         offset += entry.length;
       }
+    },
+    onRecorded(node, sampleRate, piece) {
+      receiveRecording(node, sampleRate, piece);
     },
     onMeterLayout(layout, displayEntries) {
       meterLayout = layout;
@@ -126,6 +133,8 @@ export function startPatchSync(): () => void {
       untrack(() => {
         audio.setPatch(toEnginePatch(patch, getDefinition));
         sentParams = Object.fromEntries(patch.modules.map((m) => [m.id, { ...m.params }]));
+        pruneRecorders(new Set(patch.modules.map((m) => m.id)));
+        resendArmed();
       });
     });
 
@@ -164,6 +173,7 @@ export async function togglePlay(): Promise<void> {
   if (engineState.playing) {
     audio.setRunning(false);
     engineState.playing = false;
+    transportStopped();
     return;
   }
   try {

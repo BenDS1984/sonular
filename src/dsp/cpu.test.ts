@@ -13,6 +13,7 @@ import { Transport } from '../engine/core/Transport';
 import { BLOCK_SIZE, type DspModule } from '../engine/core/types';
 import { Clock } from '../engine/modules/Clock';
 import { Envelope } from '../engine/modules/Envelope';
+import { Recorder } from '../engine/modules/Recorder';
 import { Scope } from '../engine/modules/Scope';
 import { Sequencer } from '../engine/modules/Sequencer';
 import { FaustDsp, type FaustMeta } from '../engine/faust/FaustDsp';
@@ -62,6 +63,20 @@ function scope(time: number): Scope {
   return s;
 }
 
+/** A recorder that is recording; its audio is handed over every 50 ms as in the engine. */
+function recorder(): Recorder {
+  const r = new Recorder();
+  r.onConnectionsChanged([true, true]);
+  r.setParam('armed', 1);
+  const process = r.process.bind(r);
+  let blocks = 0;
+  r.process = (i, s, o, n) => {
+    process(i, s, o, n);
+    if (++blocks % 19 === 0) r.takeRecorded();
+  };
+  return r;
+}
+
 describe.skipIf(import.meta.env.MODE !== 'bench')('CPU cost per module', () => {
   it('measures each module', () => {
     const transport = new Transport(SR);
@@ -75,6 +90,7 @@ describe.skipIf(import.meta.env.MODE !== 'bench')('CPU cost per module', () => {
       ['Envelope', new Envelope(SR)],
       ['Scope (2 ms)', scope(0.002)],
       ['Scope (1 s)', scope(1)],
+      ['Tape Recorder (recording)', recorder()],
     ];
     const rows = modules.map(([name, dsp]) => {
       const ms = msPerBlock(dsp, dsp instanceof Clock ? transport : undefined);

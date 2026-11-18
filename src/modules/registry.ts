@@ -6,12 +6,13 @@ import { envelope } from './envelope/definition';
 import { mixer } from './mixer/definition';
 import { oscillator } from './oscillator/definition';
 import { output } from './output/definition';
+import { recorder } from './recorder/definition';
 import { reverb } from './reverb/definition';
 import { scope } from './scope/definition';
 import { sequencer } from './sequencer/definition';
 import type { ModuleDefinition } from './types';
 
-export const MODULES: readonly ModuleDefinition[] = [oscillator, clock, sequencer, envelope, mixer, reverb, output, scope];
+export const MODULES: readonly ModuleDefinition[] = [oscillator, clock, sequencer, envelope, mixer, reverb, output, recorder, scope];
 
 const byType = new Map(MODULES.map((d) => [d.type, d]));
 
