@@ -61,7 +61,7 @@ so a desktop build could swap them out.
 |---|---|---|
 | Oscillator (saw) | 9.3 | 0.35 % |
 | Mixer (4 channels) | 3.7 | 0.14 % |
-| Reverb (with input diffusion, 2026-11-17) | 17.5 | 0.66 % |
+| Reverb (input diffusion, equal L/R output, 2026-11-18) | 19.9 | 0.75 % |
 | Output | 0.9 | 0.03 % |
 | Clock | 1.4 | 0.05 % |
 | Sequencer | 0.6 | 0.02 % |
@@ -79,6 +79,10 @@ before that change.
 Later that day its damping range moved from 20 kHz…1.5 kHz to 10 kHz…500 Hz (default 0.5) and
 a 2nd-order 8 kHz high-cut was added before the network, so highs decay like in a real hall
 (4 kHz ≈ 0.55×, 8 kHz ≈ 0.4× the midrange T60) instead of sounding glassy; CPU unchanged.
+On 2026-11-18 a sustained pure tone turned out up to 14 dB quieter on one side (zita-rev1 takes
+left and right from different delay lines). Modulating all lines more evened that out but made
+the volume swing by up to 24 dB, so instead both sides now come from one network output through
+two different allpass chains: always equally loud, steady, still wide. 16.9 → 19.9 µs per block.
 
 The browser figures include the engine's fixed overhead and the meter's coarse timer, so they
 are higher than the Node sums; they confirm that a reverb is cheap enough to use freely.

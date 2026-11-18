@@ -2,7 +2,7 @@
 // feedback delay network with diffusing allpasses and a two-band decay (low / mid), damped
 // towards the highs.
 //
-// Three changes make it smoother and more natural than plain zita-rev1:
+// Four changes make it smoother and more natural than plain zita-rev1:
 // - Input diffusion: four allpasses per side (as in Dattorro's plate and the Lexicon designs)
 //   smear every sound into a dense cloud before it enters the network, so the reverb starts
 //   smooth instead of as a series of separate early echoes.
@@ -14,6 +14,12 @@
 //   range (to 20 kHz) left the highs ringing almost as long as the mids, which sounded glassy on
 //   bright sources such as detuned saws. Damping now spans 10 kHz .. 500 Hz, and a gentle
 //   high-cut (8 kHz) keeps the sharpest fizz out of the reverb (the dry signal stays bright).
+// - Equal left and right: zita-rev1 takes left and right from different delay lines, so a
+//   sustained pure tone lands on different resonances per side and could be up to 14 dB
+//   quieter on one side. Here both sides come from one network output, each through its own
+//   chain of allpasses ("decorrelators"). Allpasses change only timing, never the level at any
+//   frequency, so both sides are always equally loud, while they still sound wide (left/right
+//   correlation 0.04 on noise). A source panned left gets a centred reverb.
 //
 // The network is adapted from `re.zita_rev_fdn` and `re.zita_rev1_stereo` in the Faust reverbs
 // library (Copyright (C) 2003-2017 Julius O. Smith III, STK-4.3 licence, GPL compatible).
@@ -128,7 +134,13 @@ inDelay = de.fdelay(8192, preSamples) * 0.3 : fi.lowpass(2, 8000);
 // than long halls. A fourth root keeps 1..12 s within ~1 dB (the smallest rooms come out about
 // 3 dB louder), equal to zita-rev1's level at 2.5 s.
 wetGain = 0.525 / sqrt(2.5) * pow(2.5 / t60m, 0.25) : smo;
-outmix = !, _, _, !, !, !, !, ! : ro.butterfly(2) : *(wetGain), *(wetGain);
+// One output (the sum of two lines), made into a wide stereo pair by two different allpass
+// chains: the same level on both sides at every frequency, but different timing.
+decorrL = fi.allpass_comb(2048, dsamples(0.0113), 0.6) : fi.allpass_comb(2048, dsamples(0.0173), 0.6)
+        : fi.allpass_comb(4096, dsamples(0.0331), 0.55) : fi.allpass_comb(4096, dsamples(0.0353), 0.5);
+decorrR = fi.allpass_comb(2048, dsamples(0.0137), 0.6) : fi.allpass_comb(2048, dsamples(0.0211), 0.6)
+        : fi.allpass_comb(4096, dsamples(0.0297), 0.55) : fi.allpass_comb(4096, dsamples(0.0389), 0.5);
+outmix = !, _, _, !, !, !, !, ! : + : *(wetGain) <: decorrL, decorrR;
 
 // Input diffusion: four allpasses per side, after Dattorro (input diffusion 0.75 / 0.625).
 // The two sides use different delay times, so left and right stay decorrelated.

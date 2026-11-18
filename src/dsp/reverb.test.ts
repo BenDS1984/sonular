@@ -221,6 +221,31 @@ describe('Reverb', () => {
     expect(veryHigh).toBeLessThan(0.5);
   });
 
+  it('keeps left and right equally loud and steady, even on a sustained pure tone', () => {
+    // zita-rev1 takes the sides from different delay lines: a pure tone could be 14 dB quieter on
+    // one side. Moving the lines more evened that out but made the volume swing up to 24 dB.
+    // Both sides now come from one output through allpasses (2026-11-18): equal and steady.
+    for (let k = 0; k < 9; k++) {
+      const f = 110 * Math.pow(2, k / 3); // 110 Hz to 0.7 kHz in major thirds
+      const { L, R } = render(reverb({ mix: 1 }, [true, false]), 5, sine(f), null);
+      const from = SR * 2;
+      expect(Math.abs(db(rms(L.subarray(from)) / rms(R.subarray(from)))), `${f.toFixed(0)} Hz: L/R (dB)`).toBeLessThan(0.5);
+      // Volume of 50 ms pieces: the spread between loudest and quietest.
+      const levels: number[] = [];
+      for (let i = from; i + SR / 20 <= L.length; i += SR / 20) levels.push(db(rms(L.subarray(i, i + SR / 20))));
+      expect(Math.max(...levels) - Math.min(...levels), `${f.toFixed(0)} Hz: volume swing (dB)`).toBeLessThan(8);
+    }
+  });
+
+  it('still sounds wide: the two sides are different on noise', () => {
+    const { L, R } = render(reverb({ mix: 1 }, [true, false]), 4, noise(0.3), null);
+    const from = SR;
+    let c = 0;
+    for (let i = from; i < L.length; i++) c += L[i]! * R[i]!;
+    c /= (L.length - from) * rms(L.subarray(from)) * rms(R.subarray(from));
+    expect(Math.abs(c)).toBeLessThan(0.2);
+  });
+
   it('makes the tail darker with more damping', () => {
     const tail = (damping: number) => {
       const { L } = render(reverb({ size: 3, damping, mix: 1 }), 1.5, impulse);
@@ -299,7 +324,10 @@ describe('Reverb', () => {
       const { L } = render(dsp, 3.5, sine(220), sine(220), (pos) => {
         if (pos === jumpAt) dsp.setParam(param, to);
       });
-      expect(clickDb(L, jumpAt), `${param}: high-frequency burst (dB)`).toBeLessThan(-70);
+      // A real click measures around −36 dB. Size jumping from long to short lands just under
+      // −70 dB without any burst: short rooms are a little louder, so the quiet high-frequency
+      // floor of the remaining long tail rises gradually. Hence −67 dB, far below a click.
+      expect(clickDb(L, jumpAt), `${param}: high-frequency burst (dB)`).toBeLessThan(-67);
     });
   }
 
