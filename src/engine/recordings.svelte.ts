@@ -1,5 +1,5 @@
 /**
- * Takes recorded by Tape Recorder modules, kept on the main thread until they are saved.
+ * Takes recorded by Recorder modules, kept on the main thread until they are saved.
  *
  * The engine hands the audio over 20 times per second; it is converted straight away to the
  * bytes of a 24-bit WAV file, so saving only has to put a header in front (no big copy) and a

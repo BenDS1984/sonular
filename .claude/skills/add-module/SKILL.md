@@ -64,7 +64,7 @@ CPU cost, how you will test it silently. End with a wrap_up question ("Zal ik ..
   `Infinity` never sleeps), `setParam`, `process`, `reset`; optional `onConnectionsChanged`,
   `meterNames`/`readMeters` (single values, e.g. an LED), `displayLength`/`readDisplay` (arrays,
   e.g. a scope trace), `isObserver` (rendered even when no cable leads to an output),
-  `takeRecorded` (hand audio to the main thread, as the Tape Recorder does).
+  `takeRecorded` (hand audio to the main thread, as the Recorder does).
 - Controls that are not settings (Rec, arm, reset buttons) go through
   `audio.setParam(id, name, value)` from the panel, not through the patch parameters: they must
   not be saved in patch files or end up in undo. Re-send them when the engine (re)starts.

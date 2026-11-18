@@ -90,7 +90,7 @@ describe.skipIf(import.meta.env.MODE !== 'bench')('CPU cost per module', () => {
       ['Envelope', new Envelope(SR)],
       ['Scope (2 ms)', scope(0.002)],
       ['Scope (1 s)', scope(1)],
-      ['Tape Recorder (recording)', recorder()],
+      ['Recorder (recording)', recorder()],
     ];
     const rows = modules.map(([name, dsp]) => {
       const ms = msPerBlock(dsp, dsp instanceof Clock ? transport : undefined);

@@ -1,5 +1,5 @@
 /**
- * Tests for the Tape Recorder: what it records must be exactly what went in. Everything renders
+ * Tests for the Recorder: what it records must be exactly what went in. Everything renders
  * offline; nothing is played.
  */
 import { describe, expect, it } from 'vitest';

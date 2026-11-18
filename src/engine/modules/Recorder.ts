@@ -4,7 +4,7 @@ import type { DspModule, RecordedAudio } from '../core/types';
 const CHUNK_FRAMES = 32768;
 
 /**
- * Tape Recorder: records its stereo input while armed and the patch is playing, and hands the
+ * Recorder: records its stereo input while armed and the patch is playing, and hands the
  * audio over in chunks (the main thread stores it and writes the WAV file). The signal also
  * leaves unchanged through the outputs.
  *

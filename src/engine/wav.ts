@@ -1,5 +1,5 @@
 /**
- * WAV files: 24-bit stereo PCM, the format the Tape Recorder saves. Plain TypeScript (no browser
+ * WAV files: 24-bit stereo PCM, the format the Recorder saves. Plain TypeScript (no browser
  * APIs), so it can be tested in Node.
  */
 

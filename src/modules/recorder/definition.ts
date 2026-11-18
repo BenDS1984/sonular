@@ -4,7 +4,7 @@ import RecorderPanel from './RecorderPanel.svelte';
 export const recorder: ModuleDefinition = {
   type: 'recorder',
   version: 1,
-  title: 'Tape Recorder',
+  title: 'Recorder',
   category: 'Output',
   description:
     'Records its stereo input as a 24-bit WAV file. Press Rec, then Play: recording starts on the first beat. The sound passes through unchanged.',

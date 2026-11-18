@@ -1,5 +1,5 @@
 <!--
-  Tape Recorder panel: a compact tape deck, reels on the left and the counter with level bars on
+  Recorder panel: a compact tape deck, reels on the left and the counter with level bars on
   the right. The reels turn while recording; the left reel slowly empties and the right one fills
   as the take grows.
 -->
