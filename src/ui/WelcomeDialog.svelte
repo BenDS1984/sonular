@@ -73,6 +73,10 @@
       <strong>Saving your sound:</strong> add a <strong>Recorder</strong> module, press Rec and
       then Play, and save the take as a WAV file.
     </p>
+    <p class="note">
+      <strong>Bluetooth:</strong> live sound in the browser can crackle or click on some Bluetooth
+      headphones and speakers. If you hear that, use wired headphones or your computer's speakers.
+    </p>
     <p class="small">
       Sonular is free and open source (GPL-3.0).
       <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Source on GitHub</a>
@@ -107,7 +111,7 @@
     top: 50%;
     transform: translate(-50%, -50%);
     z-index: 290001;
-    width: min(520px, calc(100vw - 32px));
+    width: min(580px, calc(100vw - 32px));
     max-height: calc(100vh - 32px);
     overflow-y: auto;
     padding: var(--space-6) var(--space-6) var(--space-5);
@@ -176,8 +180,8 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-3);
-    margin-top: var(--space-5);
-    padding-top: var(--space-5);
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
     border-top: 1px solid var(--border-subtle);
   }
   .brand img {
