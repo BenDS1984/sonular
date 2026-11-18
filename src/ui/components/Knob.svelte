@@ -3,7 +3,8 @@
 
   Interaction:
   - drag up/down to change (hold Shift for fine control)
-  - mouse wheel (Shift = fine)
+  The mouse wheel does not turn knobs: it pans the canvas, so scrolling over a module never
+  changes a setting by accident.
   - double-click resets to the default value
   - keyboard when focused: arrows, PageUp/PageDown, Home/End (Shift = fine)
 -->
@@ -135,12 +136,6 @@
     dragging = false;
   }
 
-  function onwheel(e: WheelEvent) {
-    if (disabled) return;
-    e.preventDefault();
-    nudge(e.deltaY < 0 ? 1 : -1, e.shiftKey ? 0.002 : 0.02);
-  }
-
   function onkeydown(e: KeyboardEvent) {
     if (disabled) return;
     const fine = e.shiftKey ? 0.1 : 1;
@@ -193,7 +188,6 @@
     onpointercancel={endDrag}
     onlostpointercapture={endDrag}
     ondblclick={() => !disabled && commit(resetValue)}
-    {onwheel}
     {onkeydown}
   >
     <svg viewBox="0 0 100 100" aria-hidden="true">

@@ -124,9 +124,10 @@
   }
 
   function onwheel(e: WheelEvent) {
-    // Knobs handle their own wheel; the browser popup scrolls its list.
+    // The module browser popup scrolls its own list; everywhere else (knobs too) the wheel
+    // pans or zooms the canvas.
     const t = e.target as HTMLElement;
-    if (t.closest('[role="slider"], .browser')) return;
+    if (t.closest('.browser')) return;
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
       const p = local(e);

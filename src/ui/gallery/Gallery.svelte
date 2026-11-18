@@ -68,8 +68,8 @@
   <header class="intro">
     <h1>Component gallery</h1>
     <p>
-      Sonular's visual building blocks. Drag knobs up and down (Shift for fine control), scroll over
-      them, or double-click to reset. Meters run on a fake signal — nothing here makes sound yet.
+      Sonular's visual building blocks. Drag knobs up and down (Shift for fine control), or
+      double-click to reset. Meters run on a fake signal — nothing here makes sound yet.
     </p>
     <a href="#/">← Back to Sonular</a>
   </header>
