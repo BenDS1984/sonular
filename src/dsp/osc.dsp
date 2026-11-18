@@ -15,10 +15,17 @@ import("stdfaust.lib");
 
 C4 = 261.6255653;
 
+// Knob smoothing (~20 ms, so turning a knob never clicks) that starts at the knob's value: the
+// engine clears every module when Play is pressed, and a plain smoother would then fade in from
+// zero, swallowing the start of the first note. `first` is 1 only on the first sample after
+// that, which makes the smoother jump straight to its target.
+first = 1 - 1';
+smo = si.polySmooth(first, 1 - 44.1 / ma.SR, 1);
+
 wave  = hslider("wave", 2, 0, 3, 1);
-tune  = hslider("tune", 0, -24, 24, 1) : si.smoo;
-fine  = hslider("fine", 0, -100, 100, 0.01) : si.smoo;
-level = hslider("level", 0.7, 0, 1, 0.0001) : si.smoo;
+tune  = hslider("tune", 0, -24, 24, 1) : smo;
+fine  = hslider("fine", 0, -100, 100, 0.01) : smo;
+level = hslider("level", 0.7, 0, 1, 0.0001) : smo;
 
 // Frequency from the pitch input plus tuning, kept below Nyquist.
 // Kept below a quarter of the sample rate so the 4-point corrections of the square's two edges
@@ -57,6 +64,6 @@ with {
 };
 
 // Crossfade weights, so changing waveform never clicks.
-weight(i) = (int(wave + 0.5) == i) : si.smooth(ba.tau2pole(0.005));
+weight(i) = (int(wave + 0.5) == i) : si.polySmooth(first, ba.tau2pole(0.005), 1);
 
 process(pitch) = shapes(freq(pitch)) : (*(weight(0)), *(weight(1)), *(weight(2)), *(weight(3))) :> *(level);

@@ -265,4 +265,42 @@ describe('Output and a full patch', () => {
     expect(rms(R.subarray(SR / 2))).toBeCloseTo(expected, 3);
     expect(engine.meterLayout.map((e) => e.node)).toEqual(['mixer1', 'output1']);
   });
+
+  it('plays at full level from the very start after Play, not fading in', () => {
+    // Play clears every module. Knob smoothers used to restart from zero then and fade in over
+    // ~60 ms per module, so the start of the first note was missing (2026-11-18).
+    const progs = { osc: program('osc'), mixer: program('mixer'), output: program('output') };
+    const engine = new Engine(SR, {
+      'faust:osc': (sr) => new FaustDsp(progs.osc.module, progs.osc.meta, sr),
+      'faust:mixer': (sr) => new FaustDsp(progs.mixer.module, progs.mixer.meta, sr),
+      'faust:output': (sr) => new FaustSink(new FaustDsp(progs.output.module, progs.output.meta, sr)),
+    });
+    engine.setPatch({
+      nodes: [
+        { id: 'osc1', kind: 'faust:osc', params: { wave: WAVES.square, level: 0.7, tune: 7 } },
+        { id: 'mixer1', kind: 'faust:mixer', params: { pan1: -1 } },
+        { id: 'output1', kind: 'faust:output', params: { volume: 0.5 } },
+      ],
+      connections: [
+        { from: { node: 'osc1', port: 0 }, to: { node: 'mixer1', port: 0 } },
+        { from: { node: 'mixer1', port: 0 }, to: { node: 'output1', port: 0 } },
+        { from: { node: 'mixer1', port: 1 }, to: { node: 'output1', port: 1 } },
+      ],
+    });
+    const run = (frames: number) => {
+      const L = new Float32Array(frames);
+      const R = new Float32Array(frames);
+      engine.render(L, R, frames);
+      return { L, R };
+    };
+    run(SR); // playing for a while
+    engine.restart(); // Play
+    const { L, R } = run(SR / 2);
+    const ms = (a: number, b: number, x: Float32Array) => rms(x.subarray((a * SR) / 1000, (b * SR) / 1000));
+    // Full level within the first 5 ms, the same as later on, and still panned hard left.
+    expect(ms(0, 5, L) / ms(200, 400, L)).toBeGreaterThan(0.95);
+    expect(ms(0, 5, R)).toBeLessThan(0.01 * ms(200, 400, L));
+    // Already at the tuned pitch (G4, +7 semitones), not gliding up from C4.
+    expect(estimateFrequency(L.subarray(0, SR / 10))).toBeCloseTo(261.6256 * 2 ** (7 / 12), 0);
+  });
 });
