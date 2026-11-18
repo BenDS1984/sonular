@@ -31,6 +31,22 @@ function context(latencyHint: AudioContextLatencyCategory | number): AudioContex
   return new AudioContext({ latencyHint });
 }
 
+/**
+ * Play a node through an <audio> element instead of straight to the sound card: the browser's
+ * media path (as YouTube uses), which buffers more and may survive Bluetooth hiccups.
+ */
+async function viaMediaElement(ctx: AudioContext, source: AudioNode): Promise<() => void> {
+  const dest = new MediaStreamAudioDestinationNode(ctx);
+  source.connect(dest);
+  const audio = new Audio();
+  audio.srcObject = dest.stream;
+  await audio.play();
+  return () => {
+    audio.pause();
+    audio.srcObject = null;
+  };
+}
+
 const VARIANTS: Variant[] = [
   {
     id: 'native',
@@ -112,6 +128,54 @@ const VARIANTS: Variant[] = [
       engine.setPatch(patch);
       engine.setRunning(true);
       return { ctx: engine.context!, stop: () => engine.close() };
+    },
+  },
+  {
+    id: 'native-media',
+    title: '6. Browser oscillator via the media player',
+    detail: 'Same tone as 1, but played through an audio element (the path YouTube uses) instead of straight to the sound card.',
+    async start(hint) {
+      const ctx = context(hint);
+      const osc = new OscillatorNode(ctx, { frequency: 440 });
+      const gain = new GainNode(ctx, { gain: GAIN });
+      osc.connect(gain);
+      osc.start();
+      await ctx.resume();
+      const stopMedia = await viaMediaElement(ctx, gain);
+      return {
+        ctx,
+        stop: () => {
+          stopMedia();
+          void ctx.close();
+        },
+      };
+    },
+  },
+  {
+    id: 'engine-media',
+    title: '7. Full Sonular engine via the media player',
+    detail: 'Same as 5, but played through an audio element instead of straight to the sound card.',
+    async start(_hint, buffer) {
+      const engine = new AudioEngine({}, buffer);
+      await engine.start();
+      const out = engine.output!;
+      out.disconnect();
+      const stopMedia = await viaMediaElement(engine.context!, out);
+      engine.setPatch({
+        nodes: [
+          { id: 'tone', kind: 'faust:testtone', params: { freq: 440, gain: GAIN } },
+          { id: 'master', kind: 'master' },
+        ],
+        connections: [{ from: { node: 'tone', port: 0 }, to: { node: 'master', port: 0 } }],
+      });
+      engine.setRunning(true);
+      return {
+        ctx: engine.context!,
+        stop: () => {
+          stopMedia();
+          engine.close();
+        },
+      };
     },
   },
 ];

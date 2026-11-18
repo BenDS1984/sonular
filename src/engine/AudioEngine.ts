@@ -51,6 +51,11 @@ export class AudioEngine {
     return this.ctx;
   }
 
+  /** The engine's output node, for diagnostics only (e.g. to route it elsewhere). */
+  get output(): AudioNode | null {
+    return this.node;
+  }
+
   get sampleRate(): number | null {
     return this.ctx?.sampleRate ?? null;
   }
