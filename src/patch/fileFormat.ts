@@ -83,6 +83,7 @@ export function serializeProject(project: Project, now = new Date()): string {
     project: {
       name: project.name,
       tempo: project.tempo,
+      masterLevel: project.masterLevel,
       activePatch: project.activePatch,
       patches: project.patches.map((p) => ({
         id: p.id,
@@ -166,7 +167,11 @@ export function validateProject(raw: unknown, getDef: DefinitionLookup, fallback
   // Files from before the tempo existed play at the default tempo.
   const tempo = isFiniteNumber(src['tempo']) ? clampTempo(src['tempo']) : DEFAULT_TEMPO;
 
-  return { project: { name: asString(src['name'], fallbackName), tempo, patches, activePatch }, warnings };
+  // Files from before the master channel existed play at 0 dB, as they did then.
+  const ml = src['masterLevel'];
+  const masterLevel = isFiniteNumber(ml) ? Math.min(2, Math.max(0, ml)) : 1;
+
+  return { project: { name: asString(src['name'], fallbackName), tempo, masterLevel, patches, activePatch }, warnings };
 }
 
 /** Repair the modules, cables and view of one patch. */

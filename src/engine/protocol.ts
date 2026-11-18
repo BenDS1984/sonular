@@ -11,10 +11,14 @@ export interface FaustProgram {
 }
 
 export type ToEngine =
-  | { type: 'init'; faust: FaustProgram[]; tempo: number }
+  | { type: 'init'; faust: FaustProgram[]; tempo: number; masterLevel: number }
   | { type: 'patch'; patch: EnginePatch }
   | { type: 'param'; node: string; name: string; value: number }
   | { type: 'tempo'; bpm: number }
+  /** A mixer channel is heard or not (mute/solo). */
+  | { type: 'sinkActive'; node: string; active: boolean }
+  /** Master level, linear gain. */
+  | { type: 'master'; level: number }
   | { type: 'run'; running: boolean };
 
 export interface EngineStats {

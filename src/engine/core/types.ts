@@ -53,6 +53,11 @@ export interface DspModule {
    * leads from them to an output, and so are the modules feeding them.
    */
   readonly isObserver?: boolean;
+  /**
+   * Set for modules that count time (clock, sequencer). They keep running while the sink they
+   * feed is silent, so a muted patch is still in step with the others when it comes back.
+   */
+  readonly keepsTime?: boolean;
   /** Number of display values (e.g. a scope trace) this module exposes, if any. */
   readonly displayLength?: number;
   /** Write the current display values into `out`, starting at `offset`. No allocation. */
@@ -91,6 +96,11 @@ export interface PatchNode {
   id: string;
   kind: string;
   params?: Record<string, number>;
+  /**
+   * Sinks only: whether it is heard (default true). A silent sink fades out and then everything
+   * that only feeds it stops rendering (a muted or un-soloed mixer channel).
+   */
+  active?: boolean;
 }
 
 export interface PatchEndpoint {

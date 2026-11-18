@@ -37,6 +37,8 @@ export class AudioEngine {
 
   /** Current tempo in BPM; kept here so a freshly started engine gets it too. */
   private tempo = DEFAULT_TEMPO;
+  /** Master level (linear); kept here for the same reason. */
+  private masterLevel = 1;
 
   /** Requested buffer size (preset name or milliseconds). */
   readonly buffer: BufferSize;
@@ -118,7 +120,7 @@ export class AudioEngine {
     });
     node.onprocessorerror = () => this.events.onStatus?.('error', 'The audio engine crashed.');
 
-    this.send({ type: 'init', faust: programs, tempo: this.tempo });
+    this.send({ type: 'init', faust: programs, tempo: this.tempo, masterLevel: this.masterLevel });
     await ready;
     node.connect(ctx.destination);
     if (ctx.state !== 'running') await ctx.resume();
@@ -154,6 +156,16 @@ export class AudioEngine {
   setTempo(bpm: number): void {
     this.tempo = bpm;
     this.send({ type: 'tempo', bpm });
+  }
+
+  /** Switch a mixer channel (sink) on or off: it fades, then stops using CPU. */
+  setSinkActive(node: string, active: boolean): void {
+    this.send({ type: 'sinkActive', node, active });
+  }
+
+  setMasterLevel(level: number): void {
+    this.masterLevel = level;
+    this.send({ type: 'master', level });
   }
 
   /** Start or stop rendering (with a short fade to avoid clicks). */

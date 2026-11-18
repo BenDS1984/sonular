@@ -73,6 +73,7 @@ export function replaceProject(next: Project) {
   canvasState.selection = null;
   project.name = next.name;
   project.tempo = next.tempo;
+  project.masterLevel = next.masterLevel;
   project.patches = next.patches;
   project.activePatch = next.activePatch;
 }

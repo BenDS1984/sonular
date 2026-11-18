@@ -66,7 +66,7 @@ export function ensureChannels(project: Project, getDef: DefinitionLookup): stri
 
 /** A project with one empty patch. */
 export function emptyProject(name: string, tempo: number): Project {
-  return { name, tempo, patches: [emptyPatch('p1', 'Patch 1')], activePatch: 'p1' };
+  return { name, tempo, masterLevel: 1, patches: [emptyPatch('p1', 'Patch 1')], activePatch: 'p1' };
 }
 
 /** Short readable ids: osc1, osc2, mixer1, ... (never reused within a patch). */

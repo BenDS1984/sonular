@@ -251,3 +251,114 @@ describe('Engine', () => {
     expect(() => setup({ nodes: [{ id: 'q', kind: 'nope' }], connections: [] })).toThrow(/Unknown module kind/);
   });
 });
+
+describe('Engine: mixer channels (sinks switched on and off) and master level', () => {
+  /** Keeps time like a clock: counts blocks, never sleeps. */
+  class Ticker implements DspModule {
+    readonly numInputs = 0;
+    readonly numOutputs = 1;
+    readonly tailSeconds = Infinity;
+    readonly keepsTime = true;
+    calls = 0;
+    setParam() {}
+    process(_i: readonly Float32Array[], _s: readonly boolean[], out: readonly Float32Array[], n: number) {
+      this.calls++;
+      out[0]!.fill(0, 0, n);
+    }
+    reset() {}
+  }
+  /** Constant source that counts resets. */
+  class Src extends Const {
+    resets = 0;
+    override reset() {
+      this.resets++;
+    }
+  }
+
+  function build(activeB = true) {
+    const made = new Map<string, DspModule>();
+    const engine = new Engine(SR, {
+      src: () => new Src(),
+      ticker: () => new Ticker(),
+      master: () => new Master(),
+    });
+    engine.setPatch({
+      nodes: [
+        { id: 'p1/src', kind: 'src', params: { value: 0.25 } },
+        { id: 'p1/out', kind: 'master' },
+        { id: 'p2/src', kind: 'src', params: { value: 0.5 } },
+        { id: 'p2/tick', kind: 'ticker' },
+        { id: 'p2/out', kind: 'master', active: activeB },
+      ],
+      connections: [wire('p1/src', 'p1/out'), wire('p2/src', 'p2/out'), wire('p2/tick', 'p2/out', 1)],
+    });
+    const nodes = (engine as unknown as { nodes: Map<string, { module: DspModule }> }).nodes;
+    for (const [id, node] of nodes) made.set(id, node.module);
+    const blocks = (count: number) => {
+      const L = new Float32Array(BLOCK_SIZE * count);
+      const R = new Float32Array(BLOCK_SIZE * count);
+      engine.render(L, R, L.length);
+      return { L, R };
+    };
+    return { engine, made, blocks };
+  }
+
+  const maxStep = (x: Float32Array) => {
+    let m = 0;
+    for (let i = 1; i < x.length; i++) m = Math.max(m, Math.abs(x[i]! - x[i - 1]!));
+    return m;
+  };
+
+  it('plays every channel together on the master bus', () => {
+    const { blocks } = build();
+    expect(blocks(1).L[5]).toBeCloseTo(0.75);
+  });
+
+  it('fades a switched-off channel out in about 20 ms, then stops rendering what only feeds it', () => {
+    const { engine, made, blocks } = build();
+    blocks(4);
+    engine.setSinkActive('p2/out', false);
+    const { L } = blocks(16); // 43 ms
+    // A ramp, not a jump: no step larger than a 20 ms fade of 0.5 produces.
+    expect(maxStep(L)).toBeLessThan((0.5 / (0.02 * SR)) * 1.01);
+    expect(L[Math.round(0.021 * SR)]).toBeCloseTo(0.25, 5);
+    const src = made.get('p2/src') as Src;
+    const tick = made.get('p2/tick') as Ticker;
+    const [srcCalls, tickCalls] = [src.calls, tick.calls];
+    blocks(10);
+    expect(src.calls).toBe(srcCalls); // asleep: no CPU
+    expect(tick.calls).toBe(tickCalls + 10); // keeps time
+  });
+
+  it('fades a channel back in from a clean state', () => {
+    const { engine, made, blocks } = build();
+    blocks(2);
+    engine.setSinkActive('p2/out', false);
+    blocks(16);
+    const src = made.get('p2/src') as Src;
+    const resets = src.resets;
+    engine.setSinkActive('p2/out', true);
+    const { L } = blocks(16);
+    expect(src.resets).toBe(resets + 1);
+    expect(maxStep(L)).toBeLessThan((0.5 / (0.02 * SR)) * 1.01);
+    expect(L[L.length - 1]).toBeCloseTo(0.75, 5);
+  });
+
+  it('never renders a channel that starts switched off', () => {
+    const { made, blocks } = build(false);
+    const { L } = blocks(4);
+    expect(L[0]).toBeCloseTo(0.25);
+    expect((made.get('p2/src') as Src).calls).toBe(0);
+  });
+
+  it('applies the master level with a fade', () => {
+    const { engine, blocks } = build();
+    blocks(2);
+    engine.setMasterLevel(0.5);
+    const { L } = blocks(16);
+    expect(maxStep(L)).toBeLessThan(0.001);
+    expect(L[L.length - 1]).toBeCloseTo(0.375, 5);
+    engine.restart();
+    expect(blocks(1).L[0]).toBeCloseTo(0.375, 5); // after Play: straight at the level
+  });
+});

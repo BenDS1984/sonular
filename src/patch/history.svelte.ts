@@ -20,6 +20,7 @@ type PatchContent = Omit<Patch, 'view'>;
 interface Content {
   name: string;
   tempo: number;
+  masterLevel: number;
   patches: PatchContent[];
 }
 
@@ -27,6 +28,7 @@ const snapshot = (): string =>
   JSON.stringify({
     name: project.name,
     tempo: project.tempo,
+    masterLevel: project.masterLevel,
     patches: project.patches.map((p) => ({ id: p.id, name: p.name, color: p.color, modules: p.modules, cables: p.cables })),
   });
 
@@ -60,6 +62,7 @@ function restore(state: string) {
   const content = JSON.parse(state) as Content;
   project.name = content.name;
   project.tempo = content.tempo;
+  project.masterLevel = content.masterLevel ?? 1;
   // Views are not part of the history: patches that still exist keep where they were scrolled to.
   const views = new Map(project.patches.map((p) => [p.id, p.view]));
   project.patches = content.patches.map((p) => ({ ...p, view: views.get(p.id) ?? { x: 0, y: 0, zoom: 1 } }));

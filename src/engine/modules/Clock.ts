@@ -32,6 +32,7 @@ export class Clock implements DspModule {
   readonly numInputs = 0;
   readonly numOutputs = CLOCK_OUTPUTS;
   readonly tailSeconds = Infinity;
+  readonly keepsTime = true;
   readonly meterNames = ['tick1', 'tick2', 'tick3', 'tick4'] as const;
 
   private readonly transport: Transport;

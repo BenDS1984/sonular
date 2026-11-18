@@ -4,7 +4,7 @@
   as the take grows.
 -->
 <script lang="ts">
-  import { engineState, meterValue } from '../../engine/engine.svelte';
+  import { engineState, meterValue, nodeId } from '../../engine/engine.svelte';
   import {
     MAX_RECORDING_SECONDS,
     clearRecording,
@@ -19,10 +19,12 @@
 
   let { module }: ModulePanelProps = $props();
 
+  // Recordings belong to the engine node (patch + module), not just the module id.
+  const id = $derived(nodeId(module.id));
   // Make sure this recorder has a state entry before the markup reads it.
   // svelte-ignore state_referenced_locally
-  recorderState(module.id);
-  const st = $derived(recorders[module.id] ?? { armed: false, frames: 0, sampleRate: 48000, saved: true, full: false });
+  recorderState(nodeId(module.id));
+  const st = $derived(recorders[id] ?? { armed: false, frames: 0, sampleRate: 48000, saved: true, full: false });
 
   const recording = $derived(st.armed && engineState.playing);
   const seconds = $derived(st.frames / st.sampleRate);
@@ -98,11 +100,11 @@
   const levels = $derived([meterValue(module.id, 'peakL'), meterValue(module.id, 'peakR')]);
 
   function toggleRec() {
-    setArmed(module.id, !st.armed);
+    setArmed(id, !st.armed);
   }
 
   function save() {
-    const name = saveRecording(module.id, project.name);
+    const name = saveRecording(id, project.name);
     if (name) showToast(`Saved “${name}” to your downloads`);
   }
 </script>
@@ -171,7 +173,7 @@
       type="button"
       class="btn"
       disabled={st.frames === 0 || recording}
-      onclick={() => clearRecording(module.id)}
+      onclick={() => clearRecording(id)}
       title="Delete the take"
     >
       Clear

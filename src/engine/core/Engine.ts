@@ -25,6 +25,9 @@ const SILENCE_THRESHOLD = 1e-7;
 /** Hard ceiling on the master bus; the browser would clip at ±1 anyway. */
 const MASTER_CEILING = 1;
 
+/** Fade time for sinks going silent or coming back, and for master level changes. */
+const FADE_SECONDS = 0.02;
+
 interface Source {
   node: Node;
   port: number;
@@ -53,6 +56,13 @@ interface Node {
   isSink: boolean;
   /** Whether the module has processed at least one block (meters are meaningless before). */
   rendered: boolean;
+  /** In the current processing order (reaches a sink that is heard, an observer or keeps time). */
+  inOrder: boolean;
+  /** Sinks: current and target level on the master bus (0 or 1), faded per sample. */
+  sinkGain: number;
+  sinkTarget: number;
+  /** Sinks: faded out completely, so it and whatever only feeds it are not rendered. */
+  dormant: boolean;
 }
 
 function isBufferSilent(buf: Float32Array, frames: number): boolean {
@@ -68,6 +78,8 @@ function isBufferSilent(buf: Float32Array, frames: number): boolean {
  *
  * CPU-saving rules:
  * - only nodes that (through cables) reach a sink are processed;
+ * - a sink that is switched off (a muted mixer channel) fades out and then stops rendering,
+ *   together with everything that only feeds it; modules that keep time keep running;
  * - a node whose inputs have been silent for longer than its tail is put to sleep;
  * - unconnected inputs share one silent buffer, single cables are passed without copying,
  *   and silent sources are left out of sums.
@@ -95,6 +107,12 @@ export class Engine {
 
   private readonly masterL = new Float32Array(BLOCK_SIZE);
   private readonly masterR = new Float32Array(BLOCK_SIZE);
+  /** Master level (linear), faded per sample towards its target. */
+  private masterGain = 1;
+  private masterTarget = 1;
+  private readonly fadeStep: number;
+  /** A sink went dormant or woke up: rebuild the processing order before the next block. */
+  private orderDirty = false;
 
   /** Peak magnitude of the master bus since the last `takeMeters()`. */
   private peakL = 0;
@@ -109,6 +127,7 @@ export class Engine {
     this.sampleRate = sampleRate;
     this.transport = new Transport(sampleRate);
     this.factories = factories;
+    this.fadeStep = 1 / (FADE_SECONDS * sampleRate);
   }
 
   // ---------- Patch management ----------
@@ -125,6 +144,13 @@ export class Engine {
         const factory = this.factories[desc.kind];
         if (!factory) throw new Error(`Unknown module kind "${desc.kind}"`);
         node = this.createNode(desc.id, desc.kind, factory(this.sampleRate, this.transport));
+        // A new sink starts at its state without fading.
+        if (node.isSink && desc.active === false) {
+          node.sinkGain = node.sinkTarget = 0;
+          node.dormant = true;
+        }
+      } else if (node.isSink && desc.active !== undefined) {
+        this.applySinkActive(node, desc.active);
       }
       if (desc.params) {
         for (const [name, value] of Object.entries(desc.params)) node.module.setParam(name, value);
@@ -195,7 +221,7 @@ export class Engine {
       const node = this.displayNodes[i]!;
       const count = node.module.displayLength!;
       if (offset + count > out.length) return;
-      if (!node.rendered) out.fill(0, offset, offset + count);
+      if (!node.rendered || !node.inOrder) out.fill(0, offset, offset + count);
       else node.module.readDisplay!(out, offset);
       offset += count;
     }
@@ -218,7 +244,7 @@ export class Engine {
       const node = this.meterNodes[i]!;
       const count = node.module.meterNames!.length;
       if (offset + count > out.length) return;
-      if (node.asleep || !node.rendered) out.fill(0, offset, offset + count);
+      if (node.asleep || !node.rendered || !node.inOrder) out.fill(0, offset, offset + count);
       else node.module.readMeters!(out, offset);
       offset += count;
     }
@@ -226,6 +252,26 @@ export class Engine {
 
   setParam(nodeId: string, name: string, value: number): void {
     this.nodes.get(nodeId)?.module.setParam(name, value);
+  }
+
+  /** Switch a sink on or off (mute/solo of a mixer channel), with a short fade. */
+  setSinkActive(nodeId: string, active: boolean): void {
+    const node = this.nodes.get(nodeId);
+    if (node?.isSink) this.applySinkActive(node, active);
+  }
+
+  private applySinkActive(node: Node, active: boolean): void {
+    node.sinkTarget = active ? 1 : 0;
+    if (active && node.dormant) {
+      node.dormant = false;
+      node.sinkGain = 0; // fade in from silence
+      this.orderDirty = true;
+    }
+  }
+
+  /** Master level (linear gain, 1 = 0 dB), faded to avoid clicks. */
+  setMasterLevel(gain: number): void {
+    if (Number.isFinite(gain)) this.masterTarget = Math.max(0, gain);
   }
 
   /** Clear the state of every module (e.g. on stop, or after a fault). */
@@ -236,7 +282,9 @@ export class Engine {
       node.outputSilent.fill(true);
       node.silentInputBlocks = 0;
       node.asleep = false;
+      node.sinkGain = node.sinkTarget;
     }
+    this.masterGain = this.masterTarget;
   }
 
   /**
@@ -276,12 +324,18 @@ export class Engine {
       asleep: false,
       isSink: isSink(module),
       rendered: false,
+      inOrder: false,
+      sinkGain: 1,
+      sinkTarget: 1,
+      dormant: false,
     };
   }
 
   /**
-   * Depth-first walk from every sink (and every observer, such as a scope) back through its
-   * sources; post-order = processing order.
+   * Depth-first walk from every sink that is heard (and every observer, such as a scope, and
+   * every module that keeps time) back through its sources; post-order = processing order.
+   * Nodes that join the order start from a clean state, so a channel that comes back does not
+   * replay an old reverb tail.
    */
   private rebuildOrder(): void {
     const order: Node[] = [];
@@ -297,24 +351,33 @@ export class Engine {
       order.push(node);
     };
 
+    this.orderDirty = false;
     this.sinks = [];
     for (const node of this.nodes.values()) {
-      if (isSink(node.module)) {
+      if (isSink(node.module) && !node.dormant) {
         this.sinks.push({ node, module: node.module });
         visit(node);
       }
     }
     for (const node of this.nodes.values()) {
-      if (node.module.isObserver) visit(node);
+      if (node.module.isObserver || node.module.keepsTime) visit(node);
     }
 
-    // Nodes that no longer reach a sink stop rendering: silence their outputs once so that
-    // feedback cables reading from them get zeros.
     for (const node of this.nodes.values()) {
-      if (!done.has(node)) {
+      const included = done.has(node);
+      if (included && !node.inOrder && node.rendered) {
+        // Back after a pause: start clean.
+        node.module.reset();
+        node.silentInputBlocks = 0;
+        node.asleep = false;
+      }
+      if (!included && node.inOrder) {
+        // Nodes that no longer reach a sink stop rendering: silence their outputs once so that
+        // feedback cables reading from them get zeros.
         for (const out of node.outputs) out.fill(0);
         node.outputSilent.fill(true);
       }
+      node.inOrder = included;
     }
     this.order = order;
   }
@@ -328,6 +391,7 @@ export class Engine {
     const n = Math.min(frames, BLOCK_SIZE);
     let processed = 0;
     let sleeping = 0;
+    if (this.orderDirty) this.rebuildOrder();
     this.transport.beginBlock();
 
     // Hot path: indexed loops only. for-of creates iterator objects, and any garbage on the
@@ -392,18 +456,55 @@ export class Engine {
       processed++;
     }
 
-    // Master bus: sum all sinks.
+    // Master bus: sum all sinks, fading those that are switched on or off.
     const L = this.masterL;
     const R = this.masterR;
     L.fill(0, 0, n);
     R.fill(0, 0, n);
+    const step = this.fadeStep;
     for (let k = 0; k < this.sinks.length; k++) {
-      const module = this.sinks[k]!.module;
-      const sl = module.outL;
-      const sr = module.outR;
+      const sink = this.sinks[k]!;
+      const sl = sink.module.outL;
+      const sr = sink.module.outR;
+      const node = sink.node;
+      let g = node.sinkGain;
+      const target = node.sinkTarget;
+      if (g === target) {
+        if (g === 0) {
+          // Faded out: stop rendering it (and what only feeds it) from the next block.
+          node.dormant = true;
+          this.orderDirty = true;
+          continue;
+        }
+        for (let i = 0; i < n; i++) {
+          L[i]! += sl[i]!;
+          R[i]! += sr[i]!;
+        }
+      } else {
+        for (let i = 0; i < n; i++) {
+          g = g < target ? Math.min(target, g + step) : Math.max(target, g - step);
+          L[i]! += sl[i]! * g;
+          R[i]! += sr[i]! * g;
+        }
+        node.sinkGain = g;
+      }
+    }
+
+    // Master level.
+    let mg = this.masterGain;
+    const mt = this.masterTarget;
+    if (mg !== mt) {
+      const mstep = Math.max(step, Math.abs(mt - mg) * step);
       for (let i = 0; i < n; i++) {
-        L[i]! += sl[i]!;
-        R[i]! += sr[i]!;
+        mg = mg < mt ? Math.min(mt, mg + mstep) : Math.max(mt, mg - mstep);
+        L[i]! *= mg;
+        R[i]! *= mg;
+      }
+      this.masterGain = mg;
+    } else if (mg !== 1) {
+      for (let i = 0; i < n; i++) {
+        L[i]! *= mg;
+        R[i]! *= mg;
       }
     }
 

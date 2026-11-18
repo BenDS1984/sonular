@@ -7,8 +7,9 @@ import { pruneRecorders, receiveRecording, resendArmed, transportStopped } from 
 import { AudioEngine, DEFAULT_BUFFER, type BufferSize, type EngineStatus } from './AudioEngine';
 import type { DisplayLayoutEntry, MeterLayoutEntry } from './core/types';
 import { getDefinition } from '../modules/registry';
+import { CHANNEL_TYPE } from '../patch/operations';
 import { patch, project } from '../patch/patch.svelte';
-import { structureKey, toEnginePatch } from './toEnginePatch';
+import { audiblePatches, nodeIdOf, structureKey, toEnginePatch } from './toEnginePatch';
 
 export const engineState = $state({
   status: 'off' as EngineStatus,
@@ -99,15 +100,25 @@ export const audio = new AudioEngine(
   bufferFromUrl(),
 );
 
-/** Meter value of a module, or 0 while stopped. Reactive. */
+/** Engine node id of a module in the patch shown in the workspace. Reactive. */
+export function nodeId(moduleId: string): string {
+  return nodeIdOf(project.activePatch, moduleId);
+}
+
+/** Meter value of a module in a given patch, or 0 while stopped. Reactive. */
+export function meterValueIn(patchId: string, moduleId: string, name: string): number {
+  return engineState.playing ? (engineState.meters[nodeIdOf(patchId, moduleId)]?.[name] ?? 0) : 0;
+}
+
+/** Meter value of a module in the patch shown in the workspace, or 0 while stopped. Reactive. */
 export function meterValue(moduleId: string, name: string): number {
-  return engineState.playing ? (engineState.meters[moduleId]?.[name] ?? 0) : 0;
+  return meterValueIn(project.activePatch, moduleId, name);
 }
 
 /** Display values of a module (e.g. a scope trace), or null while stopped. Reactive. */
 export function displayValues(moduleId: string): Float32Array | null {
   void engineState.statsTick;
-  return engineState.playing ? (displays[moduleId] ?? null) : null;
+  return engineState.playing ? (displays[nodeId(moduleId)] ?? null) : null;
 }
 
 // Development aid: inspect the engine from the browser console as `__sonular`.
@@ -117,42 +128,73 @@ if (import.meta.env.DEV) {
 
 // ---------- Live patch sync ----------
 
-/** Parameter values last sent to the engine, per module. */
+/** Parameter values last sent to the engine, per node. */
 let sentParams: Record<string, Record<string, number>> = {};
+/** Whether each Channel node was last told it is heard. */
+let sentActive: Record<string, boolean> = {};
 
 /**
- * Keep the engine in step with the patch while it runs (for now the patch shown in the workspace;
- * playing all patches of the project together comes with the mixer):
- * - modules or cables change -> send the whole graph (existing modules keep their state);
- * - a parameter changes -> send just that value.
+ * Keep the engine in step with the project while it runs. Every patch plays, each into its
+ * Channel on the master bus:
+ * - modules or cables change (in any patch) -> send the whole graph (existing modules keep
+ *   their state);
+ * - a parameter changes -> send just that value;
+ * - mute/solo change which patches are heard -> switch their Channels on or off (they fade, and
+ *   a silent patch stops using CPU apart from its clock and sequencer);
+ * - the master level changes -> send it.
  */
 export function startPatchSync(): () => void {
   return $effect.root(() => {
     $effect(() => {
       if (engineState.status !== 'ready') return;
-      void structureKey(patch); // dependency on modules and cables only
+      void structureKey(project); // dependency on modules and cables only
       untrack(() => {
-        audio.setPatch(toEnginePatch(patch, getDefinition));
-        sentParams = Object.fromEntries(patch.modules.map((m) => [m.id, { ...m.params }]));
-        pruneRecorders(new Set(patch.modules.map((m) => m.id)));
+        const graph = toEnginePatch(project, getDefinition);
+        audio.setPatch(graph);
+        sentParams = Object.fromEntries(graph.nodes.map((n) => [n.id, { ...n.params }]));
+        sentActive = Object.fromEntries(graph.nodes.filter((n) => n.active !== undefined).map((n) => [n.id, n.active!]));
+        pruneRecorders(new Set(graph.nodes.map((n) => n.id)));
         resendArmed();
       });
     });
 
-    // The tempo is remembered by `audio` even while the engine is off, so start-up uses it too.
+    // Tempo and master level are remembered by `audio` even while the engine is off, so start-up
+    // uses them too.
     $effect(() => {
       audio.setTempo(project.tempo);
+    });
+    $effect(() => {
+      audio.setMasterLevel(project.masterLevel);
     });
 
     $effect(() => {
       if (engineState.status !== 'ready') return;
-      for (const m of patch.modules) {
-        for (const [name, value] of Object.entries(m.params)) {
-          const sent = sentParams[m.id];
-          if (sent && sent[name] !== value) {
-            audio.setParam(m.id, name, value);
-            sent[name] = value;
+      for (const p of project.patches) {
+        for (const m of p.modules) {
+          const id = nodeIdOf(p.id, m.id);
+          const sent = sentParams[id];
+          if (!sent) continue;
+          for (const [name, value] of Object.entries(m.params)) {
+            if (sent[name] !== value) {
+              audio.setParam(id, name, value);
+              sent[name] = value;
+            }
           }
+        }
+      }
+    });
+
+    $effect(() => {
+      if (engineState.status !== 'ready') return;
+      const heard = audiblePatches(project);
+      for (const p of project.patches) {
+        const ch = p.modules.find((m) => m.type === CHANNEL_TYPE);
+        if (!ch) continue;
+        const id = nodeIdOf(p.id, ch.id);
+        const active = heard.has(p.id);
+        if (id in sentActive && sentActive[id] !== active) {
+          audio.setSinkActive(id, active);
+          sentActive[id] = active;
         }
       }
     });

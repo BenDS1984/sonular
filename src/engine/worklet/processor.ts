@@ -85,6 +85,7 @@ class SonularProcessor extends AudioWorkletProcessor {
         }
         this.engine = new Engine(sampleRate, factories);
         this.engine.setTempo(msg.tempo);
+        this.engine.setMasterLevel(msg.masterLevel);
         this.post({ type: 'ready', sampleRate, hiResTimer: HIRES_TIMER });
         break;
       }
@@ -106,6 +107,12 @@ class SonularProcessor extends AudioWorkletProcessor {
         break;
       case 'tempo':
         this.engine?.setTempo(msg.bpm);
+        break;
+      case 'sinkActive':
+        this.engine?.setSinkActive(msg.node, msg.active);
+        break;
+      case 'master':
+        this.engine?.setMasterLevel(msg.level);
         break;
       case 'run':
         // Starting from silence (not while a stop is still fading out): begin at the top.

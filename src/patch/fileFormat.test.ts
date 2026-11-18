@@ -23,6 +23,7 @@ const getDef = (t: string) => DEFS.find((d) => d.type === t);
 const sample = (): Project => ({
   name: 'My drone',
   tempo: 96,
+  masterLevel: 0.8,
   activePatch: 'p3',
   patches: [
     {
@@ -67,6 +68,7 @@ describe('project files', () => {
     expect(project).toEqual({
       name: 'Old drone',
       tempo: 90,
+      masterLevel: 1,
       activePatch: 'p1',
       patches: [
         {

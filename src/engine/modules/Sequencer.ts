@@ -23,6 +23,7 @@ export class Sequencer implements DspModule {
   readonly numOutputs = 2;
   /** Holds its pitch indefinitely, so it never sleeps. */
   readonly tailSeconds = Infinity;
+  readonly keepsTime = true;
   readonly meterNames = ['step'] as const;
 
   private readonly pitch = new Float32Array(SEQUENCER_STEPS);

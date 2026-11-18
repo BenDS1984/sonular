@@ -56,6 +56,8 @@ export interface Project {
   name: string;
   /** Tempo of the master clock in BPM, shared by all patches. */
   tempo: number;
+  /** Master channel level (linear gain, 1 = 0 dB, up to 2 = +6 dB). */
+  masterLevel: number;
   /** Always at least one. */
   patches: Patch[];
   /** Id of the patch shown in the workspace. */
