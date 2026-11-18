@@ -268,12 +268,11 @@
     stroke: var(--text-muted);
     stroke-width: 1.4;
     stroke-linejoin: round;
-    opacity: 0;
     pointer-events: none;
     transition: opacity var(--duration-fast) var(--ease-out);
   }
   .name-wrap:hover .pencil {
-    opacity: 1;
+    stroke: var(--text-secondary);
   }
   .name:focus + .pencil {
     opacity: 0;
@@ -283,16 +282,17 @@
     height: 28px;
     padding: 0 26px 0 8px;
     cursor: text;
-    border: 1px solid transparent;
+    /* Always looks like a field you can type in, not only on hover. */
+    border: 1px solid var(--border-default);
     border-radius: var(--radius-md);
-    background: transparent;
+    background: var(--surface-inset);
     color: var(--text-default);
     font: inherit;
     font-size: var(--text-sm);
     text-overflow: ellipsis;
   }
   .name:hover {
-    border-color: var(--border-default);
+    border-color: var(--border-strong);
   }
   .name:focus {
     outline: none;
