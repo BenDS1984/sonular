@@ -2,6 +2,7 @@
  * App-wide audio engine instance, reactive state for the UI, and live sync of the patch.
  */
 import { untrack } from 'svelte';
+import { CpuHistory } from './cpuHistory';
 import { AudioEngine, DEFAULT_BUFFER, type BufferSize, type EngineStatus } from './AudioEngine';
 import type { DisplayLayoutEntry, MeterLayoutEntry } from './core/types';
 import { getDefinition } from '../modules/registry';
@@ -35,6 +36,11 @@ function bufferFromUrl(): BufferSize {
   return raw && ms >= 5 && ms <= 200 ? ms : DEFAULT_BUFFER;
 }
 
+/** CPU load over the last minutes, for the graph behind the CPU meter. */
+export const cpuHistory = new CpuHistory();
+/** Increments whenever `cpuHistory` gains a point, so the graph knows when to redraw. */
+export const cpuHistoryState = $state({ version: 0 });
+
 let meterLayout: MeterLayoutEntry[] = [];
 let displayLayout: DisplayLayoutEntry[] = [];
 
@@ -60,6 +66,7 @@ export const audio = new AudioEngine(
       engineState.sleeping = s.sleeping;
       engineState.beat = s.beat;
       engineState.statsTick++;
+      if (cpuHistory.add(performance.now() / 1000, s.cpu, engineState.playing)) cpuHistoryState.version++;
       let i = 0;
       for (const entry of meterLayout) {
         const target = (engineState.meters[entry.node] ??= {});
@@ -98,7 +105,7 @@ export function displayValues(moduleId: string): Float32Array | null {
 
 // Development aid: inspect the engine from the browser console as `__sonular`.
 if (import.meta.env.DEV) {
-  (globalThis as Record<string, unknown>).__sonular = { audio, engineState, patch };
+  (globalThis as Record<string, unknown>).__sonular = { audio, engineState, patch, cpuHistory, cpuHistoryState };
 }
 
 // ---------- Live patch sync ----------

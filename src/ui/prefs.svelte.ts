@@ -7,9 +7,11 @@ interface Prefs {
   minimap: boolean;
   /** The welcome window has been seen and closed once. */
   welcomed: boolean;
+  /** Seconds shown in the CPU graph. */
+  cpuSpan: 30 | 120 | 600;
 }
 
-const DEFAULTS: Prefs = { minimap: true, welcomed: false };
+const DEFAULTS: Prefs = { minimap: true, welcomed: false, cpuSpan: 30 };
 
 function load(): Prefs {
   try {

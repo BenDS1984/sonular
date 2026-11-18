@@ -4,6 +4,7 @@
   import MasterMeter from './components/MasterMeter.svelte';
   import IconButton from './components/IconButton.svelte';
   import TempoField from './components/TempoField.svelte';
+  import CpuGraph from './CpuGraph.svelte';
   import { canvasState, DEFAULT_PATCH_NAME, patch } from '../patch/patch.svelte';
   import { toCanvas } from '../patch/geometry';
   import { historyState, redo, undo } from '../patch/history.svelte';
@@ -19,6 +20,11 @@
     if (patch.modules.length === 0) newPatch();
     else confirmNew = !confirmNew;
   }
+
+  // ---------- CPU graph ----------
+
+  let cpuOpen = $state(false);
+  let cpuButton: HTMLButtonElement | undefined = $state();
 
   // ---------- Full screen ----------
 
@@ -195,7 +201,20 @@
       <span class="module-label">Module</span>
     </button>
     <MasterMeter left={engineState.peakL} right={engineState.peakR} active={engineState.playing} tick={engineState.statsTick} />
-    <span class="pill readout cpu" title="Audio engine load (share of the real-time budget)">{cpuText}</span>
+    <span class="cpu-wrap">
+      <button
+        class="pill readout cpu"
+        class:open={cpuOpen}
+        type="button"
+        title="Audio engine load (share of the real-time budget). Click for a graph over time."
+        aria-expanded={cpuOpen}
+        bind:this={cpuButton}
+        onclick={() => (cpuOpen = !cpuOpen)}>{cpuText}</button
+      >
+      {#if cpuOpen && cpuButton}
+        <CpuGraph anchor={cpuButton} onclose={() => (cpuOpen = false)} />
+      {/if}
+    </span>
     {#if fullscreenSupported}
       <IconButton
         icon={isFullscreen ? 'exit-fullscreen' : 'fullscreen'}
@@ -358,6 +377,9 @@
   .cpu {
     min-width: 76px;
     justify-content: center;
+  }
+  .cpu-wrap {
+    display: flex;
   }
   .pill {
     white-space: nowrap;
