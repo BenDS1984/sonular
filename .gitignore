@@ -8,6 +8,9 @@ Idee/
 # Third-party GUI reference images, kept locally only
 Gui inspiratie/
 
+# Social media images (Facebook profile picture, banner), kept locally only
+Social media/
+
 # Logs and caches
 *.log
 npm-debug.log*
