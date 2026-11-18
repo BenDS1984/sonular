@@ -1,5 +1,5 @@
 /**
- * Sound-quality and behaviour tests for the first three DSP modules (oscillator, mixer, output),
+ * Sound-quality and behaviour tests for the first three DSP modules (oscillator, mixer, channel),
  * run on the actual compiled Faust WebAssembly.
  */
 import { readFileSync } from 'node:fs';
@@ -231,24 +231,24 @@ describe('Mixer', () => {
   });
 });
 
-describe('Output and a full patch', () => {
+describe('Channel and a full patch', () => {
   it('is declared as a sink', () => {
-    expect(declaredSink(program('output').meta)).toBe(true);
+    expect(declaredSink(program('channel').meta)).toBe(true);
     expect(declaredSink(program('mixer').meta)).toBe(false);
   });
 
-  it('renders Oscillator -> Mixer -> Output to the master bus at the expected level', () => {
-    const progs = { osc: program('osc'), mixer: program('mixer'), output: program('output') };
+  it('renders Oscillator -> Mixer -> Channel to the master bus at the expected level', () => {
+    const progs = { osc: program('osc'), mixer: program('mixer'), channel: program('channel') };
     const engine = new Engine(SR, {
       'faust:osc': (sr) => new FaustDsp(progs.osc.module, progs.osc.meta, sr),
       'faust:mixer': (sr) => new FaustDsp(progs.mixer.module, progs.mixer.meta, sr),
-      'faust:output': (sr) => new FaustSink(new FaustDsp(progs.output.module, progs.output.meta, sr)),
+      'faust:channel': (sr) => new FaustSink(new FaustDsp(progs.channel.module, progs.channel.meta, sr)),
     });
     engine.setPatch({
       nodes: [
         { id: 'osc1', kind: 'faust:osc', params: { wave: WAVES.sine, level: 0.7 } },
         { id: 'mixer1', kind: 'faust:mixer' },
-        { id: 'output1', kind: 'faust:output', params: { volume: 0.5 } },
+        { id: 'output1', kind: 'faust:channel', params: { level: 0.5 } },
       ],
       connections: [
         { from: { node: 'osc1', port: 0 }, to: { node: 'mixer1', port: 0 } },
@@ -269,17 +269,17 @@ describe('Output and a full patch', () => {
   it('plays at full level from the very start after Play, not fading in', () => {
     // Play clears every module. Knob smoothers used to restart from zero then and fade in over
     // ~60 ms per module, so the start of the first note was missing (2026-11-18).
-    const progs = { osc: program('osc'), mixer: program('mixer'), output: program('output') };
+    const progs = { osc: program('osc'), mixer: program('mixer'), channel: program('channel') };
     const engine = new Engine(SR, {
       'faust:osc': (sr) => new FaustDsp(progs.osc.module, progs.osc.meta, sr),
       'faust:mixer': (sr) => new FaustDsp(progs.mixer.module, progs.mixer.meta, sr),
-      'faust:output': (sr) => new FaustSink(new FaustDsp(progs.output.module, progs.output.meta, sr)),
+      'faust:channel': (sr) => new FaustSink(new FaustDsp(progs.channel.module, progs.channel.meta, sr)),
     });
     engine.setPatch({
       nodes: [
         { id: 'osc1', kind: 'faust:osc', params: { wave: WAVES.square, level: 0.7, tune: 7 } },
         { id: 'mixer1', kind: 'faust:mixer', params: { pan1: -1 } },
-        { id: 'output1', kind: 'faust:output', params: { volume: 0.5 } },
+        { id: 'output1', kind: 'faust:channel', params: { level: 0.5 } },
       ],
       connections: [
         { from: { node: 'osc1', port: 0 }, to: { node: 'mixer1', port: 0 } },

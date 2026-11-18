@@ -62,7 +62,7 @@ so a desktop build could swap them out.
 | Oscillator (saw) | 9.3 | 0.35 % |
 | Mixer (4 channels) | 3.7 | 0.14 % |
 | Reverb (input diffusion, equal L/R output, 2026-11-18) | 19.9 | 0.75 % |
-| Output | 0.9 | 0.03 % |
+| Channel (replaced Output, 2026-11-18) | 0.8 | 0.03 % |
 | Clock | 1.4 | 0.05 % |
 | Sequencer | 0.6 | 0.02 % |
 | Envelope | 0.7 | 0.03 % |
@@ -70,7 +70,7 @@ so a desktop build could swap them out.
 | Recorder (recording, 2026-11-18) | 1.0 | 0.04 % |
 
 In the browser on the user's laptop (CPU meter, peak), 2026-11-16:
-- Oscillator, Mixer, Reverb, Output: at most **2 %**.
+- Oscillator, Mixer, Reverb, Output (now Channel): at most **2 %**.
 - The same plus Clock and Sequencer: at most **3 %**.
 
 On 2026-11-17 the reverb gained input diffusion and slow modulation of two delay lines (smoother

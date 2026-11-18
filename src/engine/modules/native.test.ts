@@ -189,13 +189,13 @@ describe('Clock, Sequencer and Envelope in a patch', () => {
     };
   }
   const osc = program('osc');
-  const output = program('output');
+  const output = program('channel');
 
   function setup(tempo: number) {
     const engine = new Engine(SR, {
       ...NATIVE_MODULES,
       'faust:osc': (sr) => new FaustDsp(osc.module, osc.meta, sr),
-      'faust:output': (sr) => new FaustSink(new FaustDsp(output.module, output.meta, sr)),
+      'faust:channel': (sr) => new FaustSink(new FaustDsp(output.module, output.meta, sr)),
     });
     engine.setTempo(tempo);
     const patch: EnginePatch = {
@@ -204,7 +204,7 @@ describe('Clock, Sequencer and Envelope in a patch', () => {
         { id: 'seq', kind: 'native:sequencer', params: { pitch1: 0, pitch2: 12, pitch3: -12, on4: 0 } },
         { id: 'osc', kind: 'faust:osc', params: { wave: 0, level: 0.5 } },
         { id: 'env', kind: 'native:envelope', params: { attack: 0.002, decay: 0.05, sustain: 1, release: 0.01 } },
-        { id: 'out', kind: 'faust:output', params: { volume: 1 } },
+        { id: 'out', kind: 'faust:channel', params: { level: 1 } },
       ],
       connections: [
         { from: { node: 'clock', port: 0 }, to: { node: 'seq', port: 0 } },

@@ -23,10 +23,11 @@
     const q = query.trim().toLowerCase();
     return MODULES.filter(
       (d) =>
-        !q ||
+        !d.fixed &&
+        (!q ||
         d.title.toLowerCase().includes(q) ||
         d.category.toLowerCase().includes(q) ||
-        d.description.toLowerCase().includes(q),
+        d.description.toLowerCase().includes(q)),
     ).sort(
       (a, b) =>
         CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category) || a.title.localeCompare(b.title),

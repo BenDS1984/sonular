@@ -5,7 +5,7 @@
   import IconButton from './components/IconButton.svelte';
   import TempoField from './components/TempoField.svelte';
   import CpuGraph from './CpuGraph.svelte';
-  import { canvasState, DEFAULT_PROJECT_NAME, patch, project } from '../patch/patch.svelte';
+  import { canvasState, DEFAULT_PROJECT_NAME, isPatchEmpty, patch, project } from '../patch/patch.svelte';
   import { toCanvas } from '../patch/geometry';
   import { historyState, redo, undo } from '../patch/history.svelte';
   import { chooseProjectFile, newProject, requestSave } from '../patch/fileActions';
@@ -17,7 +17,7 @@
   let confirmNew = $state(false);
 
   function askNew() {
-    if (project.patches.length === 1 && patch.modules.length === 0) newProject();
+    if (project.patches.length === 1 && isPatchEmpty()) newProject();
     else confirmNew = !confirmNew;
   }
 

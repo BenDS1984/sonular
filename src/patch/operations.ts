@@ -24,6 +24,46 @@ export function emptyPatch(id: string, name: string, color = 0): Patch {
   return { id, name, color, modules: [], cables: [], view: { x: 0, y: 0, zoom: 1 } };
 }
 
+/** Type of the module every patch has exactly one of: its mixer channel. */
+export const CHANNEL_TYPE = 'channel';
+
+/** Where a missing Channel goes: right of everything else, level with the top module. */
+function channelPosition(patch: Patch, getDef: DefinitionLookup): { x: number; y: number } {
+  // Empty patch: top right of a typical window, clear of the "Your patch is empty" message.
+  if (patch.modules.length === 0) return { x: 760, y: 60 };
+  let right = -Infinity;
+  let top = Infinity;
+  for (const m of patch.modules) {
+    right = Math.max(right, m.x + (getDef(m.type)?.width ?? 200));
+    top = Math.min(top, m.y);
+  }
+  return { x: right + 60, y: top };
+}
+
+/**
+ * Give the patch exactly one Channel: add one when it is missing, remove extras (with their
+ * cables). Does nothing when the Channel type is unknown (tests with their own module set).
+ * Returns human-readable notes about anything removed.
+ */
+export function ensureChannel(patch: Patch, getDef: DefinitionLookup): string[] {
+  const def = getDef(CHANNEL_TYPE);
+  if (!def) return [];
+  const channels = patch.modules.filter((m) => m.type === CHANNEL_TYPE);
+  if (channels.length === 0) {
+    const { x, y } = channelPosition(patch, getDef);
+    addModule(patch, def, x, y);
+    return [];
+  }
+  for (const extra of channels.slice(1)) removeModule(patch, extra.id);
+  const n = channels.length - 1;
+  return n ? [`A patch has one Channel: removed ${n} extra output module${n > 1 ? 's' : ''}.`] : [];
+}
+
+/** ensureChannel for every patch of a project. */
+export function ensureChannels(project: Project, getDef: DefinitionLookup): string[] {
+  return project.patches.flatMap((p) => ensureChannel(p, getDef));
+}
+
 /** A project with one empty patch. */
 export function emptyProject(name: string, tempo: number): Project {
   return { name, tempo, patches: [emptyPatch('p1', 'Patch 1')], activePatch: 'p1' };

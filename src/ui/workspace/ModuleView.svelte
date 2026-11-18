@@ -96,7 +96,7 @@
       width={def.width}
       {selected}
       {onheaderpointerdown}
-      onremove={() => removeModule(module.id)}
+      onremove={def.fixed ? undefined : () => removeModule(module.id)}
     >
       <def.panel {module} {def} />
       {#snippet ports()}

@@ -7,12 +7,13 @@
  */
 import { clampTempo, DEFAULT_TEMPO } from '../engine/core/Transport';
 import type { ModuleDefinition } from '../modules/types';
+import { ensureChannel } from './operations';
 import type { Cable, ModuleInstance, Patch, Project } from './types';
 
 export const FILE_FORMAT = 'sonular-project';
 /** Format name of version 1 files, which held a single patch. */
 const LEGACY_FORMAT = 'sonular-patch';
-export const FILE_VERSION = 2;
+export const FILE_VERSION = 3;
 export const FILE_EXTENSION = '.sonular';
 
 export interface ProjectFile {
@@ -46,6 +47,29 @@ const MIGRATIONS: Record<number, (data: Record<string, unknown>) => Record<strin
         tempo: old['tempo'],
         activePatch: 'p1',
         patches: [{ id: 'p1', name: 'Patch 1', color: 0, modules: old['modules'], cables: old['cables'], view: old['view'] }],
+      },
+    };
+  },
+  // 2 → 3: the Output module became the Channel (the patch's mixer strip). Same id, cables and
+  // volume: "volume" is now "level", with the same gain for the same value.
+  2: (data) => {
+    const project = isObject(data['project']) ? data['project'] : {};
+    const patches = Array.isArray(project['patches']) ? project['patches'] : [];
+    return {
+      ...data,
+      project: {
+        ...project,
+        patches: patches.map((p) => {
+          if (!isObject(p) || !Array.isArray(p['modules'])) return p;
+          return {
+            ...p,
+            modules: p['modules'].map((m) => {
+              if (!isObject(m) || m['type'] !== 'output') return m;
+              const params = isObject(m['params']) ? m['params'] : {};
+              return { ...m, type: 'channel', params: { level: params['volume'] ?? 0.5 } };
+            }),
+          };
+        }),
       },
     };
   },
@@ -126,12 +150,16 @@ export function validateProject(raw: unknown, getDef: DefinitionLookup, fallback
     const name = asString(rp['name'], `Patch ${i + 1}`);
     const color = isFiniteNumber(rp['color']) && rp['color'] >= 0 ? Math.floor(rp['color']) : 0;
     const { modules, cables, view, warnings: w } = validatePatchContent(rp, getDef);
+    const patch: Patch = { id, name, color, modules, cables, view };
+    w.push(...ensureChannel(patch, getDef));
     const prefix = rawPatches.length > 1 ? `${name}: ` : '';
     for (const msg of w) warnings.push(prefix + msg);
-    patches.push({ id, name, color, modules, cables, view });
+    patches.push(patch);
   }
   if (patches.length === 0) {
-    patches.push({ id: 'p1', name: 'Patch 1', color: 0, modules: [], cables: [], view: { x: 0, y: 0, zoom: 1 } });
+    const patch: Patch = { id: 'p1', name: 'Patch 1', color: 0, modules: [], cables: [], view: { x: 0, y: 0, zoom: 1 } };
+    ensureChannel(patch, getDef);
+    patches.push(patch);
   }
   const activePatch = valid(src['activePatch']) && ids.has(src['activePatch']) ? src['activePatch'] : patches[0]!.id;
 

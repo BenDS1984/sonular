@@ -69,6 +69,11 @@ export interface ModuleDefinition {
   signal: SignalType;
   /** Panel width in pixels. */
   width: number;
+  /**
+   * Exactly one per patch (the Channel): created with the patch, never added from the module
+   * browser and never removed.
+   */
+  fixed?: boolean;
   inputs: PortSpec[];
   outputs: PortSpec[];
   params: ParamSpec[];

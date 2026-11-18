@@ -153,4 +153,42 @@ describe('project files', () => {
     expect(fileNameFor('Bass: take 2/3')).toBe('Bass- take 2-3.sonular');
     expect(fileNameFor('   ')).toBe('Untitled project.sonular');
   });
+
+  describe('the Channel (mixer strip)', () => {
+    const CH_DEFS = [...DEFS, { ...def('channel', ['L', 'R'], []), params: [{ id: 'level', label: 'Level', min: 0, max: 2, default: 0.5 }] }];
+    const getChDef = (t: string) => CH_DEFS.find((d) => d.type === t);
+    // In version 1 and 2 files the strip was the Output module ("volume" 0..1).
+    const withOutput = (volume: number, extra: unknown[] = []) =>
+      v1({
+        modules: [
+          { id: 'src1', type: 'src', x: 0, y: 0, params: {} },
+          { id: 'output1', type: 'output', x: 400, y: 50, params: { volume } },
+          ...extra,
+        ],
+        cables: [{ from: { module: 'src1', port: 'out' }, to: { module: 'output1', port: 'L' } }],
+      });
+
+    it('turns an old Output into the Channel with the same id, place, cables and level', () => {
+      const { project, warnings } = parseProjectFile(withOutput(0.3), getChDef);
+      const patch = project.patches[0]!;
+      expect(warnings).toEqual([]);
+      expect(patch.modules[1]).toEqual({ id: 'output1', type: 'channel', x: 400, y: 50, params: { level: 0.3 } });
+      expect(patch.cables).toEqual([{ id: 'c1', from: { module: 'src1', port: 'out' }, to: { module: 'output1', port: 'L' } }]);
+    });
+
+    it('keeps only the first of several Outputs', () => {
+      const { project, warnings } = parseProjectFile(
+        withOutput(0.3, [{ id: 'output2', type: 'output', x: 0, y: 300, params: { volume: 1 } }]),
+        getChDef,
+      );
+      expect(project.patches[0]!.modules.map((m) => m.id)).toEqual(['src1', 'output1']);
+      expect(warnings.join(' ')).toMatch(/removed 1 extra output module/);
+    });
+
+    it('adds a Channel right of the other modules when a patch has none', () => {
+      const text = v1({ modules: [{ id: 'src1', type: 'src', x: 10, y: 40, params: {} }] });
+      const patch = parseProjectFile(text, getChDef).project.patches[0]!;
+      expect(patch.modules[1]).toMatchObject({ type: 'channel', x: 10 + 100 + 60, y: 40, params: { level: 0.5 } });
+    });
+  });
 });

@@ -15,7 +15,7 @@
   import ZoomControls from './workspace/ZoomControls.svelte';
   import Minimap from './workspace/Minimap.svelte';
   import { prefs } from './prefs.svelte';
-  import { addModule, canvasState, deleteSelection, fitAll, patch } from '../patch/patch.svelte';
+  import { addModule, canvasState, deleteSelection, fitAll, isPatchEmpty, patch } from '../patch/patch.svelte';
   import { loadStarterPatch } from '../patch/fileActions';
   import { GRID, SNAP, snap, toCanvas, zoomAt } from '../patch/geometry';
   import type { ModuleDefinition } from '../modules/types';
@@ -252,7 +252,7 @@
     <CableLayer onjackpointerdown={startJackDrag} />
   </div>
 
-  {#if patch.modules.length === 0}
+  {#if isPatchEmpty()}
     <div class="empty">
       <p class="title">Your patch is empty</p>
       <p class="hint">Double-click anywhere to add a module, or use <strong>+ Module</strong> in the top bar.</p>

@@ -131,6 +131,11 @@ All tests render offline; never play sound unless the user asks.
 
 ## Pitfalls seen before
 
+- After `npm run faust` adds or removes a `.dsp` program, **restart the dev server**
+  (preview_stop + preview_start) and tell the user to reload. The running server keeps its old
+  list of programs: Play then fails with "Unexpected token '<' … is not valid JSON" in the top bar,
+  because it fetches a deleted program and never loads the new one (Channel, 2026-11-18).
+
 - Some files have CRLF line endings in the working copy; edit carefully or convert to LF
   (the repository stores LF).
 - Faust library blocks that compute coefficients directly from sliders click when knobs move.

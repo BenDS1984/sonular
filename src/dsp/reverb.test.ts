@@ -340,10 +340,10 @@ describe('Reverb', () => {
 
 describe('Reverb in a patch', () => {
   it('keeps rendering through the pre-delay and the tail, then goes to sleep', () => {
-    const out = program('output');
+    const out = program('channel');
     const engine = new Engine(SR, {
       'faust:reverb': (sr) => new FaustDsp(REVERB.module, REVERB.meta, sr),
-      'faust:output': (sr) => new FaustSink(new FaustDsp(out.module, out.meta, sr)),
+      'faust:channel': (sr) => new FaustSink(new FaustDsp(out.module, out.meta, sr)),
       // A source that plays one click and then stays silent.
       'test:click': () => {
         let done = false;
@@ -365,7 +365,7 @@ describe('Reverb in a patch', () => {
       nodes: [
         { id: 'click', kind: 'test:click' },
         { id: 'rev', kind: 'faust:reverb', params: { size: 1, predelay: 150, mix: 1 } },
-        { id: 'out', kind: 'faust:output', params: { volume: 1 } },
+        { id: 'out', kind: 'faust:channel', params: { level: 1 } },
       ],
       connections: [
         { from: { node: 'click', port: 0 }, to: { node: 'rev', port: 0 } },

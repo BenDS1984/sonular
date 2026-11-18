@@ -13,7 +13,13 @@ import type { Patch, PortRef, Project } from './types';
 
 export const DEFAULT_PROJECT_NAME = 'Untitled project';
 
+/** Starts without its Channel: `ensureProjectChannels()` adds it once the modules are loaded. */
 export const project = $state<Project>(ops.emptyProject(DEFAULT_PROJECT_NAME, DEFAULT_TEMPO));
+
+/** Give every patch its Channel (start-up; opening files does this by itself). */
+export function ensureProjectChannels() {
+  ops.ensureChannels(project, getDefinition);
+}
 
 /** The patch shown in the workspace (falls back to the first, so there always is one). */
 export function activePatch(): Patch {
@@ -56,8 +62,14 @@ export const patch: Patch = {
   },
 };
 
+/** True when the patch holds nothing but its Channel. */
+export function isPatchEmpty(p: Patch = patch): boolean {
+  return p.modules.every((m) => getDefinition(m.type)?.fixed);
+}
+
 /** Replace the whole project (open file, new project, autosave restore, starter patch). */
 export function replaceProject(next: Project) {
+  ops.ensureChannels(next, getDefinition);
   canvasState.selection = null;
   project.name = next.name;
   project.tempo = next.tempo;
@@ -98,6 +110,8 @@ export function addModule(type: string, x: number, y: number) {
 }
 
 export function removeModule(id: string) {
+  const m = patch.modules.find((x) => x.id === id);
+  if (m && getDefinition(m.type)?.fixed) return; // the Channel stays
   ops.removeModule(patch, id);
   for (const key of Object.keys(canvasState.portOffsets)) {
     if (key.startsWith(`${id}:`)) delete canvasState.portOffsets[key];
