@@ -11,7 +11,7 @@ export const channel: ModuleDefinition = {
   category: 'Output',
   description: "The patch's mixer channel: level, pan, mute, solo and sends, sent on to the master.",
   signal: 'audio',
-  width: 196,
+  width: 152,
   fixed: true,
   inputs: [
     { id: 'L', label: 'L', signal: 'audio' },

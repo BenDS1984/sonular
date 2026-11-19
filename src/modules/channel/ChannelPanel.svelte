@@ -1,6 +1,6 @@
 <!--
-  The Channel strip: the patch's name and colour, a fader with stereo meter, pan, mute/solo and
-  two sends (not active yet). The name and colour belong to the patch, so they also show on its
+  The Channel strip: the patch's name and colour, a stereo meter with a fader whose dB scale
+  applies to both, pan with small mute/solo buttons, and two sends (not active yet). The name and colour belong to the patch, so they also show on its
   tab and in the mixer.
 -->
 <script lang="ts">
@@ -14,6 +14,9 @@
   import type { ModulePanelProps } from '../types';
 
   let { module, def }: ModulePanelProps = $props();
+
+  /** Height of the meters and the fader travel: equal, so the fader's scale fits both. */
+  const METER_HEIGHT = 168;
 
   const levelSpec = $derived(def.params.find((p) => p.id === 'level')!);
 
@@ -34,6 +37,14 @@
     const name = draft.trim();
     if (save && name) patch.name = name;
   }
+
+  // ---------- Clip lamps: clicking either one clears both ----------
+  let clipL = $state(false);
+  let clipR = $state(false);
+  const resetClip = () => {
+    clipL = false;
+    clipR = false;
+  };
 
   // ---------- Colour ----------
   let paletteOpen = $state(false);
@@ -92,15 +103,17 @@
   {/if}
 
   <div class="main">
-    <Fader bind:value={module.params['level']!} defaultValue={levelSpec.default} max={levelSpec.max} height={150} />
     <div class="meters">
-      <Meter level={meterValue(module.id, 'meterL')} height={150} width={8} label="Channel left" />
-      <Meter level={meterValue(module.id, 'meterR')} height={150} width={8} label="Channel right" />
+      <Meter level={meterValue(module.id, 'meterL')} height={METER_HEIGHT} width={8} label="Channel left" faderScale bind:clipped={clipL} onresetclip={resetClip} />
+      <Meter level={meterValue(module.id, 'meterR')} height={METER_HEIGHT} width={8} label="Channel right" faderScale bind:clipped={clipR} onresetclip={resetClip} />
+    </div>
+    <div class="fader">
+      <Fader bind:value={module.params['level']!} defaultValue={levelSpec.default} max={levelSpec.max} height={METER_HEIGHT} />
     </div>
   </div>
 
   <div class="row">
-    <ParamKnob {module} {def} param="pan" size="sm" />
+    <ParamKnob {module} {def} param="pan" />
     <div class="buttons">
       <Toggle
         pressed={(module.params['mute'] ?? 0) >= 0.5}
@@ -204,20 +217,24 @@
     display: flex;
     justify-content: center;
     align-items: flex-start;
-    gap: 6px;
+    gap: 4px;
   }
   .meters {
     display: flex;
     gap: 3px;
   }
-  .row {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
+  /* Line the fader's travel up with the meter bars (below their clip lamps). */
+  .fader {
+    padding-top: 7px;
   }
   .buttons {
     display: flex;
     gap: 4px;
+  }
+  .row {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
   }
   .sends {
     padding-top: var(--space-2);

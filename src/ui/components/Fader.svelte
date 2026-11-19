@@ -11,6 +11,7 @@
 <script lang="ts">
   import { clamp } from '../scale';
   import { formatGainDb } from '../format';
+  import { dbToPos, gainToPos, posToDb } from '../faderScale';
 
   interface Props {
     value: number;
@@ -25,43 +26,11 @@
 
   let { value = $bindable(), defaultValue = 1, max = 2, height = 150, label = 'Level', onchange }: Props = $props();
 
-  /** Fader position (0 = bottom, 1 = top) for these dB values; in between is interpolated. */
-  const TAPER: readonly [db: number, pos: number][] = [
-    [-60, 0.04],
-    [-48, 0.1],
-    [-24, 0.3],
-    [-12, 0.48],
-    [-6, 0.62],
-    [0, 0.8],
-    [6, 1],
-  ];
   const MARKS = [6, 0, -6, -12, -24];
   const FINE_FACTOR = 10;
 
   const maxDb = $derived(20 * Math.log10(max));
 
-  function dbToPos(db: number): number {
-    if (db <= TAPER[0]![0]) return Math.max(0, TAPER[0]![1] * (1 - (TAPER[0]![0] - db) / 20));
-    for (let i = 1; i < TAPER.length; i++) {
-      const [d1, p1] = TAPER[i]!;
-      const [d0, p0] = TAPER[i - 1]!;
-      if (db <= d1) return p0 + ((db - d0) / (d1 - d0)) * (p1 - p0);
-    }
-    return 1;
-  }
-
-  function posToDb(pos: number): number {
-    if (pos <= 0) return -Infinity;
-    if (pos <= TAPER[0]![1]) return TAPER[0]![0] - (1 - pos / TAPER[0]![1]) * 20;
-    for (let i = 1; i < TAPER.length; i++) {
-      const [d1, p1] = TAPER[i]!;
-      const [d0, p0] = TAPER[i - 1]!;
-      if (pos <= p1) return d0 + ((pos - p0) / (p1 - p0)) * (d1 - d0);
-    }
-    return TAPER[TAPER.length - 1]![0];
-  }
-
-  const gainToPos = (g: number) => (g <= 1e-5 ? 0 : dbToPos(20 * Math.log10(g)));
   const posToGain = (p: number) => {
     const db = Math.min(posToDb(p), maxDb);
     return db === -Infinity || p <= 0 ? 0 : Math.pow(10, db / 20);
@@ -162,7 +131,7 @@
   >
     <div class="scale" aria-hidden="true">
       {#each MARKS as db (db)}
-        <span class="mark" class:zero={db === 0} style:bottom={`${dbToPos(db) * 100}%`}>{db > 0 ? `+${db}` : db}</span>
+        <span class="mark" style:bottom={`${dbToPos(db) * 100}%`}>{db > 0 ? `+${db}` : db < 0 ? `−${-db}` : '0'}</span>
       {/each}
       <span class="mark" style:bottom="0%">−∞</span>
     </div>
@@ -177,42 +146,41 @@
     display: inline-flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 14px;
   }
   .track-area {
     position: relative;
-    width: 52px;
+    width: 62px;
     cursor: ns-resize;
     touch-action: none;
     outline-offset: 2px;
     border-radius: var(--radius-sm);
   }
   .track-area:focus-visible {
-    outline: 2px solid var(--signal-audio);
+    outline: 1px solid var(--border-strong);
   }
   .scale {
     position: absolute;
     inset: 0 auto 0 0;
-    width: 24px;
+    width: 30px;
   }
   .mark {
     position: absolute;
+    left: 0;
     right: 0;
+    text-align: center;
     transform: translateY(50%);
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: 10px;
     line-height: 1;
     color: var(--text-muted);
     user-select: none;
-  }
-  .mark.zero {
-    color: var(--text-default);
   }
   .slot {
     position: absolute;
     top: 0;
     bottom: 0;
-    left: 36px;
+    left: 46px;
     width: 4px;
     margin-left: -2px;
     border-radius: 2px;
@@ -220,7 +188,7 @@
   }
   .cap {
     position: absolute;
-    left: 36px;
+    left: 46px;
     width: 26px;
     height: 12px;
     margin-left: -13px;
@@ -243,7 +211,7 @@
   }
   .track-area:hover .cap,
   .track-area.active .cap {
-    border-color: var(--signal-audio);
+    background: linear-gradient(var(--surface-control-hover), var(--surface-knob-hover));
   }
   .value {
     min-width: 60px;

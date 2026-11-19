@@ -1,19 +1,34 @@
 <!--
-  Vertical peak meter on a dB scale (−60 dB … +6 dB).
+  Vertical peak meter on a dB scale (−60 dB … +6 dB), or on the fader's scale (`faderScale`) when it
+  stands next to a fader, so the fader's numbers apply to the meter too.
   `level` is a linear peak amplitude (1.0 = 0 dBFS), fed by the caller every frame.
   Shows a peak-hold line and a latching clip LED (click to reset).
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { dbToPos as faderDbToPos } from '../faderScale';
 
   interface Props {
     level: number;
     height?: number;
     width?: number;
     label?: string;
+    faderScale?: boolean;
+    /** Clip lamp state; bind it to share a reset between meters (e.g. left and right). */
+    clipped?: boolean;
+    /** Called when the clip lamp is clicked, after it is cleared. */
+    onresetclip?: () => void;
   }
 
-  let { level, height = 80, width = 6, label = '' }: Props = $props();
+  let {
+    level,
+    height = 80,
+    width = 6,
+    label = '',
+    faderScale = false,
+    clipped = $bindable(false),
+    onresetclip,
+  }: Props = $props();
 
   const MIN_DB = -60;
   const MAX_DB = 6;
@@ -21,6 +36,7 @@
   const HOLD_DECAY = 0.94;
 
   function dbToPos(db: number): number {
+    if (faderScale) return faderDbToPos(db);
     return Math.min(1, Math.max(0, (db - MIN_DB) / (MAX_DB - MIN_DB)));
   }
   function gainToPos(gain: number): number {
@@ -29,7 +45,6 @@
 
   let hold = $state(0);
   let holdAt = 0;
-  let clipped = $state(false);
   let decayFrame = 0;
 
   // Peak hold must keep falling even when `level` stops changing (e.g. silence),
@@ -71,7 +86,10 @@
     type="button"
     title={clipped ? 'Clipped — click to reset' : 'Clip indicator'}
     aria-label="Reset clip indicator"
-    onclick={() => (clipped = false)}
+    onclick={() => {
+      clipped = false;
+      onresetclip?.();
+    }}
   ></button>
   <div
     class="bar lcd small"
@@ -103,6 +121,15 @@
     border-radius: 2px;
     background: var(--border-default);
     cursor: pointer;
+  }
+  /* A larger invisible click area around the small lamp. */
+  .clip {
+    position: relative;
+  }
+  .clip::after {
+    content: '';
+    position: absolute;
+    inset: -6px -5px -4px;
   }
   .clip.on {
     background: var(--meter-high);
