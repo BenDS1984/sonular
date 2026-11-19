@@ -6,7 +6,7 @@ import workletUrl from './worklet/processor.ts?worker&url';
 import type { DisplayLayoutEntry, EnginePatch, MeterLayoutEntry, RecordedAudio } from './core/types';
 import { DEFAULT_TEMPO } from './core/Transport';
 import { compileFaustPrograms } from './faustPrograms';
-import { PROCESSOR_NAME, type EngineStats, type FromEngine, type ToEngine } from './protocol';
+import { PROCESSOR_NAME, type EngineStats, type FromEngine, type LoopSetting, type ToEngine } from './protocol';
 
 export type EngineStatus = 'off' | 'starting' | 'ready' | 'error';
 
@@ -39,6 +39,8 @@ export class AudioEngine {
   private tempo = DEFAULT_TEMPO;
   /** Master level (linear); kept here for the same reason. */
   private masterLevel = 1;
+  /** The loop; kept here for the same reason. */
+  private loop: LoopSetting = { on: false, start: 0, end: 16 };
 
   /** Requested buffer size (preset name or milliseconds). */
   readonly buffer: BufferSize;
@@ -120,7 +122,7 @@ export class AudioEngine {
     });
     node.onprocessorerror = () => this.events.onStatus?.('error', 'The audio engine crashed.');
 
-    this.send({ type: 'init', faust: programs, tempo: this.tempo, masterLevel: this.masterLevel });
+    this.send({ type: 'init', faust: programs, tempo: this.tempo, masterLevel: this.masterLevel, loop: this.loop });
     await ready;
     node.connect(ctx.destination);
     if (ctx.state !== 'running') await ctx.resume();
@@ -168,8 +170,18 @@ export class AudioEngine {
     this.send({ type: 'master', level });
   }
 
-  /** Start or stop rendering (with a short fade to avoid clicks). */
-  setRunning(running: boolean): void {
-    this.send({ type: 'run', running });
+  /** Start (from a position in beats) or stop rendering, with a short fade to avoid clicks. */
+  setRunning(running: boolean, from = 0): void {
+    this.send({ type: 'run', running, from });
+  }
+
+  /** Move the position while playing. */
+  locate(beat: number): void {
+    this.send({ type: 'locate', beat });
+  }
+
+  setLoop(loop: LoopSetting): void {
+    this.loop = { ...loop };
+    this.send({ type: 'loop', ...this.loop });
   }
 }

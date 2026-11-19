@@ -5,7 +5,8 @@
   - double-click the name: rename (the name also shows on the Channel and in the mixer)
   - the ⋯ button on the shown tab, or a right-click on any tab: rename, duplicate, delete
   - + adds a patch with only its Channel
-  The Mixer button on the far left opens the mixer view; clicking a tab goes back to that patch.
+  The Mixer and Timeline buttons on the far left open those views; clicking a tab goes back to
+  that patch.
 -->
 <script lang="ts">
   import { tick } from 'svelte';
@@ -84,7 +85,7 @@
   function ontabpointerdown(e: PointerEvent, p: Patch) {
     if (e.button !== 0 || editing === p.id) return;
     selectPatch(p.id);
-    view.mixer = false;
+    view.main = 'patch';
     drag = { id: p.id, startX: e.clientX, grab: e.clientX - slotLeft(p.id), moved: false, x: e.clientX };
     window.addEventListener('pointermove', ondragmove);
     window.addEventListener('pointerup', ondragend);
@@ -140,7 +141,7 @@
 
   // Keep the shown tab in view when it changes (new or duplicated patches land off-screen).
   $effect(() => {
-    if (view.mixer) return;
+    if (view.main !== 'patch') return;
     const el = tabEls[project.activePatch];
     el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   });
@@ -161,12 +162,12 @@
 
 <div class="tabbar" bind:this={bar}>
   <button
-    class="mixer"
-    class:on={view.mixer}
+    class="view-button"
+    class:on={view.main === 'mixer'}
     type="button"
     title="Mixer: the channels of all patches side by side"
-    aria-pressed={view.mixer}
-    onclick={() => (view.mixer = !view.mixer)}
+    aria-pressed={view.main === 'mixer'}
+    onclick={() => (view.main = view.main === 'mixer' ? 'patch' : 'mixer')}
   >
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
       <path d="M4 2v12M8 2v12M12 2v12" stroke="currentColor" stroke-width="1.3" fill="none" />
@@ -176,11 +177,27 @@
     </svg>
     Mixer
   </button>
+  <button
+    class="view-button"
+    class:on={view.main === 'timeline'}
+    type="button"
+    title="Timeline: arrange the song, one track per patch"
+    aria-pressed={view.main === 'timeline'}
+    onclick={() => (view.main = view.main === 'timeline' ? 'patch' : 'timeline')}
+  >
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path d="M2 3.5h12M2 8h12M2 12.5h12" stroke="currentColor" stroke-width="1" opacity="0.45" fill="none" />
+      <rect x="2.5" y="2" width="5" height="3" rx="0.8" fill="currentColor" />
+      <rect x="6" y="6.5" width="7" height="3" rx="0.8" fill="currentColor" />
+      <rect x="3.5" y="11" width="4" height="3" rx="0.8" fill="currentColor" />
+    </svg>
+    Timeline
+  </button>
   <span class="sep" aria-hidden="true"></span>
 
   <div class="tabs" role="tablist" aria-label="Patches" bind:this={strip} {onwheel}>
     {#each project.patches as p (p.id)}
-      {@const active = p.id === project.activePatch && !view.mixer}
+      {@const active = p.id === project.activePatch && view.main === 'patch'}
       <div
         class="tab"
         class:active
@@ -201,7 +218,7 @@
         oncontextmenu={(e) => {
           e.preventDefault();
           selectPatch(p.id);
-          view.mixer = false;
+          view.main = 'patch';
           openMenu(p);
         }}
       >
@@ -248,7 +265,7 @@
     {/each}
     <button class="add" type="button" title="New patch" aria-label="New patch" onclick={() => {
         addPatch();
-        view.mixer = false;
+        view.main = 'patch';
       }}>
       <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
         <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
@@ -312,7 +329,7 @@
     border-bottom: 1px solid var(--border-subtle);
     flex: none;
   }
-  .mixer {
+  .view-button {
     flex: none;
     display: inline-flex;
     align-items: center;
@@ -326,10 +343,10 @@
     font-size: var(--text-sm);
     cursor: pointer;
   }
-  .mixer:hover {
+  .view-button:hover {
     background: var(--surface-control-hover);
   }
-  .mixer.on {
+  .view-button.on {
     background: var(--signal-audio);
     border-color: var(--signal-audio);
     color: var(--text-on-accent);

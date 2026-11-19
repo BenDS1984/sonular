@@ -8,12 +8,13 @@
 import { clampTempo, DEFAULT_TEMPO } from '../engine/core/Transport';
 import type { ModuleDefinition } from '../modules/types';
 import { ensureChannel } from './operations';
-import type { Cable, ModuleInstance, Patch, Project } from './types';
+import { BEATS_PER_BAR, emptyTimeline, MAX_BEATS, MIN_CLIP_LENGTH } from './timeline';
+import type { AutomationLane, Cable, Clip, ModuleInstance, Patch, Project, Timeline } from './types';
 
 export const FILE_FORMAT = 'sonular-project';
 /** Format name of version 1 files, which held a single patch. */
 const LEGACY_FORMAT = 'sonular-patch';
-export const FILE_VERSION = 3;
+export const FILE_VERSION = 4;
 export const FILE_EXTENSION = '.sonular';
 
 export interface ProjectFile {
@@ -73,6 +74,10 @@ const MIGRATIONS: Record<number, (data: Record<string, unknown>) => Record<strin
       },
     };
   },
+  // 3 → 4: the timeline (blocks, automation, loop, song end) was added. Nothing to rewrite: older
+  // files get an empty timeline when read. The version went up so an older Sonular refuses these
+  // files instead of opening them and silently dropping the timeline.
+  3: (data) => data,
 };
 
 export function serializeProject(project: Project, now = new Date()): string {
@@ -85,6 +90,7 @@ export function serializeProject(project: Project, now = new Date()): string {
       tempo: project.tempo,
       masterLevel: project.masterLevel,
       activePatch: project.activePatch,
+      timeline: { end: project.timeline.end, loop: { ...project.timeline.loop } },
       patches: project.patches.map((p) => ({
         id: p.id,
         name: p.name,
@@ -92,6 +98,8 @@ export function serializeProject(project: Project, now = new Date()): string {
         modules: p.modules.map((m) => ({ id: m.id, type: m.type, x: m.x, y: m.y, params: { ...m.params } })),
         cables: p.cables.map((c) => ({ id: c.id, from: { ...c.from }, to: { ...c.to } })),
         view: { ...p.view },
+        clips: p.clips.map((c) => ({ id: c.id, module: c.module, start: c.start, length: c.length, params: { ...c.params } })),
+        lanes: p.lanes.map((l) => ({ module: l.module, param: l.param, points: l.points.map((pt) => ({ ...pt })) })),
       })),
     },
   };
@@ -151,14 +159,25 @@ export function validateProject(raw: unknown, getDef: DefinitionLookup, fallback
     const name = asString(rp['name'], `Patch ${i + 1}`);
     const color = isFiniteNumber(rp['color']) && rp['color'] >= 0 ? Math.floor(rp['color']) : 0;
     const { modules, cables, view, warnings: w } = validatePatchContent(rp, getDef);
-    const patch: Patch = { id, name, color, modules, cables, view };
+    const patch: Patch = { id, name, color, modules, cables, view, clips: [], lanes: [] };
+    patch.clips = validateClips(rp['clips'], modules, getDef, w);
+    patch.lanes = validateLanes(rp['lanes'], modules, getDef, w);
     w.push(...ensureChannel(patch, getDef));
     const prefix = rawPatches.length > 1 ? `${name}: ` : '';
     for (const msg of w) warnings.push(prefix + msg);
     patches.push(patch);
   }
   if (patches.length === 0) {
-    const patch: Patch = { id: 'p1', name: 'Patch 1', color: 0, modules: [], cables: [], view: { x: 0, y: 0, zoom: 1 } };
+    const patch: Patch = {
+      id: 'p1',
+      name: 'Patch 1',
+      color: 0,
+      modules: [],
+      cables: [],
+      view: { x: 0, y: 0, zoom: 1 },
+      clips: [],
+      lanes: [],
+    };
     ensureChannel(patch, getDef);
     patches.push(patch);
   }
@@ -171,7 +190,114 @@ export function validateProject(raw: unknown, getDef: DefinitionLookup, fallback
   const ml = src['masterLevel'];
   const masterLevel = isFiniteNumber(ml) ? Math.min(2, Math.max(0, ml)) : 1;
 
-  return { project: { name: asString(src['name'], fallbackName), tempo, masterLevel, patches, activePatch }, warnings };
+  const timeline = validateTimeline(src['timeline']);
+
+  return {
+    project: { name: asString(src['name'], fallbackName), tempo, masterLevel, patches, activePatch, timeline },
+    warnings,
+  };
+}
+
+const clampBeats = (v: number) => Math.min(MAX_BEATS, Math.max(0, v));
+
+/** Song end and loop; files from before the timeline get the defaults. */
+function validateTimeline(raw: unknown): Timeline {
+  const t = emptyTimeline();
+  if (!isObject(raw)) return t;
+  if (isFiniteNumber(raw['end'])) t.end = Math.max(1, clampBeats(raw['end']));
+  const loop = isObject(raw['loop']) ? raw['loop'] : {};
+  let start = isFiniteNumber(loop['start']) ? clampBeats(loop['start']) : t.loop.start;
+  let end = isFiniteNumber(loop['end']) ? clampBeats(loop['end']) : t.loop.end;
+  // A loop needs some length: an empty or reversed one becomes one bar from its start.
+  if (end <= start) {
+    start = Math.min(start, MAX_BEATS - BEATS_PER_BAR);
+    end = start + BEATS_PER_BAR;
+  }
+  t.loop = { on: loop['on'] === true, start, end };
+  return t;
+}
+
+/**
+ * Blocks of one patch: only on modules that have a pattern, inside the song range, with a value
+ * for every pattern parameter, and never overlapping another block on the same row.
+ */
+function validateClips(raw: unknown, modules: ModuleInstance[], getDef: DefinitionLookup, warnings: string[]): Clip[] {
+  const candidates: Clip[] = [];
+  let dropped = 0;
+  for (const c of Array.isArray(raw) ? raw : []) {
+    const module = isObject(c) ? modules.find((m) => m.id === c['module']) : undefined;
+    const def = module && getDef(module.type);
+    if (!isObject(c) || !module || !def?.patternParams?.length || !isFiniteNumber(c['start']) || !isFiniteNumber(c['length'])) {
+      dropped++;
+      continue;
+    }
+    const start = clampBeats(c['start']);
+    const length = Math.min(MAX_BEATS - start, c['length']);
+    if (length < MIN_CLIP_LENGTH) {
+      dropped++;
+      continue;
+    }
+    const rawParams = isObject(c['params']) ? c['params'] : {};
+    const params: Record<string, number> = {};
+    for (const pid of def.patternParams) {
+      const spec = def.params.find((p) => p.id === pid);
+      const v = rawParams[pid];
+      const fallback = module.params[pid] ?? spec?.default ?? 0;
+      params[pid] = isFiniteNumber(v) ? (spec ? Math.min(spec.max, Math.max(spec.min, v)) : v) : fallback;
+    }
+    const id = typeof c['id'] === 'string' ? c['id'] : '';
+    candidates.push({ id, module: module.id, start, length, params });
+  }
+  // In order of start; a block that begins inside the previous block on its row is dropped.
+  candidates.sort((a, b) => a.start - b.start);
+  const rowEnd = new Map<string, number>();
+  const clips: Clip[] = [];
+  for (const c of candidates) {
+    if (c.start < (rowEnd.get(c.module) ?? 0)) {
+      dropped++;
+      continue;
+    }
+    rowEnd.set(c.module, c.start + c.length);
+    clips.push(c);
+  }
+  // Ids must look like b1, b2, ... and be unique; others get fresh ones past every id in use.
+  const ids = new Set<string>();
+  for (const c of clips) {
+    if (/^b\d+$/.test(c.id) && !ids.has(c.id)) ids.add(c.id);
+    else c.id = '';
+  }
+  let next = Math.max(0, ...[...ids].map((id) => Number(id.slice(1))));
+  for (const c of clips) if (!c.id) c.id = `b${++next}`;
+  if (dropped) warnings.push(`Removed ${dropped} timeline block${dropped > 1 ? 's' : ''} that could not be placed.`);
+  return clips;
+}
+
+/** Automation lanes of one patch: one per existing control, points in range and sorted by time. */
+function validateLanes(
+  raw: unknown,
+  modules: ModuleInstance[],
+  getDef: DefinitionLookup,
+  warnings: string[],
+): AutomationLane[] {
+  const lanes: AutomationLane[] = [];
+  let dropped = 0;
+  for (const l of Array.isArray(raw) ? raw : []) {
+    const module = isObject(l) ? modules.find((m) => m.id === l['module']) : undefined;
+    const spec = isObject(l) && module ? getDef(module.type)?.params.find((p) => p.id === l['param']) : undefined;
+    if (!isObject(l) || !module || !spec || lanes.some((o) => o.module === module.id && o.param === spec.id)) {
+      dropped++;
+      continue;
+    }
+    const points: AutomationLane['points'] = [];
+    for (const pt of Array.isArray(l['points']) ? l['points'] : []) {
+      if (!isObject(pt) || !isFiniteNumber(pt['time']) || !isFiniteNumber(pt['value'])) continue;
+      points.push({ time: clampBeats(pt['time']), value: Math.min(spec.max, Math.max(spec.min, pt['value'])) });
+    }
+    points.sort((a, b) => a.time - b.time);
+    lanes.push({ module: module.id, param: spec.id, points });
+  }
+  if (dropped) warnings.push(`Removed ${dropped} automation line${dropped > 1 ? 's' : ''} for controls that do not exist.`);
+  return lanes;
 }
 
 /** Repair the modules, cables and view of one patch. */

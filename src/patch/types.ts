@@ -49,6 +49,50 @@ export interface Patch {
   cables: Cable[];
   /** Where this patch's canvas was scrolled and zoomed to. */
   view: ViewState;
+  /** Timeline blocks of this patch's sequencers (its timeline track). */
+  clips: Clip[];
+  /** Automation lines of this patch's controls (shown under its timeline track). */
+  lanes: AutomationLane[];
+}
+
+// ---------- Timeline ----------
+// Times on the timeline are in beats (quarter notes) from the start of the song; 4 beats = 1 bar.
+
+/**
+ * A block on a sequencer's row: while the song is inside it, the sequencer plays the block's own
+ * pattern, starting at its first step. Blocks on one row never overlap.
+ */
+export interface Clip {
+  /** Unique within its patch ("b1", "b2", ...), never reused there. */
+  id: string;
+  /** The sequencer module whose row the block is on. */
+  module: string;
+  start: number;
+  length: number;
+  /** The block's pattern: values of the module's pattern parameters (`patternParams`). */
+  params: Record<string, number>;
+}
+
+export interface AutomationPoint {
+  /** In beats. */
+  time: number;
+  /** In the parameter's own range and units. */
+  value: number;
+}
+
+/** The movement of one control over time: straight lines between points, sorted by time. */
+export interface AutomationLane {
+  module: string;
+  param: string;
+  points: AutomationPoint[];
+}
+
+/** Song-wide timeline settings. */
+export interface Timeline {
+  /** End of the song, in beats. */
+  end: number;
+  /** The loop: when on, playback jumps from `end` back to `start`. */
+  loop: { on: boolean; start: number; end: number };
 }
 
 export interface Project {
@@ -62,4 +106,5 @@ export interface Project {
   patches: Patch[];
   /** Id of the patch shown in the workspace. */
   activePatch: string;
+  timeline: Timeline;
 }

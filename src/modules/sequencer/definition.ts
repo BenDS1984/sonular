@@ -33,6 +33,7 @@ export const sequencer: ModuleDefinition = {
       (n): ParamSpec => ({ id: `on${n}`, label: `Step ${n}`, min: 0, max: 1, default: 1, step: 1, format: 'toggle' }),
     ),
   ],
+  patternParams: [...STEPS.map((n) => `pitch${n}`), ...STEPS.map((n) => `on${n}`)],
   panel: SequencerPanel,
   engine: 'native:sequencer',
 };

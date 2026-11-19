@@ -3,6 +3,7 @@
  * work on Svelte state proxies and on plain objects in tests alike.
  */
 import type { ModuleDefinition } from '../modules/types';
+import { emptyTimeline, removeModuleTimeline } from './timeline';
 import type { Cable, ModuleInstance, Patch, PortRef, Project } from './types';
 
 export type DefinitionLookup = (type: string) => ModuleDefinition | undefined;
@@ -21,7 +22,7 @@ export function nextPatchId(project: Pick<Project, 'patches'>): string {
 }
 
 export function emptyPatch(id: string, name: string, color = 0): Patch {
-  return { id, name, color, modules: [], cables: [], view: { x: 0, y: 0, zoom: 1 } };
+  return { id, name, color, modules: [], cables: [], view: { x: 0, y: 0, zoom: 1 }, clips: [], lanes: [] };
 }
 
 /** Type of the module every patch has exactly one of: its mixer channel. */
@@ -127,7 +128,14 @@ export function movePatch(project: Project, from: number, to: number) {
 
 /** A project with one empty patch. */
 export function emptyProject(name: string, tempo: number): Project {
-  return { name, tempo, masterLevel: 1, patches: [emptyPatch('p1', 'Patch 1')], activePatch: 'p1' };
+  return {
+    name,
+    tempo,
+    masterLevel: 1,
+    patches: [emptyPatch('p1', 'Patch 1')],
+    activePatch: 'p1',
+    timeline: emptyTimeline(),
+  };
 }
 
 /** Short readable ids: osc1, osc2, mixer1, ... (never reused within a patch). */
@@ -159,11 +167,12 @@ export function addModule(patch: Patch, def: ModuleDefinition, x: number, y: num
   return module;
 }
 
-/** Remove a module and every cable attached to it. */
+/** Remove a module with every cable attached to it and its timeline blocks and lanes. */
 export function removeModule(patch: Patch, id: string): void {
   const i = patch.modules.findIndex((m) => m.id === id);
   if (i >= 0) patch.modules.splice(i, 1);
   patch.cables = patch.cables.filter((c) => c.from.module !== id && c.to.module !== id);
+  removeModuleTimeline(patch, id);
 }
 
 export function hasPort(patch: Patch, ref: PortRef, kind: 'in' | 'out', getDef: DefinitionLookup): boolean {

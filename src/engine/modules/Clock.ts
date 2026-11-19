@@ -56,6 +56,8 @@ export class Clock implements DspModule {
   process(_inputs: readonly Float32Array[], _silent: readonly boolean[], outputs: readonly Float32Array[], frames: number): void {
     const start = this.transport.beat;
     const step = this.transport.beatsPerSample;
+    const wrapAt = this.transport.wrapAt;
+    const loopLength = this.transport.loopLength;
     for (let o = 0; o < CLOCK_OUTPUTS; o++) {
       const out = outputs[o]!;
       const perBeat = this.perBeat[o]!;
@@ -63,7 +65,9 @@ export class Clock implements DspModule {
       for (let i = 0; i < frames; i++) {
         // The tiny offset keeps a pulse that is due exactly on this sample from landing one
         // sample late through rounding (1e-9 beats is far below one sample at any tempo).
-        const pulses = (start + i * step) * perBeat + 1e-9;
+        let beat = start + i * step;
+        if (beat >= wrapAt) beat -= loopLength;
+        const pulses = beat * perBeat + 1e-9;
         v = pulses - Math.floor(pulses) < 0.5 ? 1 : 0;
         out[i] = v;
       }

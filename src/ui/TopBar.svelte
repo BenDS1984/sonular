@@ -1,6 +1,6 @@
 <script lang="ts">
   // Transport and global controls: Play/Stop, tempo, position, CPU and the master meter.
-  import { engineState, togglePlay } from '../engine/engine.svelte';
+  import { engineState, togglePlay, transportState } from '../engine/engine.svelte';
   import MasterMeter from './components/MasterMeter.svelte';
   import IconButton from './components/IconButton.svelte';
   import TempoField from './components/TempoField.svelte';
@@ -56,7 +56,7 @@
 
   // Position as bar.beat.sixteenth in 4/4, counted from 1.
   const position = $derived.by(() => {
-    const beat = engineState.playing ? Math.max(0, engineState.beat) : 0;
+    const beat = Math.max(0, engineState.playing ? engineState.beat : transportState.start);
     const sixteenths = Math.floor(beat * 4 + 1e-6);
     return `${Math.floor(sixteenths / 16) + 1}.${(Math.floor(sixteenths / 4) % 4) + 1}.${(sixteenths % 4) + 1}`;
   });
@@ -191,8 +191,8 @@
       class="pill"
       class:open={!!interaction.browser}
       type="button"
-      title={view.mixer ? 'Open a patch to add modules' : 'Add module (or double-click the canvas)'}
-      disabled={view.mixer}
+      title={view.main !== 'patch' ? 'Open a patch to add modules' : 'Add module (or double-click the canvas)'}
+      disabled={view.main !== 'patch'}
       aria-expanded={!!interaction.browser}
       onpointerdown={(e) => e.stopPropagation()}
       onclick={toggleBrowser}

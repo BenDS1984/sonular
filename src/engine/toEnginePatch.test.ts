@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ModuleDefinition } from '../modules/types';
+import { emptyTimeline } from '../patch/timeline';
 import type { Patch, Project } from '../patch/types';
 import { audiblePatches, toEnginePatch } from './toEnginePatch';
 
@@ -30,8 +31,17 @@ const patch = (id: string, mute = 0, solo = 0): Patch => ({
   ],
   cables: [{ id: 'c1', from: { module: 'osc1', port: 'out' }, to: { module: 'channel1', port: 'L' } }],
   view: { x: 0, y: 0, zoom: 1 },
+  clips: [],
+  lanes: [],
 });
-const project = (...patches: Patch[]): Project => ({ name: 'x', tempo: 120, masterLevel: 1, patches, activePatch: patches[0]!.id });
+const project = (...patches: Patch[]): Project => ({
+  name: 'x',
+  tempo: 120,
+  masterLevel: 1,
+  patches,
+  activePatch: patches[0]!.id,
+  timeline: emptyTimeline(),
+});
 
 describe('project to engine graph', () => {
   it('puts every patch in one graph, with ids per patch', () => {

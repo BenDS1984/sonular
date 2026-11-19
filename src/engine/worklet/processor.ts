@@ -86,6 +86,7 @@ class SonularProcessor extends AudioWorkletProcessor {
         this.engine = new Engine(sampleRate, factories);
         this.engine.setTempo(msg.tempo);
         this.engine.setMasterLevel(msg.masterLevel);
+        this.engine.setLoop(msg.loop.on, msg.loop.start, msg.loop.end);
         this.post({ type: 'ready', sampleRate, hiResTimer: HIRES_TIMER });
         break;
       }
@@ -115,9 +116,19 @@ class SonularProcessor extends AudioWorkletProcessor {
         this.engine?.setMasterLevel(msg.level);
         break;
       case 'run':
-        // Starting from silence (not while a stop is still fading out): begin at the top.
-        if (msg.running && !this.running && this.gain === 0) this.engine?.restart();
+        // Starting from silence: begin at the playhead. Restarting while a stop is still fading
+        // out only moves the position, so the sound fades back in without a click.
+        if (msg.running && !this.running) {
+          if (this.gain === 0) this.engine?.restart(msg.from);
+          else this.engine?.locate(msg.from);
+        }
         this.running = msg.running;
+        break;
+      case 'locate':
+        this.engine?.locate(msg.beat);
+        break;
+      case 'loop':
+        this.engine?.setLoop(msg.on, msg.start, msg.end);
         break;
     }
   }

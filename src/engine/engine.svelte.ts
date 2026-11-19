@@ -21,7 +21,7 @@ export const engineState = $state({
   clipped: false,
   processed: 0,
   sleeping: 0,
-  /** Transport position in beats since Play was pressed. */
+  /** Transport position in beats from the start of the song (while playing). */
   beat: 0,
   /** Increments with every stats message, so views can react even when values repeat. */
   statsTick: 0,
@@ -36,6 +36,22 @@ function bufferFromUrl(): BufferSize {
   if (raw === 'interactive' || raw === 'balanced' || raw === 'playback') return raw;
   const ms = Number(raw);
   return raw && ms >= 5 && ms <= 200 ? ms : DEFAULT_BUFFER;
+}
+
+/**
+ * Where Play starts, in beats: the playhead while stopped. Screen state, not saved and not part
+ * of undo. Stopping returns the playhead here.
+ */
+export const transportState = $state({ start: 0 });
+
+/** Put the playhead somewhere; while playing, playback jumps there. */
+export function setPlayhead(beat: number) {
+  const b = Number.isFinite(beat) ? Math.max(0, beat) : 0;
+  transportState.start = b;
+  if (engineState.playing) {
+    audio.locate(b);
+    engineState.beat = b;
+  }
 }
 
 /** CPU load over the last minutes, for the graph behind the CPU meter. */
@@ -166,6 +182,10 @@ export function startPatchSync(): () => void {
     $effect(() => {
       audio.setMasterLevel(project.masterLevel);
     });
+    $effect(() => {
+      const { on, start, end } = project.timeline.loop;
+      audio.setLoop({ on, start, end });
+    });
 
     $effect(() => {
       if (engineState.status !== 'ready') return;
@@ -208,7 +228,7 @@ function clearMeters() {
   }
   engineState.peakL = 0;
   engineState.peakR = 0;
-  engineState.beat = 0;
+  engineState.beat = transportState.start;
 }
 
 export async function togglePlay(): Promise<void> {
@@ -224,6 +244,7 @@ export async function togglePlay(): Promise<void> {
   } catch {
     return; // error is reported through engineState
   }
-  audio.setRunning(true);
+  audio.setRunning(true, transportState.start);
+  engineState.beat = transportState.start;
   engineState.playing = true;
 }

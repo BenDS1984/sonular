@@ -11,7 +11,7 @@ export interface FaustProgram {
 }
 
 export type ToEngine =
-  | { type: 'init'; faust: FaustProgram[]; tempo: number; masterLevel: number }
+  | { type: 'init'; faust: FaustProgram[]; tempo: number; masterLevel: number; loop: LoopSetting }
   | { type: 'patch'; patch: EnginePatch }
   | { type: 'param'; node: string; name: string; value: number }
   | { type: 'tempo'; bpm: number }
@@ -19,7 +19,17 @@ export type ToEngine =
   | { type: 'sinkActive'; node: string; active: boolean }
   /** Master level, linear gain. */
   | { type: 'master'; level: number }
-  | { type: 'run'; running: boolean };
+  /** Start (from `from`, in beats) or stop. */
+  | { type: 'run'; running: boolean; from: number }
+  /** The playhead moved while playing. */
+  | { type: 'locate'; beat: number }
+  | ({ type: 'loop' } & LoopSetting);
+
+export interface LoopSetting {
+  on: boolean;
+  start: number;
+  end: number;
+}
 
 export interface EngineStats {
   /** Share of the real-time budget spent rendering (0..1+). */
@@ -31,7 +41,7 @@ export interface EngineStats {
   processed: number;
   sleeping: number;
   unreachable: number;
-  /** Transport position in beats since Play was pressed. */
+  /** Transport position in beats from the start of the song. */
   beat: number;
   /** Module meter values, ordered as in the latest `meterLayout` message. */
   meters: Float32Array;

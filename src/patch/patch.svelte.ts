@@ -90,6 +90,18 @@ export const patch: Patch = {
   set view(v) {
     activePatch().view = v;
   },
+  get clips() {
+    return activePatch().clips;
+  },
+  set clips(v) {
+    activePatch().clips = v;
+  },
+  get lanes() {
+    return activePatch().lanes;
+  },
+  set lanes(v) {
+    activePatch().lanes = v;
+  },
 };
 
 /** True when the patch holds nothing but its Channel. */
@@ -106,6 +118,7 @@ export function replaceProject(next: Project) {
   project.masterLevel = next.masterLevel;
   project.patches = next.patches;
   project.activePatch = next.activePatch;
+  project.timeline = next.timeline;
 }
 
 // ---------- Patches (tabs) ----------

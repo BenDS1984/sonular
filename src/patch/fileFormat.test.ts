@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ModuleDefinition } from '../modules/types';
 import { FILE_FORMAT, FILE_VERSION, ProjectFileError, fileNameFor, parseProjectFile, serializeProject } from './fileFormat';
+import { emptyTimeline } from './timeline';
 import type { Project } from './types';
 
 const def = (type: string, inputs: string[], outputs: string[]): ModuleDefinition => ({
@@ -17,7 +18,17 @@ const def = (type: string, inputs: string[], outputs: string[]): ModuleDefinitio
   panel: null as unknown as ModuleDefinition['panel'],
   engine: `test:${type}`,
 });
-const DEFS = [def('src', [], ['out']), def('sink', ['L', 'R'], [])];
+/** A sequencer-like module: two steps that make up its pattern. */
+const seq: ModuleDefinition = {
+  ...def('seq', [], ['pitch']),
+  params: [
+    { id: 'p1', label: '1', min: -24, max: 24, default: 0 },
+    { id: 'p2', label: '2', min: -24, max: 24, default: 0 },
+    { id: 'rate', label: 'Rate', min: 0, max: 1, default: 0.5 },
+  ],
+  patternParams: ['p1', 'p2'],
+};
+const DEFS = [def('src', [], ['out']), def('sink', ['L', 'R'], []), seq];
 const getDef = (t: string) => DEFS.find((d) => d.type === t);
 
 const sample = (): Project => ({
@@ -36,9 +47,24 @@ const sample = (): Project => ({
       ],
       cables: [{ id: 'c1', from: { module: 'src1', port: 'out' }, to: { module: 'sink1', port: 'L' } }],
       view: { x: 5, y: 6, zoom: 0.8 },
+      clips: [],
+      lanes: [{ module: 'src1', param: 'level', points: [{ time: 0, value: 0 }, { time: 8, value: 1 }] }],
     },
-    { id: 'p3', name: 'Pad', color: 5, modules: [], cables: [], view: { x: 0, y: 0, zoom: 1 } },
+    {
+      id: 'p3',
+      name: 'Pad',
+      color: 5,
+      modules: [{ id: 'seq1', type: 'seq', x: 0, y: 0, params: { p1: 0, p2: 7, rate: 0.5 } }],
+      cables: [],
+      view: { x: 0, y: 0, zoom: 1 },
+      clips: [
+        { id: 'b1', module: 'seq1', start: 0, length: 16, params: { p1: 0, p2: 7 } },
+        { id: 'b3', module: 'seq1', start: 16, length: 8, params: { p1: -12, p2: 3 } },
+      ],
+      lanes: [],
+    },
   ],
+  timeline: { end: 96, loop: { on: true, start: 16, end: 32 } },
 });
 
 /** A version 1 file: one patch, with the name and tempo on the patch. */
@@ -78,8 +104,11 @@ describe('project files', () => {
           modules: [{ id: 'src1', type: 'src', x: 1, y: 2, params: { level: 0.3 } }],
           cables: [],
           view: { x: 7, y: 8, zoom: 2 },
+          clips: [],
+          lanes: [],
         },
       ],
+      timeline: emptyTimeline(),
     });
   });
 
@@ -149,6 +178,71 @@ describe('project files', () => {
     expect(parseProjectFile(text(999), getDef).project.tempo).toBe(300);
     expect(parseProjectFile(text(5), getDef).project.tempo).toBe(20);
     expect(parseProjectFile(text('fast'), getDef).project.tempo).toBe(120);
+  });
+
+  describe('the timeline', () => {
+    const file = (patch: unknown, timeline?: unknown) =>
+      JSON.stringify({ format: FILE_FORMAT, version: FILE_VERSION, project: { patches: [patch], timeline } });
+    const seqModule = { id: 'seq1', type: 'seq', x: 0, y: 0, params: { p1: 5, p2: 6 } };
+
+    it('gives files from before the timeline an empty one', () => {
+      const v3 = JSON.stringify({ format: FILE_FORMAT, version: 3, project: { patches: [{ modules: [seqModule] }] } });
+      const { project, warnings } = parseProjectFile(v3, getDef);
+      expect(warnings).toEqual([]);
+      expect(project.timeline).toEqual(emptyTimeline());
+      expect(project.patches[0]!.clips).toEqual([]);
+      expect(project.patches[0]!.lanes).toEqual([]);
+    });
+
+    it('drops blocks that cannot be placed and fills in missing pattern values', () => {
+      const { project, warnings } = parseProjectFile(
+        file({
+          modules: [seqModule, { id: 'src1', type: 'src', x: 0, y: 0, params: {} }],
+          clips: [
+            { id: 'b2', module: 'seq1', start: 4, length: 4, params: { p1: 99, rate: 1 } },
+            { id: 'b5', module: 'seq1', start: 6, length: 4, params: {} }, // overlaps the first
+            { id: 'b2', module: 'seq1', start: 8, length: 4, params: {} }, // duplicate id
+            { id: 'b7', module: 'src1', start: 0, length: 4, params: {} }, // module without a pattern
+            { id: 'b8', module: 'gone1', start: 0, length: 4, params: {} }, // module does not exist
+            { id: 'b9', module: 'seq1', start: 20, length: 0, params: {} }, // too short
+          ],
+        }),
+        getDef,
+      );
+      expect(project.patches[0]!.clips).toEqual([
+        { id: 'b2', module: 'seq1', start: 4, length: 4, params: { p1: 24, p2: 6 } },
+        { id: 'b3', module: 'seq1', start: 8, length: 4, params: { p1: 5, p2: 6 } },
+      ]);
+      expect(warnings.join(' ')).toMatch(/Removed 4 timeline blocks/);
+    });
+
+    it('keeps one sorted, in-range automation line per existing control', () => {
+      const { project, warnings } = parseProjectFile(
+        file({
+          modules: [seqModule],
+          lanes: [
+            { module: 'seq1', param: 'rate', points: [{ time: 8, value: 3 }, { time: -2, value: 0.2 }, { time: 'x', value: 1 }] },
+            { module: 'seq1', param: 'rate', points: [] }, // second line for the same control
+            { module: 'seq1', param: 'nope', points: [] },
+            { module: 'gone1', param: 'rate', points: [] },
+          ],
+        }),
+        getDef,
+      );
+      expect(project.patches[0]!.lanes).toEqual([
+        { module: 'seq1', param: 'rate', points: [{ time: 0, value: 0.2 }, { time: 8, value: 1 }] },
+      ]);
+      expect(warnings.join(' ')).toMatch(/Removed 3 automation lines/);
+    });
+
+    it('repairs the song end and loop', () => {
+      const timeline = (t: unknown) => parseProjectFile(file({}, t), getDef).project.timeline;
+      expect(timeline({ end: -5, loop: { on: true, start: 8, end: 8 } })).toEqual({ end: 1, loop: { on: true, start: 8, end: 12 } });
+      expect(timeline({ end: 1e9, loop: { on: 'yes', start: 'a' } })).toEqual({
+        end: 999 * 4,
+        loop: { on: false, start: 0, end: 16 },
+      });
+    });
   });
 
   it('makes safe file names', () => {

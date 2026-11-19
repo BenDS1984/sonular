@@ -19,14 +19,14 @@ that every module must follow are listed near the end.
 
 | Part | Where | What it does |
 |---|---|---|
-| Project model | `src/patch/` | A project (name, tempo) holds one or more patches (id, name, colour, modules, cables, parameters, view). Every control is addressed as patch → module → parameter id, ready for mixer channels and later timeline automation. The single source of truth, owned by the main thread. |
-| Views | `src/ui/TabBar.svelte`, `src/ui/Workspace.svelte`, `src/ui/mixer/` | A tab per patch (add, rename, duplicate, delete, drag to reorder) and a Mixer button. Under the tabs either the canvas of the active patch or the mixer: every patch's Channel side by side in tab order (the same `ChannelStrip` as the Channel module) plus the master. Which view is shown is screen state only (`src/ui/view.svelte.ts`). |
+| Project model | `src/patch/` | A project (name, tempo, timeline settings) holds one or more patches (id, name, colour, modules, cables, parameters, view, timeline blocks and automation lanes). Every control is addressed as patch → module → parameter id. The single source of truth, owned by the main thread. |
+| Views | `src/ui/TabBar.svelte`, `src/ui/Workspace.svelte`, `src/ui/mixer/`, `src/ui/timeline/` | A tab per patch (add, rename, duplicate, delete, drag to reorder) and Mixer and Timeline buttons. Under the tabs either the canvas of the active patch, the mixer (every patch's Channel side by side in tab order, the same `ChannelStrip` as the Channel module, plus the master) or the timeline (a track per patch with a row per sequencer, ruler, playhead, loop, song end). Which view is shown, the playhead and the timeline zoom are screen state only. |
 | Module definitions | `src/modules/` | Per module type: ports, parameter specs, panel, and the engine kind that does its DSP. |
 | Patch sync | `src/engine/engine.svelte.ts`, `toEnginePatch.ts` | Sends the graph when modules or cables change; single values when a parameter moves. |
 | Engine | `src/engine/core/` | Plain TypeScript (runs in the worklet, in offline renders and in Node tests). Orders nodes, routes buffers, sums cables, sleeps idle modules, guards the output. Owns the transport (tempo and position). |
 | DSP | `src/dsp/*.dsp` | Faust, compiled to WebAssembly at build time; each module is its own wasm instance. See [faust-notes.md](faust-notes.md). |
 | Native modules | `src/engine/modules/` | TypeScript for control logic and anything that follows the tempo (Clock, Sequencer, Envelope, Scope, Recorder). Engine kinds `native:<name>`. |
-| Persistence | `src/patch/`, `src/platform/storage.ts` | Autosave in browser storage, one undo history per project, `.sonular` files with a version number (version 1 single-patch files are upgraded on load). |
+| Persistence | `src/patch/`, `src/platform/storage.ts` | Autosave in browser storage, one undo history per project, `.sonular` files with a version number (older versions are upgraded on load; version 4 added the timeline). |
 | Offline | `vite.config.ts`, `src/platform/pwa.svelte.ts` | Service worker precaches every built file; updates wait for the user. |
 
 Browser-specific code is kept behind small modules in `src/platform/` (storage, service worker),
@@ -45,6 +45,26 @@ so a desktop build could swap them out.
 - A new patch, and the first patch of a new project, get their Channel at the right of the
   visible canvas, left of the minimap.
 - Tab and mixer order are the same list (`project.patches`); dragging either one moves it.
+
+### Timeline data
+
+Each patch is one timeline track. Times are in beats (quarter notes) from the start of the song;
+4 beats make a bar. Operations live in `src/patch/timeline.ts`.
+- **Blocks** (`patch.clips`): a block sits on the row of one sequencer module and holds its own
+  pattern, the values of the parameters the module lists in `patternParams` (all steps for the
+  Sequencer). Blocks on one row never overlap. Ids `b1`, `b2`, ... are never reused in a patch.
+  A sequencer without blocks plays as before, so older patches sound the same.
+- **Automation lanes** (`patch.lanes`): one per control (module + parameter), points of time and
+  value in the parameter's own range, straight lines between them (`valueAt`).
+- **Song settings** (`project.timeline`): song end and the loop (on/off, start, end).
+- Removing a module removes its blocks and lanes; duplicating a patch copies them. All of it is
+  saved in the file, autosaved and undoable.
+- **Playing:** Play starts at the playhead (`transportState.start`, screen state); while playing,
+  moving the playhead jumps the transport there (`locate`, modules keep their state). The loop is
+  sent to the engine, where the transport jumps back on the exact sample (`Transport.wrapAt`,
+  `loopLength`; tempo-following modules apply the same jump inside their sample loop, as the
+  Clock does). Started past the loop end, playback runs on without looping. The song end is only
+  a marker for now: playback continues past it.
 
 ### Engine rules (real-time safety)
 
@@ -255,9 +275,9 @@ An old patch must load and sound the same in every later version of Sonular.
 - Browsers: Chrome and Edge first; Safari and Firefox must work and are tested regularly.
 
 ### Still open
-- **Automation and the arrangement view.** How clips and tracks drive module parameters with
-  sample accuracy, and how that is stored in the file format. Follows from decisions 3–5; to be
-  designed together with the arrangement view.
+- **Automation and the arrangement view.** The data and file format are settled (see "Timeline
+  data"); how the engine plays blocks and lanes sample-accurately is designed with the timeline
+  screen.
 
 ## About openDAW
 

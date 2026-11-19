@@ -1,8 +1,8 @@
 /**
  * Undo/redo for the whole project: one history across all patches.
  *
- * Every change to modules, cables, parameters, the tempo, the project or a patch's name, colour
- * or the list of patches becomes an undo step, but changes that belong
+ * Every change to modules, cables, parameters, the tempo, the project or a patch's name, colour,
+ * the list of patches or the timeline (blocks, automation, loop, song end) becomes an undo step, but changes that belong
  * together are merged: while a mouse button is held (dragging a module or turning a knob) nothing
  * is recorded until release, and other bursts (scroll wheel, arrow keys) are merged when they
  * come within a short pause of each other. Panning and zooming a view and switching between
@@ -11,7 +11,8 @@
 import { untrack } from 'svelte';
 import { canvasState, clearCanvasState, patch, project } from './patch.svelte';
 import { UndoStack } from './UndoStack';
-import type { Patch } from './types';
+import { emptyTimeline } from './timeline';
+import type { Patch, Timeline } from './types';
 
 const MERGE_MS = 350;
 
@@ -21,6 +22,7 @@ interface Content {
   name: string;
   tempo: number;
   masterLevel: number;
+  timeline?: Timeline;
   patches: PatchContent[];
 }
 
@@ -29,7 +31,16 @@ const snapshot = (): string =>
     name: project.name,
     tempo: project.tempo,
     masterLevel: project.masterLevel,
-    patches: project.patches.map((p) => ({ id: p.id, name: p.name, color: p.color, modules: p.modules, cables: p.cables })),
+    timeline: project.timeline,
+    patches: project.patches.map((p) => ({
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      modules: p.modules,
+      cables: p.cables,
+      clips: p.clips,
+      lanes: p.lanes,
+    })),
   });
 
 export const historyState = $state({ canUndo: false, canRedo: false });
@@ -63,6 +74,7 @@ function restore(state: string) {
   project.name = content.name;
   project.tempo = content.tempo;
   project.masterLevel = content.masterLevel ?? 1;
+  project.timeline = content.timeline ?? emptyTimeline();
   // Views are not part of the history: patches that still exist keep where they were scrolled to.
   const views = new Map(project.patches.map((p) => [p.id, p.view]));
   project.patches = content.patches.map((p) => ({ ...p, view: views.get(p.id) ?? { x: 0, y: 0, zoom: 1 } }));

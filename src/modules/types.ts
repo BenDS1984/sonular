@@ -77,6 +77,11 @@ export interface ModuleDefinition {
   inputs: PortSpec[];
   outputs: PortSpec[];
   params: ParamSpec[];
+  /**
+   * Parameters that make up the module's pattern (sequencers). A module with these gets a row of
+   * blocks on the timeline, and each block holds its own values for them.
+   */
+  patternParams?: string[];
   /** Controls shown in the module body. */
   panel: Component<ModulePanelProps>;
   /**

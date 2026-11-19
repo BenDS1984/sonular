@@ -301,12 +301,21 @@ export class Engine {
   }
 
   /**
-   * Start from the top (Play pressed): position back to zero and every module cleared, so
+   * Start playing (Play pressed): position to `beat` (the playhead) and every module cleared, so
    * sequences start on their first step and no tail from the previous run comes back.
    */
-  restart(): void {
-    this.transport.rewind();
+  restart(beat = 0): void {
+    this.transport.rewind(beat);
     this.resetAll();
+  }
+
+  /** Move the position while playing (the playhead was moved); modules keep their state. */
+  locate(beat: number): void {
+    this.transport.rewind(beat);
+  }
+
+  setLoop(on: boolean, start: number, end: number): void {
+    this.transport.setLoop(on, start, end);
   }
 
   setTempo(bpm: number): void {
