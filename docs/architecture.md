@@ -54,6 +54,9 @@ so a desktop build could swap them out.
 - Mute/solo switch a Channel off: it fades out over 20 ms, then it and everything that only feeds
   it stop rendering (no CPU). Modules that keep time (Clock, Sequencer) keep running so the patch
   is still in step when it comes back; the rest restarts from a clean state.
+- The master level glides like a knob (each sample moves a fixed share of the way, about 23 ms),
+  so a dragged master fader never crackles; a fixed-length ramp per fader message did, on pure
+  tones.
 - **No allocation on the audio thread** in the render path: indexed loops, reused objects, no
   `subarray()` per block. Garbage collection on the audio thread causes audible dropouts.
 - Modules that don't reach an output are skipped; processors sleep once their inputs have been

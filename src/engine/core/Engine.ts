@@ -28,6 +28,16 @@ const MASTER_CEILING = 1;
 /** Fade time for sinks going silent or coming back, and for master level changes. */
 const FADE_SECONDS = 0.02;
 
+/**
+ * Master level smoothing, the same as the Channel's knob smoothing (Faust `si.polySmooth` with
+ * pole 1 − 44.1/SR, about 23 ms): every sample moves a fixed share of the remaining distance, so
+ * a fader that sends a new value many times a second still glides without corners. (A straight
+ * ramp per message stops abruptly at each value; dragged, those corners crackle on pure tones.)
+ */
+const MASTER_SMOOTH_HZ = 44.1;
+/** Closer than this to the target, the master level jumps there and smoothing stops. */
+const MASTER_SNAP = 1e-5;
+
 interface Source {
   node: Node;
   port: number;
@@ -110,6 +120,8 @@ export class Engine {
   /** Master level (linear), faded per sample towards its target. */
   private masterGain = 1;
   private masterTarget = 1;
+  /** Share of the remaining distance the master level moves per sample. */
+  private readonly masterCoef: number;
   private readonly fadeStep: number;
   /** A sink went dormant or woke up: rebuild the processing order before the next block. */
   private orderDirty = false;
@@ -128,6 +140,7 @@ export class Engine {
     this.transport = new Transport(sampleRate);
     this.factories = factories;
     this.fadeStep = 1 / (FADE_SECONDS * sampleRate);
+    this.masterCoef = MASTER_SMOOTH_HZ / sampleRate;
   }
 
   // ---------- Patch management ----------
@@ -494,12 +507,13 @@ export class Engine {
     let mg = this.masterGain;
     const mt = this.masterTarget;
     if (mg !== mt) {
-      const mstep = Math.max(step, Math.abs(mt - mg) * step);
+      const k = this.masterCoef;
       for (let i = 0; i < n; i++) {
-        mg = mg < mt ? Math.min(mt, mg + mstep) : Math.max(mt, mg - mstep);
+        mg += (mt - mg) * k;
         L[i]! *= mg;
         R[i]! *= mg;
       }
+      if (Math.abs(mt - mg) < MASTER_SNAP) mg = mt;
       this.masterGain = mg;
     } else if (mg !== 1) {
       for (let i = 0; i < n; i++) {

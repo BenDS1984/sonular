@@ -351,13 +351,15 @@ describe('Engine: mixer channels (sinks switched on and off) and master level', 
     expect((made.get('p2/src') as Src).calls).toBe(0);
   });
 
-  it('applies the master level with a fade', () => {
+  it('applies the master level with a smooth glide', () => {
     const { engine, blocks } = build();
     blocks(2);
     engine.setMasterLevel(0.5);
     const { L } = blocks(16);
     expect(maxStep(L)).toBeLessThan(0.001);
-    expect(L[L.length - 1]).toBeCloseTo(0.375, 5);
+    // About 23 ms smoothing: most of the way after 43 ms, all the way after half a second.
+    expect(L[L.length - 1]).toBeLessThan(0.75 * 0.5 + 0.375 * 0.2);
+    expect(blocks(188).L[BLOCK_SIZE * 188 - 1]).toBe(0.375);
     engine.restart();
     expect(blocks(1).L[0]).toBeCloseTo(0.375, 5); // after Play: straight at the level
   });
