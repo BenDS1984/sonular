@@ -18,7 +18,37 @@ export const project = $state<Project>(ops.emptyProject(DEFAULT_PROJECT_NAME, DE
 
 /** Give every patch its Channel (start-up; opening files does this by itself). */
 export function ensureProjectChannels() {
-  ops.ensureChannels(project, getDefinition);
+  addChannels(project);
+}
+
+/**
+ * ensureChannels, with the Channel of each empty patch placed near the right edge of the
+ * workspace (where the signal chain ends), left of the minimap so its name stays visible.
+ */
+function addChannels(target: Project) {
+  const empty = target.patches.filter((p) => p.modules.length === 0);
+  ops.ensureChannels(target, getDefinition);
+  const x = rightChannelX();
+  if (x === null) return;
+  for (const p of empty) for (const m of p.modules) if (m.type === ops.CHANNEL_TYPE) m.x = x;
+}
+
+/** Minimap width plus its margin, used before the workspace is on screen (start-up). */
+const MINIMAP_RESERVE = 214;
+
+/** Canvas x for a Channel at the right of the workspace (at the default view), or null. */
+function rightChannelX(): number | null {
+  const def = getDefinition(ops.CHANNEL_TYPE);
+  if (!def || typeof document === 'undefined') return null;
+  const ws = document.querySelector('.workspace')?.getBoundingClientRect();
+  let right: number;
+  if (ws && ws.width > 0) {
+    const minimap = document.querySelector('.workspace .minimap')?.getBoundingClientRect();
+    right = minimap ? minimap.left - ws.left : ws.width;
+  } else {
+    right = window.innerWidth - MINIMAP_RESERVE;
+  }
+  return Math.max(40, Math.round(right - def.width - 32));
 }
 
 /** The patch shown in the workspace (falls back to the first, so there always is one). */
@@ -69,13 +99,54 @@ export function isPatchEmpty(p: Patch = patch): boolean {
 
 /** Replace the whole project (open file, new project, autosave restore, starter patch). */
 export function replaceProject(next: Project) {
-  ops.ensureChannels(next, getDefinition);
-  canvasState.selection = null;
+  addChannels(next);
+  clearCanvasState();
   project.name = next.name;
   project.tempo = next.tempo;
   project.masterLevel = next.masterLevel;
   project.patches = next.patches;
   project.activePatch = next.activePatch;
+}
+
+// ---------- Patches (tabs) ----------
+
+/** Forget canvas state that belongs to the patch on screen (module ids repeat across patches). */
+export function clearCanvasState() {
+  canvasState.selection = null;
+  canvasState.portOffsets = {};
+  canvasState.moduleSizes = {};
+  canvasState.zIndex = {};
+}
+
+/** Show another patch in the workspace. */
+export function selectPatch(id: string) {
+  if (id === project.activePatch || !project.patches.some((p) => p.id === id)) return;
+  clearCanvasState();
+  project.activePatch = id;
+}
+
+/** Add a patch with only its Channel and show it. */
+export function addPatch() {
+  const added = ops.addPatch(project, getDefinition);
+  const x = rightChannelX();
+  if (x !== null) for (const m of added.modules) if (m.type === ops.CHANNEL_TYPE) m.x = x;
+  selectPatch(added.id);
+}
+
+/** Copy a patch (right after it) and show the copy. */
+export function duplicatePatch(id: string) {
+  const copy = ops.duplicatePatch(project, id);
+  if (copy) selectPatch(copy.id);
+}
+
+/** Remove a patch (not the last one). */
+export function removePatch(id: string) {
+  const shown = id === project.activePatch;
+  if (ops.removePatch(project, id) && shown) clearCanvasState();
+}
+
+export function movePatch(from: number, to: number) {
+  ops.movePatch(project, from, to);
 }
 
 export type Selection = { kind: 'module'; id: string } | { kind: 'cable'; id: string } | null;

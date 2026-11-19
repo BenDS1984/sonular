@@ -16,7 +16,6 @@
   import Minimap from './workspace/Minimap.svelte';
   import { prefs } from './prefs.svelte';
   import { addModule, canvasState, deleteSelection, fitAll, isPatchEmpty, patch } from '../patch/patch.svelte';
-  import { loadStarterPatch } from '../patch/fileActions';
   import { GRID, SNAP, snap, toCanvas, zoomAt } from '../patch/geometry';
   import type { ModuleDefinition } from '../modules/types';
   import { openProjectFile } from '../patch/fileActions';
@@ -246,25 +245,20 @@
   aria-label="Patch canvas"
 >
   <div class="world" style:transform={`translate(${view.x}px, ${view.y}px) scale(${view.zoom})`}>
-    {#each patch.modules as module (`${module.id}:${module.type}`)}
-      <ModuleView {module} />
-    {/each}
-    <CableLayer onjackpointerdown={startJackDrag} />
+    <!-- Module ids repeat across patches: draw a switched-to patch from scratch, so every module
+         measures its jacks again. -->
+    {#key patch.id}
+      {#each patch.modules as module (`${module.id}:${module.type}`)}
+        <ModuleView {module} />
+      {/each}
+      <CableLayer onjackpointerdown={startJackDrag} />
+    {/key}
   </div>
 
   {#if isPatchEmpty()}
     <div class="empty">
       <p class="title">Your patch is empty</p>
       <p class="hint">Double-click anywhere to add a module, or use <strong>+ Module</strong> in the top bar.</p>
-      <button
-        type="button"
-        class="starter"
-        onpointerdown={(e) => e.stopPropagation()}
-        ondblclick={(e) => e.stopPropagation()}
-        onclick={loadStarterPatch}
-      >
-        Load a starter patch
-      </button>
     </div>
   {/if}
 
@@ -341,21 +335,6 @@
     color: var(--text-strong);
     font-size: var(--text-lg);
     pointer-events: none;
-  }
-  .starter {
-    justify-self: center;
-    margin-top: var(--space-4);
-    height: 32px;
-    padding: 0 var(--space-4);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-md);
-    background: var(--surface-control);
-    color: var(--text-default);
-    cursor: pointer;
-    pointer-events: auto;
-  }
-  .starter:hover {
-    background: var(--surface-control-hover);
   }
   .hint strong {
     color: var(--text-secondary);

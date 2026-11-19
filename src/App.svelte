@@ -1,6 +1,7 @@
 <script lang="ts">
   import TopBar from './ui/TopBar.svelte';
   import Workspace from './ui/Workspace.svelte';
+  import TabBar from './ui/TabBar.svelte';
   import Gallery from './ui/gallery/Gallery.svelte';
   import Toasts from './ui/Toasts.svelte';
   import SaveDialog from './ui/SaveDialog.svelte';
@@ -26,6 +27,7 @@
 {:else}
   <div class="app">
     <TopBar />
+    <TabBar />
     <Workspace />
   </div>
   <SaveDialog />

@@ -64,6 +64,67 @@ export function ensureChannels(project: Project, getDef: DefinitionLookup): stri
   return project.patches.flatMap((p) => ensureChannel(p, getDef));
 }
 
+// ---------- The list of patches ----------
+
+/** Number of colours in the channel palette (src/ui/channelColors.ts). */
+export const PATCH_COLOR_COUNT = 12;
+
+/** "Patch N" for the next patch: N one past the number of patches, skipping names in use. */
+export function nextPatchName(project: Pick<Project, 'patches'>): string {
+  let n = project.patches.length + 1;
+  while (project.patches.some((p) => p.name === `Patch ${n}`)) n++;
+  return `Patch ${n}`;
+}
+
+/** The colour after the last patch's, so neighbouring tabs differ. */
+export function nextPatchColor(project: Pick<Project, 'patches'>): number {
+  const last = project.patches[project.patches.length - 1];
+  return last ? (last.color + 1) % PATCH_COLOR_COUNT : 0;
+}
+
+/** Add a new patch holding only its Channel, after the others. Returns it. */
+export function addPatch(project: Project, getDef: DefinitionLookup): Patch {
+  const patch = emptyPatch(nextPatchId(project), nextPatchName(project), nextPatchColor(project));
+  ensureChannel(patch, getDef);
+  project.patches.push(patch);
+  return patch;
+}
+
+/**
+ * Copy a patch with all its modules, cables and settings, right after the original. The copy
+ * gets its own id, the name "<name> copy" and the next colour. Returns it, or null.
+ */
+export function duplicatePatch(project: Project, id: string): Patch | null {
+  const i = project.patches.findIndex((p) => p.id === id);
+  if (i < 0) return null;
+  const copy: Patch = JSON.parse(JSON.stringify(project.patches[i]));
+  copy.id = nextPatchId(project);
+  copy.name = `${copy.name} copy`;
+  copy.color = (copy.color + 1) % PATCH_COLOR_COUNT;
+  project.patches.splice(i + 1, 0, copy);
+  return copy;
+}
+
+/**
+ * Remove a patch. The last patch cannot be removed. When the removed patch was shown, its right
+ * neighbour (or else the left one) is shown instead. Returns whether it was removed.
+ */
+export function removePatch(project: Project, id: string): boolean {
+  const i = project.patches.findIndex((p) => p.id === id);
+  if (i < 0 || project.patches.length <= 1) return false;
+  project.patches.splice(i, 1);
+  if (project.activePatch === id) project.activePatch = project.patches[Math.min(i, project.patches.length - 1)]!.id;
+  return true;
+}
+
+/** Move a patch to another place in the list (tab order). */
+export function movePatch(project: Project, from: number, to: number) {
+  const n = project.patches.length;
+  if (from === to || from < 0 || from >= n || to < 0 || to >= n) return;
+  const [p] = project.patches.splice(from, 1);
+  project.patches.splice(to, 0, p!);
+}
+
 /** A project with one empty patch. */
 export function emptyProject(name: string, tempo: number): Project {
   return { name, tempo, masterLevel: 1, patches: [emptyPatch('p1', 'Patch 1')], activePatch: 'p1' };

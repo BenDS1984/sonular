@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import type { ModuleDefinition } from '../modules/types';
-import { addModule, connect, emptyPatch, isPortConnected, nextModuleId, nextPatchId, removeModule } from './operations';
+import {
+  addModule,
+  addPatch,
+  connect,
+  duplicatePatch,
+  emptyPatch,
+  emptyProject,
+  isPortConnected,
+  movePatch,
+  nextModuleId,
+  nextPatchId,
+  removeModule,
+  removePatch,
+} from './operations';
 import { cablePath, fitView, toCanvas, zoomAt } from './geometry';
 import type { Patch } from './types';
 
@@ -93,5 +106,63 @@ describe('canvas geometry', () => {
     const p = (id: string) => emptyPatch(id, id);
     expect(nextPatchId({ patches: [] })).toBe('p1');
     expect(nextPatchId({ patches: [p('p1'), p('p3')] })).toBe('p4');
+  });
+});
+
+describe('the list of patches', () => {
+  const CH_DEFS = [...DEFS, def('channel', ['L', 'R'], [])];
+  const getChDef = (t: string) => CH_DEFS.find((d) => d.type === t);
+  const ids = (project: { patches: Patch[] }) => project.patches.map((p) => p.id);
+
+  it('adds patches named "Patch N" with the next colour and only a Channel', () => {
+    const project = emptyProject('x', 120);
+    const p2 = addPatch(project, getChDef);
+    const p3 = addPatch(project, getChDef);
+    expect([p2.id, p2.name, p2.color]).toEqual(['p2', 'Patch 2', 1]);
+    expect([p3.id, p3.name, p3.color]).toEqual(['p3', 'Patch 3', 2]);
+    expect(p2.modules.map((m) => m.type)).toEqual(['channel']);
+    // A name already in use is skipped.
+    project.patches[0]!.name = 'Patch 4';
+    expect(addPatch(project, getChDef).name).toBe('Patch 5');
+  });
+
+  it('duplicates a patch right after the original, as an independent copy', () => {
+    const project = emptyProject('x', 120);
+    addPatch(project, getChDef);
+    const src = project.patches[0]!;
+    src.name = 'Bass';
+    addModule(src, getDef('src')!, 0, 0);
+    const copy = duplicatePatch(project, 'p1')!;
+    expect(ids(project)).toEqual(['p1', 'p3', 'p2']);
+    expect([copy.name, copy.color]).toEqual(['Bass copy', 1]);
+    expect(copy.modules).toEqual(src.modules);
+    copy.modules[0]!.params['level'] = 0.9;
+    expect(src.modules[0]!.params['level']).toBe(0.5);
+  });
+
+  it('removes a patch but never the last one, and shows a neighbour instead', () => {
+    const project = emptyProject('x', 120);
+    addPatch(project, getChDef);
+    addPatch(project, getChDef);
+    project.activePatch = 'p2';
+    expect(removePatch(project, 'p2')).toBe(true);
+    expect(ids(project)).toEqual(['p1', 'p3']);
+    expect(project.activePatch).toBe('p3');
+    removePatch(project, 'p3');
+    expect(project.activePatch).toBe('p1');
+    expect(removePatch(project, 'p1')).toBe(false);
+    expect(ids(project)).toEqual(['p1']);
+  });
+
+  it('moves a patch to another place', () => {
+    const project = emptyProject('x', 120);
+    addPatch(project, getChDef);
+    addPatch(project, getChDef);
+    movePatch(project, 0, 2);
+    expect(ids(project)).toEqual(['p2', 'p3', 'p1']);
+    movePatch(project, 2, 0);
+    expect(ids(project)).toEqual(['p1', 'p2', 'p3']);
+    movePatch(project, 0, 9); // out of range: nothing happens
+    expect(ids(project)).toEqual(['p1', 'p2', 'p3']);
   });
 });

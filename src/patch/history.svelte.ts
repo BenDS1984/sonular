@@ -9,7 +9,7 @@
  * patches are not undoable.
  */
 import { untrack } from 'svelte';
-import { canvasState, patch, project } from './patch.svelte';
+import { canvasState, clearCanvasState, patch, project } from './patch.svelte';
 import { UndoStack } from './UndoStack';
 import type { Patch } from './types';
 
@@ -66,7 +66,10 @@ function restore(state: string) {
   // Views are not part of the history: patches that still exist keep where they were scrolled to.
   const views = new Map(project.patches.map((p) => [p.id, p.view]));
   project.patches = content.patches.map((p) => ({ ...p, view: views.get(p.id) ?? { x: 0, y: 0, zoom: 1 } }));
-  if (!project.patches.some((p) => p.id === project.activePatch)) project.activePatch = project.patches[0]!.id;
+  if (!project.patches.some((p) => p.id === project.activePatch)) {
+    clearCanvasState();
+    project.activePatch = project.patches[0]!.id;
+  }
   const sel = canvasState.selection;
   if (sel?.kind === 'module' && !patch.modules.some((m) => m.id === sel.id)) canvasState.selection = null;
   if (sel?.kind === 'cable' && !patch.cables.some((c) => c.id === sel.id)) canvasState.selection = null;

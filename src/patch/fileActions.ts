@@ -7,7 +7,7 @@ import { getDefinition } from '../modules/registry';
 import { dialogs } from '../ui/dialogs.svelte';
 import { showToast } from '../ui/toast.svelte';
 import { FILE_EXTENSION, ProjectFileError, fileNameFor, parseProjectFile, serializeProject } from './fileFormat';
-import { DEFAULT_PROJECT_NAME, fitAll, project, replaceProject } from './patch.svelte';
+import { DEFAULT_PROJECT_NAME, fitAll, patch, project, replaceProject } from './patch.svelte';
 import { emptyProject } from './operations';
 import welcomePreset from '../presets/welcome.sonular?raw';
 
@@ -58,7 +58,15 @@ export async function openProjectFile(file: File) {
  * Zooms to fit once the modules have been drawn and measured.
  */
 export function loadStarterPatch() {
-  replaceProject(parseProjectFile(welcomePreset, getDefinition, 'Welcome!').project);
+  const starter = parseProjectFile(welcomePreset, getDefinition, 'Welcome!').project;
+  if (project.patches.length === 1) {
+    replaceProject(starter);
+  } else {
+    // Other patches exist: fill only the patch on screen, keeping its name and colour.
+    const from = starter.patches[0]!;
+    patch.modules = from.modules;
+    patch.cables = from.cables;
+  }
   requestAnimationFrame(() => requestAnimationFrame(fitAll));
 }
 

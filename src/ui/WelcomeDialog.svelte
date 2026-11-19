@@ -3,7 +3,6 @@
   Explains what Sonular is and that it is an early-stage hobby project.
 -->
 <script lang="ts">
-  import { loadStarterPatch } from '../patch/fileActions';
   import { isPatchEmpty } from '../patch/patch.svelte';
   import { dialogs } from './dialogs.svelte';
   import { prefs } from './prefs.svelte';
@@ -12,7 +11,7 @@
 
   let dialog: HTMLDivElement | undefined = $state();
 
-  // Whether the canvas was empty when the window opened: then it offers a way to start.
+  // Whether the canvas was empty when the window opened: then the button says how you start.
   let emptyAtOpen = $state(true);
 
   $effect(() => {
@@ -24,11 +23,6 @@
   function close() {
     dialogs.welcome = false;
     prefs.welcomed = true;
-  }
-
-  function starter() {
-    close();
-    loadStarterPatch();
   }
 
   function onkeydown(e: KeyboardEvent) {
@@ -83,12 +77,9 @@
     </p>
 
     <div class="actions">
-      {#if emptyAtOpen}
-        <button type="button" class="btn" onclick={close}>Start with an empty patch</button>
-        <button type="button" class="btn primary" onclick={starter}>Load a starter patch</button>
-      {:else}
-        <button type="button" class="btn primary" onclick={close}>Close</button>
-      {/if}
+      <button type="button" class="btn primary" onclick={close}>
+        {emptyAtOpen ? 'Start with an empty patch' : 'Close'}
+      </button>
     </div>
 
     <div class="brand" aria-hidden="true">
