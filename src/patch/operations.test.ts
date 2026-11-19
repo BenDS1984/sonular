@@ -6,11 +6,14 @@ import {
   connect,
   duplicatePatch,
   emptyPatch,
+  ensureChannel,
   emptyProject,
   isPortConnected,
   movePatch,
   nextModuleId,
+  nextPatchColor,
   nextPatchId,
+  PATCH_COLOR_COUNT,
   removeModule,
   removePatch,
 } from './operations';
@@ -152,6 +155,29 @@ describe('the list of patches', () => {
     expect(project.activePatch).toBe('p1');
     expect(removePatch(project, 'p1')).toBe(false);
     expect(ids(project)).toEqual(['p1']);
+  });
+
+  it('cycles through the colour palette', () => {
+    const project = emptyProject('x', 120);
+    project.patches[0]!.color = PATCH_COLOR_COUNT - 1;
+    expect(nextPatchColor(project)).toBe(0);
+    expect(nextPatchColor({ patches: [] })).toBe(0);
+  });
+
+  it('gives a patch exactly one Channel: adds a missing one, removes extras with their cables', () => {
+    const p = empty();
+    addModule(p, getDef('src')!, 0, 0);
+    expect(ensureChannel(p, getChDef)).toEqual([]);
+    const channels = () => p.modules.filter((m) => m.type === 'channel');
+    expect(channels()).toHaveLength(1);
+    // Placed to the right of the other modules.
+    expect(channels()[0]!.x).toBeGreaterThan(100);
+
+    const extra = addModule(p, getChDef('channel')!, 0, 0);
+    expect(connect(p, { module: 'src1', port: 'out' }, { module: extra.id, port: 'L' }, getChDef)).not.toBeNull();
+    expect(ensureChannel(p, getChDef)).toEqual(['A patch has one Channel: removed 1 extra output module.']);
+    expect(channels()).toHaveLength(1);
+    expect(p.cables).toEqual([]);
   });
 
   it('moves a patch to another place', () => {

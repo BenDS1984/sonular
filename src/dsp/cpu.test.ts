@@ -5,12 +5,33 @@
  * time per block divided by 2.67 ms is the share of one CPU core the module takes while
  * playing. Node runs the same WebAssembly as the browser's audio thread, but the browser adds
  * its own overhead, so treat these as best-case figures for comparing modules.
+ *
+ * The second part plays whole projects: several copies of the Welcome! patch at once, through the
+ * same engine as the browser (all patches in one graph, each into its Channel, then the master).
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { describe, it } from 'vitest';
+import { describe, it, vi } from 'vitest';
+
+// Module panels read live meters from the audio engine, which needs a browser; the projects only
+// need the module definitions (ports and parameters).
+vi.mock('../engine/engine.svelte', () => ({
+  engineState: { beat: 0, playing: false },
+  meterValue: () => 0,
+  meterValueIn: () => 0,
+}));
+import { Engine } from '../engine/core/Engine';
 import { Transport } from '../engine/core/Transport';
-import { BLOCK_SIZE, type DspModule } from '../engine/core/types';
+import { BLOCK_SIZE, type DspModule, type ModuleFactory } from '../engine/core/types';
+import { declaredSink } from '../engine/faust/FaustDsp';
+import { FaustSink } from '../engine/faust/FaustSink';
+import { Master } from '../engine/modules/Master';
+import { NATIVE_MODULES } from '../engine/modules/native';
+import { toEnginePatch } from '../engine/toEnginePatch';
+import { getDefinition } from '../modules/registry';
+import { parseProjectFile } from '../patch/fileFormat';
+import { CHANNEL_TYPE, duplicatePatch } from '../patch/operations';
+import welcome from '../presets/welcome.sonular?raw';
 import { Clock } from '../engine/modules/Clock';
 import { Envelope } from '../engine/modules/Envelope';
 import { Recorder } from '../engine/modules/Recorder';
@@ -99,4 +120,67 @@ describe.skipIf(import.meta.env.MODE !== 'bench')('CPU cost per module', () => {
     });
     console.log(['', `One block = ${BLOCK_MS.toFixed(2)} ms of audio at 48 kHz`, ...rows, ''].join('\n'));
   });
+});
+
+/** The engine with every module kind, as the audio worklet builds it. */
+function projectEngine(): Engine {
+  const factories: Record<string, ModuleFactory> = { master: () => new Master(), ...NATIVE_MODULES };
+  for (const name of ['osc', 'mixer', 'reverb', 'channel']) {
+    const path = (ext: string) => fileURLToPath(new URL(`./generated/${name}.${ext}`, import.meta.url));
+    const module = new WebAssembly.Module(readFileSync(path('wasm')));
+    const meta = JSON.parse(readFileSync(path('json'), 'utf8')) as FaustMeta;
+    const sink = declaredSink(meta);
+    factories[`faust:${name}`] = (sr) => {
+      const dsp = new FaustDsp(module, meta, sr);
+      return sink ? new FaustSink(dsp) : dsp;
+    };
+  }
+  return new Engine(SR, factories);
+}
+
+/** A project of `count` copies of the Welcome! patch; `heard` of them play, the rest are muted. */
+function welcomeProject(count: number, heard = count) {
+  const { project } = parseProjectFile(welcome, getDefinition, 'Welcome!');
+  while (project.patches.length < count) duplicatePatch(project, project.patches[0]!.id);
+  project.patches.forEach((p, i) => {
+    const ch = p.modules.find((m) => m.type === CHANNEL_TYPE)!;
+    ch.params['mute'] = i < heard ? 0 : 1;
+  });
+  return project;
+}
+
+/** Median time per block in ms for a whole project, after a second to settle (fades, sleep). */
+function projectMsPerBlock(count: number, heard = count): number {
+  const engine = projectEngine();
+  engine.setTempo(120);
+  engine.setPatch(toEnginePatch(welcomeProject(count, heard), getDefinition));
+  const L = new Float32Array(BLOCK_SIZE);
+  const R = new Float32Array(BLOCK_SIZE);
+  const blocks = Math.round((10 * SR) / BLOCK_SIZE);
+  for (let b = 0; b < SR / BLOCK_SIZE; b++) engine.renderBlock(L, R, BLOCK_SIZE);
+  const rounds: number[] = [];
+  for (let r = 0; r < 5; r++) {
+    const t0 = performance.now();
+    for (let b = 0; b < blocks; b++) engine.renderBlock(L, R, BLOCK_SIZE);
+    rounds.push((performance.now() - t0) / blocks);
+  }
+  rounds.sort((a, b) => a - b);
+  return rounds[2]!;
+}
+
+describe.skipIf(import.meta.env.MODE !== 'bench')('CPU cost of whole projects', () => {
+  it('measures 1, 4 and 8 Welcome! patches playing together', () => {
+    const cases: [string, number, number][] = [
+      ['1 patch', 1, 1],
+      ['4 patches', 4, 4],
+      ['8 patches', 8, 8],
+      ['8 patches, 7 muted', 8, 1],
+    ];
+    const rows = cases.map(([name, count, heard]) => {
+      const ms = projectMsPerBlock(count, heard);
+      const pct = (ms / BLOCK_MS) * 100;
+      return `${name.padEnd(20)} ${(ms * 1000).toFixed(1).padStart(7)} µs/block  ${pct.toFixed(2).padStart(6)} % of one core`;
+    });
+    console.log(['', 'Welcome! patch: Clock, Sequencer, Oscillator, Envelope, Reverb, Mixer, Channel', ...rows, ''].join('\n'));
+  }, 120_000);
 });

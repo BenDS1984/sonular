@@ -13,13 +13,14 @@ that every module must follow are listed near the end.
  │ patch (source of truth)      │  graph / params  │  ├─ node order, sleep, safety │
  │ history, autosave, files     │                  │  ├─ FaustDsp ── osc.wasm      │
  │ engine.svelte.ts (sync)      │ ◄─────────────── │  ├─ FaustDsp ── mixer.wasm    │
- └──────────────────────────────┘  stats / meters  │  └─ FaustSink ─ output.wasm   │
+ └──────────────────────────────┘  stats / meters  │  └─ FaustSink ─ channel.wasm  │
                                                    └───────────────────────────────┘
 ```
 
 | Part | Where | What it does |
 |---|---|---|
 | Project model | `src/patch/` | A project (name, tempo) holds one or more patches (id, name, colour, modules, cables, parameters, view). Every control is addressed as patch → module → parameter id, ready for mixer channels and later timeline automation. The single source of truth, owned by the main thread. |
+| Views | `src/ui/TabBar.svelte`, `src/ui/Workspace.svelte`, `src/ui/mixer/` | A tab per patch (add, rename, duplicate, delete, drag to reorder) and a Mixer button. Under the tabs either the canvas of the active patch or the mixer: every patch's Channel side by side in tab order (the same `ChannelStrip` as the Channel module) plus the master. Which view is shown is screen state only (`src/ui/view.svelte.ts`). |
 | Module definitions | `src/modules/` | Per module type: ports, parameter specs, panel, and the engine kind that does its DSP. |
 | Patch sync | `src/engine/engine.svelte.ts`, `toEnginePatch.ts` | Sends the graph when modules or cables change; single values when a parameter moves. |
 | Engine | `src/engine/core/` | Plain TypeScript (runs in the worklet, in offline renders and in Node tests). Orders nodes, routes buffers, sums cables, sleeps idle modules, guards the output. Owns the transport (tempo and position). |
@@ -30,6 +31,20 @@ that every module must follow are listed near the end.
 
 Browser-specific code is kept behind small modules in `src/platform/` (storage, service worker),
 so a desktop build could swap them out.
+
+### Several patches in the UI
+
+- `patch` (in `src/patch/patch.svelte.ts`) is a live view onto the active patch, so canvas and
+  module code work on "the patch" without knowing which one is shown.
+- Module ids repeat across patches (every patch can have an `osc1`). Canvas state keyed by module
+  id (port positions, module sizes, stacking, selection) is therefore cleared when another patch
+  is shown (`clearCanvasState`), and the canvas content is remounted (`{#key patch.id}` in
+  `Workspace.svelte`) so every module measures its jacks again.
+- Live meters of any patch are read with `meterValueIn(patchId, moduleId, name)`; `meterValue`
+  is the shortcut for the active patch.
+- A new patch, and the first patch of a new project, get their Channel at the right of the
+  visible canvas, left of the minimap.
+- Tab and mixer order are the same list (`project.patches`); dragging either one moves it.
 
 ### Engine rules (real-time safety)
 
@@ -90,6 +105,25 @@ two different allpass chains: always equally loud, steady, still wide. 16.9 → 
 
 The browser figures include the engine's fixed overhead and the meter's coarse timer, so they
 are higher than the Node sums; they confirm that a reverb is cheap enough to use freely.
+
+### Whole projects (several patches at once), 2026-11-19
+
+`npm run bench` also plays copies of the Welcome! patch (Clock, Sequencer, Oscillator, Envelope,
+Reverb, Mixer, Channel) through the full engine:
+
+| Project | µs per block | Share of one core |
+|---|---|---|
+| 1 patch | 37.9 | 1.4 % |
+| 4 patches | 165.9 | 6.2 % |
+| 8 patches | 324.3 | 12.2 % |
+| 8 patches, 7 muted | 50.7 | 1.9 % |
+
+- The cost grows in a straight line with the number of patches: the engine adds nothing per
+  patch beyond the modules themselves.
+- A muted patch costs almost nothing: only its Clock and Sequencer keep running (to stay in
+  step), about 2 µs per block.
+- In the browser (development server, master level at zero, CPU meter over 10 s), the same 8
+  patches read **16 %** median and **17 %** peak.
 
 ## Planned improvements
 
