@@ -11,6 +11,7 @@
   import { chooseProjectFile, newProject, requestSave } from '../patch/fileActions';
   import { interaction, closeBrowser, openBrowser } from './workspace/interaction.svelte';
   import { dialogs } from './dialogs.svelte';
+  import { view } from './view.svelte';
 
   // ---------- New project (with confirmation when there is something to lose) ----------
 
@@ -190,7 +191,8 @@
       class="pill"
       class:open={!!interaction.browser}
       type="button"
-      title="Add module (or double-click the canvas)"
+      title={view.mixer ? 'Open a patch to add modules' : 'Add module (or double-click the canvas)'}
+      disabled={view.mixer}
       aria-expanded={!!interaction.browser}
       onpointerdown={(e) => e.stopPropagation()}
       onclick={toggleBrowser}
@@ -398,8 +400,12 @@
   button.pill {
     cursor: pointer;
   }
-  button.pill:hover {
+  button.pill:hover:not(:disabled) {
     border-color: var(--text-muted);
+  }
+  button.pill:disabled {
+    opacity: 0.45;
+    cursor: default;
   }
   .pill.open {
     border-color: var(--border-focus);

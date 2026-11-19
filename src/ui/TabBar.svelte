@@ -1,15 +1,19 @@
 <!--
   The bar of patch tabs under the top bar. Each tab shows a patch's colour and name.
-  - click: show that patch; drag sideways: change the order
+  - click: show that patch; drag sideways: change the order (the tab follows the pointer and the
+    others slide aside)
   - double-click the name: rename (the name also shows on the Channel and in the mixer)
   - the ⋯ button on the shown tab, or a right-click on any tab: rename, duplicate, delete
   - + adds a patch with only its Channel
-  The Mixer button on the far left opens the mixer view (coming next).
+  The Mixer button on the far left opens the mixer view; clicking a tab goes back to that patch.
 -->
 <script lang="ts">
+  import { tick } from 'svelte';
+  import { flip } from 'svelte/animate';
   import { addPatch, duplicatePatch, movePatch, project, removePatch, selectPatch } from '../patch/patch.svelte';
   import type { Patch } from '../patch/types';
   import { channelColor } from './channelColors';
+  import { view } from './view.svelte';
 
   let bar: HTMLDivElement | undefined = $state();
   let strip: HTMLDivElement | undefined = $state();
@@ -64,13 +68,24 @@
   }
 
   // ---------- Select and drag to reorder ----------
-  let drag: { id: string; startX: number; moved: boolean } | null = null;
+  /** grab: pointer distance from the tab's left edge when the drag started. */
+  let drag: { id: string; startX: number; grab: number; moved: boolean; x: number } | null = null;
   let dragging = $state<string | null>(null);
+  /** How far the dragged tab is shifted from its place in the row, to stay under the pointer. */
+  let dx = $state(0);
+
+  /** Left edge of a tab in its place in the row (on screen, ignoring any shift or animation). */
+  function slotLeft(id: string): number {
+    const el = tabEls[id];
+    if (!el || !strip) return NaN;
+    return strip.getBoundingClientRect().left + el.offsetLeft - strip.scrollLeft;
+  }
 
   function ontabpointerdown(e: PointerEvent, p: Patch) {
     if (e.button !== 0 || editing === p.id) return;
     selectPatch(p.id);
-    drag = { id: p.id, startX: e.clientX, moved: false };
+    view.mixer = false;
+    drag = { id: p.id, startX: e.clientX, grab: e.clientX - slotLeft(p.id), moved: false, x: e.clientX };
     window.addEventListener('pointermove', ondragmove);
     window.addEventListener('pointerup', ondragend);
     window.addEventListener('pointercancel', ondragend);
@@ -78,36 +93,54 @@
 
   function ondragmove(e: PointerEvent) {
     if (!drag) return;
+    drag.x = e.clientX;
     if (!drag.moved) {
       if (Math.abs(e.clientX - drag.startX) < 5) return;
       drag.moved = true;
       dragging = drag.id;
       closeMenu();
     }
-    // Move past every neighbour whose middle the pointer has crossed.
+    // Swap with a neighbour once the dragged tab's middle passes the middle of its place.
+    const id = drag.id;
+    const centre = e.clientX - drag.grab + (tabEls[id]?.offsetWidth ?? 0) / 2;
     const mid = (k: number) => {
-      const r = tabEls[project.patches[k]!.id]?.getBoundingClientRect();
-      return r ? r.left + r.width / 2 : NaN;
+      const other = project.patches[k]!.id;
+      return slotLeft(other) + (tabEls[other]?.offsetWidth ?? 0) / 2;
     };
-    const from = project.patches.findIndex((p) => p.id === drag!.id);
+    const from = project.patches.findIndex((p) => p.id === id);
     let to = from;
-    while (to + 1 < project.patches.length && e.clientX > mid(to + 1)) to++;
-    if (to === from) while (to > 0 && e.clientX < mid(to - 1)) to--;
+    while (to + 1 < project.patches.length && centre > mid(to + 1)) to++;
+    if (to === from) while (to > 0 && centre < mid(to - 1)) to--;
     if (to !== from) movePatch(from, to);
+    // The row changes on the next update; then keep the tab under the pointer.
+    void tick().then(followPointer);
+    followPointer();
+  }
+
+  function followPointer() {
+    if (!drag?.moved) return;
+    dx = drag.x - drag.grab - slotLeft(drag.id);
   }
 
   function ondragend() {
     drag = null;
     dragging = null;
+    dx = 0;
     window.removeEventListener('pointermove', ondragmove);
     window.removeEventListener('pointerup', ondragend);
     window.removeEventListener('pointercancel', ondragend);
+  }
+
+  /** Slide tabs to their new place when the order changes, except the one being dragged. */
+  function slide(node: Element, rects: { from: DOMRect; to: DOMRect }, params: { skip: boolean }) {
+    return params.skip ? { duration: 0 } : flip(node, rects, { duration: 160 });
   }
 
   $effect(() => () => ondragend());
 
   // Keep the shown tab in view when it changes (new or duplicated patches land off-screen).
   $effect(() => {
+    if (view.mixer) return;
     const el = tabEls[project.activePatch];
     el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   });
@@ -127,7 +160,14 @@
 <svelte:window {onkeydown} />
 
 <div class="tabbar" bind:this={bar}>
-  <button class="mixer" type="button" disabled title="Mixer view (coming soon)">
+  <button
+    class="mixer"
+    class:on={view.mixer}
+    type="button"
+    title="Mixer: the channels of all patches side by side"
+    aria-pressed={view.mixer}
+    onclick={() => (view.mixer = !view.mixer)}
+  >
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
       <path d="M4 2v12M8 2v12M12 2v12" stroke="currentColor" stroke-width="1.3" fill="none" />
       <rect x="2.5" y="8.5" width="3" height="2" rx="0.6" fill="currentColor" />
@@ -140,12 +180,14 @@
 
   <div class="tabs" role="tablist" aria-label="Patches" bind:this={strip} {onwheel}>
     {#each project.patches as p (p.id)}
-      {@const active = p.id === project.activePatch}
+      {@const active = p.id === project.activePatch && !view.mixer}
       <div
         class="tab"
         class:active
         class:dragging={dragging === p.id}
         style:--tab-color={channelColor(p.color)}
+        style:transform={dragging === p.id ? `translateX(${dx}px)` : undefined}
+        animate:slide={{ skip: dragging === p.id }}
         bind:this={tabEls[p.id]}
         role="tab"
         tabindex={active ? 0 : -1}
@@ -159,6 +201,7 @@
         oncontextmenu={(e) => {
           e.preventDefault();
           selectPatch(p.id);
+          view.mixer = false;
           openMenu(p);
         }}
       >
@@ -203,7 +246,10 @@
         {/if}
       </div>
     {/each}
-    <button class="add" type="button" title="New patch" aria-label="New patch" onclick={addPatch}>
+    <button class="add" type="button" title="New patch" aria-label="New patch" onclick={() => {
+        addPatch();
+        view.mixer = false;
+      }}>
       <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
         <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
       </svg>
@@ -280,9 +326,13 @@
     font-size: var(--text-sm);
     cursor: pointer;
   }
-  .mixer:disabled {
-    opacity: 0.45;
-    cursor: default;
+  .mixer:hover {
+    background: var(--surface-control-hover);
+  }
+  .mixer.on {
+    background: var(--signal-audio);
+    border-color: var(--signal-audio);
+    color: var(--text-on-accent);
   }
   .sep {
     flex: none;
@@ -291,6 +341,7 @@
     background: var(--border-subtle);
   }
   .tabs {
+    position: relative;
     flex: 1;
     min-width: 0;
     display: flex;
@@ -341,9 +392,17 @@
     border-radius: 1px;
     background: var(--tab-color);
   }
+  /* Back into place after a drop; no transition while following the pointer. */
+  .tab {
+    transition: transform 140ms var(--ease-out);
+  }
   .tab.dragging {
+    z-index: 2;
     cursor: grabbing;
-    opacity: 0.85;
+    transition: none;
+    background: var(--surface-control-hover);
+    border-color: var(--border-focus);
+    box-shadow: 0 6px 16px rgb(0 0 0 / 0.45);
   }
   .tab:focus-visible {
     outline: 2px solid var(--border-focus);

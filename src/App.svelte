@@ -2,6 +2,8 @@
   import TopBar from './ui/TopBar.svelte';
   import Workspace from './ui/Workspace.svelte';
   import TabBar from './ui/TabBar.svelte';
+  import MixerView from './ui/mixer/MixerView.svelte';
+  import { view } from './ui/view.svelte';
   import Gallery from './ui/gallery/Gallery.svelte';
   import Toasts from './ui/Toasts.svelte';
   import SaveDialog from './ui/SaveDialog.svelte';
@@ -28,7 +30,11 @@
   <div class="app">
     <TopBar />
     <TabBar />
-    <Workspace />
+    {#if view.mixer}
+      <MixerView />
+    {:else}
+      <Workspace />
+    {/if}
   </div>
   <SaveDialog />
   <WelcomeDialog />
