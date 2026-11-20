@@ -9,7 +9,7 @@ import type { DisplayLayoutEntry, MeterLayoutEntry } from './core/types';
 import { getDefinition } from '../modules/registry';
 import { CHANNEL_TYPE } from '../patch/operations';
 import { patch, project } from '../patch/patch.svelte';
-import { audiblePatches, nodeIdOf, structureKey, toEnginePatch } from './toEnginePatch';
+import { audiblePatches, engineClips, nodeIdOf, structureKey, toEnginePatch } from './toEnginePatch';
 
 export const engineState = $state({
   status: 'off' as EngineStatus,
@@ -148,6 +148,8 @@ if (import.meta.env.DEV) {
 let sentParams: Record<string, Record<string, number>> = {};
 /** Whether each Channel node was last told it is heard. */
 let sentActive: Record<string, boolean> = {};
+/** Timeline blocks last sent to each sequencer node, as JSON. */
+let sentClips: Record<string, string> = {};
 
 /**
  * Keep the engine in step with the project while it runs. Every patch plays, each into its
@@ -155,6 +157,7 @@ let sentActive: Record<string, boolean> = {};
  * - modules or cables change (in any patch) -> send the whole graph (existing modules keep
  *   their state);
  * - a parameter changes -> send just that value;
+ * - a sequencer's timeline blocks change -> send that sequencer's blocks;
  * - mute/solo change which patches are heard -> switch their Channels on or off (they fade, and
  *   a silent patch stops using CPU apart from its clock and sequencer);
  * - the master level changes -> send it.
@@ -169,6 +172,7 @@ export function startPatchSync(): () => void {
         audio.setPatch(graph);
         sentParams = Object.fromEntries(graph.nodes.map((n) => [n.id, { ...n.params }]));
         sentActive = Object.fromEntries(graph.nodes.filter((n) => n.active !== undefined).map((n) => [n.id, n.active!]));
+        sentClips = Object.fromEntries(graph.nodes.filter((n) => n.clips).map((n) => [n.id, JSON.stringify(n.clips)]));
         pruneRecorders(new Set(graph.nodes.map((n) => n.id)));
         resendArmed();
       });
@@ -199,6 +203,22 @@ export function startPatchSync(): () => void {
               audio.setParam(id, name, value);
               sent[name] = value;
             }
+          }
+        }
+      }
+    });
+
+    $effect(() => {
+      if (engineState.status !== 'ready') return;
+      for (const p of project.patches) {
+        for (const m of p.modules) {
+          const id = nodeIdOf(p.id, m.id);
+          if (!(id in sentClips)) continue;
+          const clips = engineClips(p, m.id);
+          const key = JSON.stringify(clips);
+          if (sentClips[id] !== key) {
+            audio.setClips(id, clips);
+            sentClips[id] = key;
           }
         }
       }

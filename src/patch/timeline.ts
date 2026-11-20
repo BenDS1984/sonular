@@ -17,7 +17,13 @@ export function emptyTimeline(): Timeline {
 }
 
 /** Whether a module type gets a row of blocks on the timeline. */
-export const hasPattern = (def: ModuleDefinition | undefined): boolean => !!def?.patternParams?.length;
+export const hasBanks = (def: ModuleDefinition | undefined): boolean => (def?.banks ?? 0) > 0;
+
+/** A bank number brought into a module's range (whole, 0..banks-1). */
+export function clampBank(def: ModuleDefinition | undefined, bank: number): number {
+  const last = (def?.banks ?? 1) - 1;
+  return Number.isFinite(bank) ? Math.min(last, Math.max(0, Math.round(bank))) : 0;
+}
 
 /** Block ids b1, b2, ...: one past the highest in use, so a deleted block's id is never reused. */
 export function nextClipId(patch: Pick<Patch, 'clips'>): string {
@@ -42,8 +48,8 @@ export function overlaps(patch: Pick<Patch, 'clips'>, module: string, start: num
 }
 
 /**
- * Add a block to a sequencer's row holding `params` as its pattern. Returns it, or null when the
- * place is taken, out of range, or the module has no pattern.
+ * Add a block to a sequencer's row that plays `bank`. Returns it, or null when the place is taken,
+ * out of range, or the module has no banks.
  */
 export function addClip(
   patch: Patch,
@@ -51,15 +57,50 @@ export function addClip(
   module: string,
   start: number,
   length: number,
-  params: Record<string, number>,
+  bank: number,
 ): Clip | null {
-  if (!hasPattern(def) || !patch.modules.some((m) => m.id === module)) return null;
+  if (!hasBanks(def) || !patch.modules.some((m) => m.id === module)) return null;
   if (!(start >= 0) || !(length >= MIN_CLIP_LENGTH) || start + length > MAX_BEATS) return null;
   if (overlaps(patch, module, start, length)) return null;
-  const pattern = Object.fromEntries(def.patternParams!.map((id) => [id, params[id] ?? 0]));
-  const clip: Clip = { id: nextClipId(patch), module, start, length, params: pattern };
+  const clip: Clip = { id: nextClipId(patch), module, start, length, bank: clampBank(def, bank) };
   patch.clips.push(clip);
   return clip;
+}
+
+/**
+ * The free space on a row around a block (or around a position, for a new block): from the end
+ * of the block before it to the start of the block after it. A block being moved or resized
+ * stays inside this range, so it never jumps over or into its neighbours.
+ */
+export function freeRange(patch: Pick<Patch, 'clips'>, module: string, at: number, ignore?: string) {
+  let lo = 0;
+  let hi = MAX_BEATS;
+  for (const c of patch.clips) {
+    if (c.module !== module || c.id === ignore) continue;
+    const end = c.start + c.length;
+    if (end <= at) lo = Math.max(lo, end);
+    else if (c.start >= at) hi = Math.min(hi, c.start);
+  }
+  return { lo, hi };
+}
+
+/**
+ * Copy a block to the first free place after it on the same row. Returns the copy, or null
+ * when there is no room before the end of the timeline.
+ */
+export function duplicateClip(patch: Patch, id: string): Clip | null {
+  const clip = patch.clips.find((c) => c.id === id);
+  if (!clip) return null;
+  let start = clip.start + clip.length;
+  for (const c of clipsOf(patch, clip.module)) {
+    if (c.start + c.length <= start) continue;
+    if (c.start >= start + clip.length) break;
+    start = c.start + c.length; // taken: try right after this one
+  }
+  if (start + clip.length > MAX_BEATS) return null;
+  const copy: Clip = { id: nextClipId(patch), module: clip.module, start, length: clip.length, bank: clip.bank };
+  patch.clips.push(copy);
+  return copy;
 }
 
 export function removeClip(patch: Patch, id: string): void {

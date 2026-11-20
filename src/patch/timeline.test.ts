@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { ModuleDefinition } from '../modules/types';
 import { duplicatePatch, emptyPatch, emptyProject, removeModule } from './operations';
-import { addClip, clipsOf, ensureLane, laneOf, nextClipId, removeClip, removeLane, valueAt } from './timeline';
+import {
+  addClip,
+  clipsOf,
+  duplicateClip,
+  ensureLane,
+  freeRange,
+  laneOf,
+  nextClipId,
+  removeClip,
+  removeLane,
+  valueAt,
+} from './timeline';
 import type { Patch } from './types';
 
 const seq: ModuleDefinition = {
@@ -18,11 +29,11 @@ const seq: ModuleDefinition = {
     { id: 'p1', label: '1', min: -24, max: 24, default: 0 },
     { id: 'rate', label: 'Rate', min: 0, max: 1, default: 0.5 },
   ],
-  patternParams: ['p1'],
+  banks: 8,
   panel: null as unknown as ModuleDefinition['panel'],
   engine: 'test:seq',
 };
-const plain: ModuleDefinition = { ...seq, type: 'plain', patternParams: undefined };
+const plain: ModuleDefinition = { ...seq, type: 'plain', banks: undefined };
 
 function patchWithSeq(): Patch {
   const p = emptyPatch('p1', 'Patch 1');
@@ -32,28 +43,51 @@ function patchWithSeq(): Patch {
 }
 
 describe('timeline blocks', () => {
-  it('adds blocks with only the pattern values, never overlapping on one row', () => {
+  it('adds blocks playing a bank, never overlapping on one row', () => {
     const p = patchWithSeq();
-    const a = addClip(p, seq, 'seq1', 0, 8, { p1: 3, rate: 1 });
-    expect(a).toEqual({ id: 'b1', module: 'seq1', start: 0, length: 8, params: { p1: 3 } });
-    expect(addClip(p, seq, 'seq1', 4, 8, {})).toBeNull(); // overlaps
-    expect(addClip(p, seq, 'seq1', 8, 4, {})).not.toBeNull(); // touching is fine
-    expect(addClip(p, seq, 'seq1', -1, 4, {})).toBeNull(); // before the start
-    expect(addClip(p, seq, 'seq1', 20, 0.1, {})).toBeNull(); // too short
-    expect(addClip(p, plain, 'plain1', 0, 4, {})).toBeNull(); // module without a pattern
+    const a = addClip(p, seq, 'seq1', 0, 8, 3);
+    expect(a).toEqual({ id: 'b1', module: 'seq1', start: 0, length: 8, bank: 3 });
+    expect(addClip(p, seq, 'seq1', 30, 2, 12)!.bank).toBe(7); // only 8 banks
+    removeClip(p, 'b2');
+    expect(addClip(p, seq, 'seq1', 4, 8, 0)).toBeNull(); // overlaps
+    expect(addClip(p, seq, 'seq1', 8, 4, 0)).not.toBeNull(); // touching is fine
+    expect(addClip(p, seq, 'seq1', -1, 4, 0)).toBeNull(); // before the start
+    expect(addClip(p, seq, 'seq1', 20, 0.1, 0)).toBeNull(); // too short
+    expect(addClip(p, plain, 'plain1', 0, 4, 0)).toBeNull(); // module without a pattern
     expect(clipsOf(p, 'seq1').map((c) => c.start)).toEqual([0, 8]);
   });
 
   it('never reuses the id of a deleted block', () => {
     const p = patchWithSeq();
-    addClip(p, seq, 'seq1', 0, 4, {});
-    addClip(p, seq, 'seq1', 4, 4, {});
+    addClip(p, seq, 'seq1', 0, 4, 0);
+    addClip(p, seq, 'seq1', 4, 4, 0);
     removeClip(p, 'b2');
     expect(nextClipId(p)).toBe('b2');
     removeClip(p, 'b1');
-    addClip(p, seq, 'seq1', 0, 4, {});
-    addClip(p, seq, 'seq1', 8, 4, {});
+    addClip(p, seq, 'seq1', 0, 4, 0);
+    addClip(p, seq, 'seq1', 8, 4, 0);
     expect(p.clips.map((c) => c.id)).toEqual(['b1', 'b2']);
+  });
+});
+
+describe('moving and copying blocks', () => {
+  it('finds the free space around a block or a position', () => {
+    const p = patchWithSeq();
+    addClip(p, seq, 'seq1', 4, 4, 0);
+    addClip(p, seq, 'seq1', 12, 4, 0);
+    addClip(p, seq, 'seq1', 20, 4, 0);
+    expect(freeRange(p, 'seq1', 10)).toEqual({ lo: 8, hi: 12 });
+    expect(freeRange(p, 'seq1', 12, 'b2')).toEqual({ lo: 8, hi: 20 });
+    expect(freeRange(p, 'seq1', 1)).toEqual({ lo: 0, hi: 4 });
+  });
+
+  it('copies a block to the first free place after it', () => {
+    const p = patchWithSeq();
+    addClip(p, seq, 'seq1', 0, 4, 5);
+    addClip(p, seq, 'seq1', 4, 2, 0);
+    addClip(p, seq, 'seq1', 8, 4, 0);
+    const copy = duplicateClip(p, 'b1')!;
+    expect(copy).toEqual({ id: 'b4', module: 'seq1', start: 12, length: 4, bank: 5 });
   });
 });
 
@@ -85,7 +119,7 @@ describe('automation lanes', () => {
 describe('timeline and patch editing', () => {
   it('removes the blocks and lanes of a removed module', () => {
     const p = patchWithSeq();
-    addClip(p, seq, 'seq1', 0, 4, {});
+    addClip(p, seq, 'seq1', 0, 4, 0);
     ensureLane(p, 'seq1', 'rate');
     ensureLane(p, 'plain1', 'rate');
     removeModule(p, 'seq1');
@@ -96,12 +130,12 @@ describe('timeline and patch editing', () => {
   it('copies blocks and lanes with a duplicated patch, apart from the original', () => {
     const project = emptyProject('x', 120);
     project.patches = [patchWithSeq()];
-    addClip(project.patches[0]!, seq, 'seq1', 0, 4, { p1: 3 });
+    addClip(project.patches[0]!, seq, 'seq1', 0, 4, 3);
     ensureLane(project.patches[0]!, 'seq1', 'rate').points.push({ time: 0, value: 1 });
     const copy = duplicatePatch(project, 'p1')!;
     expect(copy.clips).toEqual(project.patches[0]!.clips);
     expect(copy.lanes).toEqual(project.patches[0]!.lanes);
-    copy.clips[0]!.params['p1'] = 9;
-    expect(project.patches[0]!.clips[0]!.params['p1']).toBe(3);
+    copy.clips[0]!.bank = 6;
+    expect(project.patches[0]!.clips[0]!.bank).toBe(3);
   });
 });

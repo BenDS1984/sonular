@@ -3,7 +3,7 @@
  * Faust programs, and forwards patch/parameter changes. All DSP happens in the worklet.
  */
 import workletUrl from './worklet/processor.ts?worker&url';
-import type { DisplayLayoutEntry, EnginePatch, MeterLayoutEntry, RecordedAudio } from './core/types';
+import type { DisplayLayoutEntry, EngineClip, EnginePatch, MeterLayoutEntry, RecordedAudio } from './core/types';
 import { DEFAULT_TEMPO } from './core/Transport';
 import { compileFaustPrograms } from './faustPrograms';
 import { PROCESSOR_NAME, type EngineStats, type FromEngine, type LoopSetting, type ToEngine } from './protocol';
@@ -153,6 +153,10 @@ export class AudioEngine {
 
   setParam(node: string, name: string, value: number): void {
     this.send({ type: 'param', node, name, value });
+  }
+
+  setClips(node: string, clips: EngineClip[]): void {
+    this.send({ type: 'clips', node, clips });
   }
 
   setTempo(bpm: number): void {

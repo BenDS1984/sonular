@@ -78,10 +78,11 @@ export interface ModuleDefinition {
   outputs: PortSpec[];
   params: ParamSpec[];
   /**
-   * Parameters that make up the module's pattern (sequencers). A module with these gets a row of
-   * blocks on the timeline, and each block holds its own values for them.
+   * Number of pattern banks (sequencers). A module with banks gets a row of blocks on the
+   * timeline, and each block says which bank plays (0-based). The bank chosen on the module is
+   * in its parameter "bank".
    */
-  patternParams?: string[];
+  banks?: number;
   /** Controls shown in the module body. */
   panel: Component<ModulePanelProps>;
   /**

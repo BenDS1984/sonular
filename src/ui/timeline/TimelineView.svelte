@@ -1,6 +1,12 @@
 <!--
   The timeline: one track per patch (in tab order and colour), with a row for each of the patch's
-  sequencers. Blocks on those rows come in a later step.
+  sequencers. Each block on a sequencer's row plays one of the sequencer's patterns (A–H; banks in
+  the data) while the song is inside the block, starting at step 1; it shows the pattern's letter
+  in the pattern's tint.
+  - row: drag on an empty part to draw a block, double-click to add a one-bar block; a new block
+    plays the pattern chosen on the sequencer
+  - block: click to select it, drag to move, drag its edges to resize; keys A–H choose its
+    pattern, Delete removes it, Ctrl+D copies it to the next free place; right-click for a menu
   - ruler: click or drag to place the playhead (Play starts there; while playing it jumps)
   - the strip above the numbers holds the loop: drag it to move, drag its edges to resize, drag
     on an empty part to draw a new one, double-click it to switch it on or off
@@ -14,7 +20,21 @@
   import { engineState, setPlayhead, transportState } from '../../engine/engine.svelte';
   import { getDefinition } from '../../modules/registry';
   import { project } from '../../patch/patch.svelte';
-  import { BEATS_PER_BAR, hasPattern, MAX_BEATS } from '../../patch/timeline';
+  import {
+    addClip,
+    BEATS_PER_BAR,
+    duplicateClip,
+    freeRange,
+    clampBank,
+    hasBanks,
+    MAX_BEATS,
+    MIN_CLIP_LENGTH,
+    removeClip,
+  } from '../../patch/timeline';
+  import type { Clip, Patch } from '../../patch/types';
+  import { clearClipSelection, clipSelection, isClipSelected, selectClip } from './clipSelection.svelte';
+  import { bankColor } from '../../modules/sequencer/bankClipboard.svelte';
+  import { bankLetter } from '../../modules/sequencer/banks';
   import { channelColor } from '../channelColors';
   import {
     clampPpb,
@@ -37,7 +57,7 @@
   // ---------- Tracks ----------
   const tracks = $derived(
     project.patches.map((patch) => {
-      const seqs = patch.modules.filter((m) => hasPattern(getDefinition(m.type)));
+      const seqs = patch.modules.filter((m) => hasBanks(getDefinition(m.type)));
       const rows = seqs.map((module, i) => {
         const title = getDefinition(module.type)?.title ?? module.type;
         const sameType = seqs.filter((s) => s.type === module.type);
@@ -153,7 +173,7 @@
 
   /** While playing, turn the page when the playhead runs out of view (not while dragging). */
   function follow(beat: number) {
-    if (!body || drag) return;
+    if (!body || drag || blockDrag) return;
     const x = beat * timelineView.ppb;
     const left = body.scrollLeft;
     if (x > left + body.clientWidth - 24 || x < left) {
@@ -257,6 +277,182 @@
     if (e.clientY - top >= LOOP_H) return;
     const b = (e.clientX - (ruler?.getBoundingClientRect().left ?? 0) + timelineView.scrollLeft) / timelineView.ppb;
     if (b > loop.start && b < loop.end) project.timeline.loop.on = !loop.on;
+  }
+
+  // ---------- Blocks ----------
+  type BlockDrag =
+    | { kind: 'draw'; patch: Patch; module: string; anchor: number; start: number; end: number; lo: number; hi: number }
+    | { kind: 'move'; patch: Patch; clip: Clip; grab: number; lo: number; hi: number }
+    | { kind: 'resize-start' | 'resize-end'; patch: Patch; clip: Clip; lo: number; hi: number };
+  let blockDrag: BlockDrag | null = $state(null);
+  /** Whether the pointer moved since the press (a plain click draws nothing). */
+  let blockMoved = false;
+
+  const clipsOn = (patch: Patch, module: string) => patch.clips.filter((c) => c.module === module);
+
+  /** Beat under the pointer in the track area. */
+  function bodyBeat(e: MouseEvent): number {
+    const left = body?.getBoundingClientRect().left ?? 0;
+    return Math.max(0, (e.clientX - left + (body?.scrollLeft ?? 0)) / timelineView.ppb);
+  }
+
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+  const unitOf = (e: MouseEvent) => (e.altKey ? 0.25 : snapUnit(timelineView.ppb));
+
+  /** Add a block on a row playing the bank chosen on the sequencer, and select it. */
+  function createBlock(patch: Patch, moduleId: string, start: number, length: number) {
+    const module = patch.modules.find((m) => m.id === moduleId);
+    const def = module && getDefinition(module.type);
+    if (!module || !def || length < MIN_CLIP_LENGTH) return;
+    const clip = addClip(patch, def, moduleId, start, length, module.params['bank'] ?? 0);
+    if (clip) selectClip(patch.id, clip.id);
+  }
+
+  /** Let a block play another bank of its sequencer. */
+  function setBank(patch: Patch, clip: Clip, bank: number) {
+    const module = patch.modules.find((m) => m.id === clip.module);
+    clip.bank = clampBank(module && getDefinition(module.type), bank);
+    menu = null;
+  }
+
+  /** Number of banks of a block's sequencer. */
+  function banksOf(patch: Patch, clip: Clip): number {
+    const module = patch.modules.find((m) => m.id === clip.module);
+    return (module && getDefinition(module.type)?.banks) || 1;
+  }
+
+  function onrowpointerdown(e: PointerEvent, patch: Patch, moduleId: string) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    menu = null;
+    clearClipSelection();
+    const at = bodyBeat(e);
+    const { lo, hi } = freeRange(patch, moduleId, at);
+    const anchor = clamp(Math.floor(at / unitOf(e)) * unitOf(e), lo, hi);
+    blockDrag = { kind: 'draw', patch, module: moduleId, anchor, start: anchor, end: anchor, lo, hi };
+    startBlockDrag();
+  }
+
+  function onrowdblclick(e: MouseEvent, patch: Patch, moduleId: string) {
+    const at = bodyBeat(e);
+    const { lo, hi } = freeRange(patch, moduleId, at);
+    const start = Math.max(lo, Math.floor(at / BEATS_PER_BAR) * BEATS_PER_BAR);
+    createBlock(patch, moduleId, start, Math.min(hi, start + BEATS_PER_BAR) - start);
+  }
+
+  function onblockpointerdown(e: PointerEvent, patch: Patch, clip: Clip) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    menu = null;
+    selectClip(patch.id, clip.id);
+    const edge = (e.target as HTMLElement).dataset['edge'];
+    const { lo, hi } = freeRange(patch, clip.module, clip.start, clip.id);
+    if (edge === 'start' || edge === 'end') blockDrag = { kind: edge === 'start' ? 'resize-start' : 'resize-end', patch, clip, lo, hi };
+    else blockDrag = { kind: 'move', patch, clip, grab: bodyBeat(e) - clip.start, lo, hi };
+    startBlockDrag();
+  }
+
+  function startBlockDrag() {
+    blockMoved = false;
+    window.addEventListener('pointermove', onblockdragmove);
+    window.addEventListener('pointerup', onblockdragend);
+    window.addEventListener('pointercancel', onblockdragend);
+  }
+
+  function onblockdragmove(e: PointerEvent) {
+    const d = blockDrag;
+    if (!d) return;
+    blockMoved = true;
+    const unit = unitOf(e);
+    const at = bodyBeat(e);
+    const min = Math.max(MIN_CLIP_LENGTH, unit);
+    switch (d.kind) {
+      case 'draw': {
+        const s = clamp(Math.round(at / unit) * unit, d.lo, d.hi);
+        d.start = Math.min(d.anchor, s);
+        d.end = s === d.anchor ? Math.min(d.hi, d.anchor + unit) : Math.max(d.anchor, s);
+        break;
+      }
+      case 'move':
+        d.clip.start = clamp(snap(at - d.grab, unit), d.lo, d.hi - d.clip.length);
+        break;
+      case 'resize-end': {
+        const end = clamp(snap(at, unit), d.clip.start + min, d.hi);
+        if (end > d.clip.start) d.clip.length = end - d.clip.start;
+        break;
+      }
+      case 'resize-start': {
+        const end = d.clip.start + d.clip.length;
+        const start = clamp(snap(at, unit), d.lo, end - min);
+        if (start < end) {
+          d.clip.start = start;
+          d.clip.length = end - start;
+        }
+        break;
+      }
+    }
+  }
+
+  function onblockdragend() {
+    const d = blockDrag;
+    blockDrag = null;
+    window.removeEventListener('pointermove', onblockdragmove);
+    window.removeEventListener('pointerup', onblockdragend);
+    window.removeEventListener('pointercancel', onblockdragend);
+    if (d?.kind === 'draw' && blockMoved && d.end - d.start >= MIN_CLIP_LENGTH) {
+      createBlock(d.patch, d.module, d.start, d.end - d.start);
+    }
+  }
+
+  $effect(() => () => onblockdragend());
+
+  /** The selected block and its patch, if it still exists. */
+  function selectedBlock(): { patch: Patch; clip: Clip } | null {
+    const patch = project.patches.find((p) => p.id === clipSelection.patch);
+    const clip = patch?.clips.find((c) => c.id === clipSelection.clip);
+    return patch && clip ? { patch, clip } : null;
+  }
+
+  function deleteBlock(patch: Patch, clip: Clip) {
+    removeClip(patch, clip.id);
+    clearClipSelection();
+    menu = null;
+  }
+
+  function copyBlock(patch: Patch, clip: Clip) {
+    const copy = duplicateClip(patch, clip.id);
+    if (copy) selectClip(patch.id, copy.id);
+    menu = null;
+  }
+
+  // Right-click menu on a block.
+  let menu: { x: number; y: number; patch: Patch; clip: Clip } | null = $state(null);
+
+  function onkeydown(e: KeyboardEvent) {
+    const el = document.activeElement;
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
+    if (e.key === 'Escape') {
+      menu = null;
+      clearClipSelection();
+      return;
+    }
+    const sel = selectedBlock();
+    if (!sel) return;
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      deleteBlock(sel.patch, sel.clip);
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+      e.preventDefault();
+      copyBlock(sel.patch, sel.clip);
+    } else if (!e.ctrlKey && !e.metaKey && !e.altKey && /^[a-z]$/i.test(e.key)) {
+      // A–H: the pattern the block plays.
+      const bank = e.key.toUpperCase().charCodeAt(0) - 65;
+      if (bank < banksOf(sel.patch, sel.clip)) {
+        e.preventDefault();
+        setBank(sel.patch, sel.clip, bank);
+      }
+    }
   }
 
   const cursor = $derived.by(() => {
@@ -367,7 +563,45 @@
         <div class="track" style:--track-color={channelColor(t.patch.color)}>
           <div class="track-top" style:height={`${TRACK_H}px`}></div>
           {#each t.rows as r (r.module.id)}
-            <div class="row" style:height={`${ROW_H}px`} aria-label={`${t.patch.name}: ${r.label}`}></div>
+            <!-- svelte-ignore a11y_no_static_element_interactions (drawing blocks is a pointer gesture) -->
+            <div
+              class="row"
+              style:height={`${ROW_H}px`}
+              aria-label={`${t.patch.name}: ${r.label}`}
+              onpointerdown={(e) => onrowpointerdown(e, t.patch, r.module.id)}
+              ondblclick={(e) => onrowdblclick(e, t.patch, r.module.id)}
+            >
+              {#each clipsOn(t.patch, r.module.id) as c (c.id)}
+                {@const selected = isClipSelected(t.patch.id, c.id)}
+                <div
+                  class="block"
+                  class:selected
+                  class:moving={blockDrag && blockDrag.kind !== 'draw' && blockDrag.clip === c}
+                  style:left={`${c.start * ppb}px`}
+                  style:width={`${c.length * ppb}px`}
+                  style:--bank-color={bankColor(c.bank)}
+                  role="button"
+                  tabindex="-1"
+                  aria-pressed={selected}
+                  aria-label={`Pattern ${bankLetter(c.bank)}, block ${formatPosition(c.start)}, ${formatLength(c.length)}`}
+                  title={`Pattern ${bankLetter(c.bank)}: ${formatPosition(c.start)} – ${formatPosition(c.start + c.length)} (${formatLength(c.length)})`}
+                  onpointerdown={(e) => onblockpointerdown(e, t.patch, c)}
+                  ondblclick={(e) => e.stopPropagation()}
+                  oncontextmenu={(e) => {
+                    e.preventDefault();
+                    selectClip(t.patch.id, c.id);
+                    menu = { x: e.clientX, y: e.clientY, patch: t.patch, clip: c };
+                  }}
+                >
+                  <span class="bank-label">{c.length * ppb >= 64 ? `Pattern ${bankLetter(c.bank)}` : bankLetter(c.bank)}</span>
+                  <span class="edge start" data-edge="start"></span>
+                  <span class="edge end" data-edge="end"></span>
+                </div>
+              {/each}
+              {#if blockDrag?.kind === 'draw' && blockDrag.patch === t.patch && blockDrag.module === r.module.id && blockDrag.end > blockDrag.start}
+                <div class="block ghost" style:left={`${blockDrag.start * ppb}px`} style:width={`${(blockDrag.end - blockDrag.start) * ppb}px`}></div>
+              {/if}
+            </div>
           {:else}
             <div class="row empty" style:height={`${EMPTY_H}px`}></div>
           {/each}
@@ -381,6 +615,34 @@
     </div>
   </div>
 </main>
+
+{#if menu}
+  {@const m = menu}
+  <div class="backdrop" role="presentation" onpointerdown={() => (menu = null)} oncontextmenu={(e) => e.preventDefault()}></div>
+  <div class="menu" role="menu" style:left={`${Math.min(m.x, innerWidth - 180)}px`} style:top={`${Math.min(m.y, innerHeight - 150)}px`}>
+    <div class="menu-caption">Pattern <kbd>A–{bankLetter(banksOf(m.patch, m.clip) - 1)}</kbd></div>
+    <div class="menu-banks" role="group" aria-label="Pattern">
+      {#each Array.from({ length: banksOf(m.patch, m.clip) }, (_, i) => i) as b (b)}
+        <button
+          type="button"
+          role="menuitemradio"
+          aria-checked={m.clip.bank === b}
+          class:current={m.clip.bank === b}
+          style:--bank-color={bankColor(b)}
+          title={`Play pattern ${bankLetter(b)}`}
+          onclick={() => setBank(m.patch, m.clip, b)}
+        >
+          {bankLetter(b)}
+        </button>
+      {/each}
+    </div>
+    <div class="menu-sep" role="separator"></div>
+    <button type="button" role="menuitem" onclick={() => copyBlock(m.patch, m.clip)}>Duplicate <kbd>Ctrl+D</kbd></button>
+    <button type="button" role="menuitem" class="danger" onclick={() => deleteBlock(m.patch, m.clip)}>Delete <kbd>Del</kbd></button>
+  </div>
+{/if}
+
+<svelte:window {onkeydown} />
 
 <style>
   .timeline {
@@ -572,7 +834,141 @@
     background: color-mix(in srgb, var(--track-color) 10%, transparent);
   }
   .row {
+    position: relative;
     border-top: 1px solid var(--border-subtle);
+    cursor: crosshair;
+  }
+
+  /* ---------- Blocks ---------- */
+  .block {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    display: flex;
+    align-items: stretch;
+    padding: 4px 6px;
+    overflow: hidden;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--bank-color, var(--track-color)) 38%, var(--surface-module));
+    border: 1px solid color-mix(in srgb, var(--bank-color, var(--track-color)) 80%, black);
+    cursor: grab;
+    z-index: 1;
+  }
+  .block:hover {
+    background: color-mix(in srgb, var(--bank-color, var(--track-color)) 50%, var(--surface-module));
+  }
+  .block.selected {
+    border-color: var(--text-strong);
+    box-shadow: 0 0 0 1px var(--text-strong);
+    z-index: 2;
+  }
+  .block.moving {
+    cursor: grabbing;
+  }
+  .block.ghost {
+    background: color-mix(in srgb, var(--track-color) 25%, transparent);
+    border-style: dashed;
+    pointer-events: none;
+  }
+  .bank-label {
+    align-self: flex-start;
+    color: var(--text-strong);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .edge {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: ew-resize;
+  }
+  .edge.start {
+    left: 0;
+  }
+  .edge.end {
+    right: 0;
+  }
+
+  /* ---------- Block menu ---------- */
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 260000;
+  }
+  .menu {
+    position: fixed;
+    z-index: 260001;
+    min-width: 170px;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-module);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.5);
+  }
+  .menu button {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    height: 28px;
+    padding: 0 8px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--text-default);
+    font-size: var(--text-sm);
+    text-align: left;
+    cursor: pointer;
+  }
+  .menu button:hover {
+    background: var(--surface-control-hover);
+  }
+  .menu button.danger {
+    color: var(--danger);
+  }
+  .menu-caption {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 8px 2px;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+  .menu-banks {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3px;
+    padding: 2px 4px 4px;
+  }
+  .menu .menu-banks button {
+    justify-content: center;
+    height: 24px;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--bank-color) 60%, transparent);
+    background: color-mix(in srgb, var(--bank-color) 18%, transparent);
+    font-weight: var(--weight-bold);
+  }
+  .menu .menu-banks button:hover {
+    background: color-mix(in srgb, var(--bank-color) 35%, transparent);
+  }
+  .menu .menu-banks button.current {
+    border-color: var(--text-strong);
+    background: color-mix(in srgb, var(--bank-color) 55%, transparent);
+    color: var(--text-strong);
+  }
+  .menu-sep {
+    height: 1px;
+    margin: 3px 4px;
+    background: var(--border-strong);
+  }
+  kbd {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
   }
   .row.empty {
     background: rgb(0 0 0 / 0.12);

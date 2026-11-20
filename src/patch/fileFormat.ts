@@ -8,7 +8,7 @@
 import { clampTempo, DEFAULT_TEMPO } from '../engine/core/Transport';
 import type { ModuleDefinition } from '../modules/types';
 import { ensureChannel } from './operations';
-import { BEATS_PER_BAR, emptyTimeline, MAX_BEATS, MIN_CLIP_LENGTH } from './timeline';
+import { BEATS_PER_BAR, clampBank, emptyTimeline, hasBanks, MAX_BEATS, MIN_CLIP_LENGTH } from './timeline';
 import type { AutomationLane, Cable, Clip, ModuleInstance, Patch, Project, Timeline } from './types';
 
 export const FILE_FORMAT = 'sonular-project';
@@ -98,7 +98,7 @@ export function serializeProject(project: Project, now = new Date()): string {
         modules: p.modules.map((m) => ({ id: m.id, type: m.type, x: m.x, y: m.y, params: { ...m.params } })),
         cables: p.cables.map((c) => ({ id: c.id, from: { ...c.from }, to: { ...c.to } })),
         view: { ...p.view },
-        clips: p.clips.map((c) => ({ id: c.id, module: c.module, start: c.start, length: c.length, params: { ...c.params } })),
+        clips: p.clips.map((c) => ({ id: c.id, module: c.module, start: c.start, length: c.length, bank: c.bank })),
         lanes: p.lanes.map((l) => ({ module: l.module, param: l.param, points: l.points.map((pt) => ({ ...pt })) })),
       })),
     },
@@ -218,8 +218,8 @@ function validateTimeline(raw: unknown): Timeline {
 }
 
 /**
- * Blocks of one patch: only on modules that have a pattern, inside the song range, with a value
- * for every pattern parameter, and never overlapping another block on the same row.
+ * Blocks of one patch: only on modules that have banks, inside the song range, with a bank that
+ * exists, and never overlapping another block on the same row.
  */
 function validateClips(raw: unknown, modules: ModuleInstance[], getDef: DefinitionLookup, warnings: string[]): Clip[] {
   const candidates: Clip[] = [];
@@ -227,7 +227,7 @@ function validateClips(raw: unknown, modules: ModuleInstance[], getDef: Definiti
   for (const c of Array.isArray(raw) ? raw : []) {
     const module = isObject(c) ? modules.find((m) => m.id === c['module']) : undefined;
     const def = module && getDef(module.type);
-    if (!isObject(c) || !module || !def?.patternParams?.length || !isFiniteNumber(c['start']) || !isFiniteNumber(c['length'])) {
+    if (!isObject(c) || !module || !hasBanks(def) || !isFiniteNumber(c['start']) || !isFiniteNumber(c['length'])) {
       dropped++;
       continue;
     }
@@ -237,16 +237,9 @@ function validateClips(raw: unknown, modules: ModuleInstance[], getDef: Definiti
       dropped++;
       continue;
     }
-    const rawParams = isObject(c['params']) ? c['params'] : {};
-    const params: Record<string, number> = {};
-    for (const pid of def.patternParams) {
-      const spec = def.params.find((p) => p.id === pid);
-      const v = rawParams[pid];
-      const fallback = module.params[pid] ?? spec?.default ?? 0;
-      params[pid] = isFiniteNumber(v) ? (spec ? Math.min(spec.max, Math.max(spec.min, v)) : v) : fallback;
-    }
+    const bank = clampBank(def, isFiniteNumber(c['bank']) ? c['bank'] : 0);
     const id = typeof c['id'] === 'string' ? c['id'] : '';
-    candidates.push({ id, module: module.id, start, length, params });
+    candidates.push({ id, module: module.id, start, length, bank });
   }
   // In order of start; a block that begins inside the previous block on its row is dropped.
   candidates.sort((a, b) => a.start - b.start);

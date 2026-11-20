@@ -1,5 +1,5 @@
 /** Messages between the main thread and the engine running in the AudioWorklet. */
-import type { DisplayLayoutEntry, EnginePatch, MeterLayoutEntry, RecordedAudio } from './core/types';
+import type { DisplayLayoutEntry, EngineClip, EnginePatch, MeterLayoutEntry, RecordedAudio } from './core/types';
 import type { FaustMeta } from './faust/FaustDsp';
 
 export const PROCESSOR_NAME = 'sonular-engine';
@@ -14,6 +14,8 @@ export type ToEngine =
   | { type: 'init'; faust: FaustProgram[]; tempo: number; masterLevel: number; loop: LoopSetting }
   | { type: 'patch'; patch: EnginePatch }
   | { type: 'param'; node: string; name: string; value: number }
+  /** A sequencer's timeline blocks changed. */
+  | { type: 'clips'; node: string; clips: EngineClip[] }
   | { type: 'tempo'; bpm: number }
   /** A mixer channel is heard or not (mute/solo). */
   | { type: 'sinkActive'; node: string; active: boolean }

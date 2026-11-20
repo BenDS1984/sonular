@@ -6,7 +6,7 @@
 import type { ModuleDefinition } from '../modules/types';
 import { CHANNEL_TYPE } from '../patch/operations';
 import type { Patch, Project } from '../patch/types';
-import type { EnginePatch } from './core/types';
+import type { EngineClip, EnginePatch } from './core/types';
 
 type DefinitionLookup = (type: string) => ModuleDefinition | undefined;
 
@@ -47,6 +47,7 @@ export function toEnginePatch(project: Project, getDef: DefinitionLookup): Engin
       defs.set(m.id, def);
       const node: EnginePatch['nodes'][number] = { id: nodeIdOf(patch.id, m.id), kind: def.engine, params: { ...m.params } };
       if (m.type === CHANNEL_TYPE) node.active = heard.has(patch.id);
+      if (def.banks) node.clips = engineClips(patch, m.id);
       nodes.push(node);
     }
     for (const c of patch.cables) {
@@ -63,6 +64,14 @@ export function toEnginePatch(project: Project, getDef: DefinitionLookup): Engin
     }
   }
   return { nodes, connections };
+}
+
+/** A module's timeline blocks as the engine takes them, sorted by start. */
+export function engineClips(patch: Patch, moduleId: string): EngineClip[] {
+  return patch.clips
+    .filter((c) => c.module === moduleId)
+    .map((c) => ({ start: c.start, end: c.start + c.length, bank: c.bank }))
+    .sort((a, b) => a.start - b.start);
 }
 
 /** A string that changes only when modules or cables change (not when parameters move). */

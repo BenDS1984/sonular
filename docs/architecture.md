@@ -50,15 +50,26 @@ so a desktop build could swap them out.
 
 Each patch is one timeline track. Times are in beats (quarter notes) from the start of the song;
 4 beats make a bar. Operations live in `src/patch/timeline.ts`.
-- **Blocks** (`patch.clips`): a block sits on the row of one sequencer module and holds its own
-  pattern, the values of the parameters the module lists in `patternParams` (all steps for the
-  Sequencer). Blocks on one row never overlap. Ids `b1`, `b2`, ... are never reused in a patch.
-  A sequencer without blocks plays as before, so older patches sound the same.
+- **Blocks** (`patch.clips`): a block sits on the row of one module that has pattern banks
+  (`ModuleDefinition.banks`: the Sequencer has 8) and says which bank plays (`bank`, 0-based).
+  Blocks show no steps, only "Pattern C" in the pattern's tint. Blocks on one row never overlap. Ids
+  `b1`, `b2`, ... are never reused in a patch. A sequencer without blocks plays the bank chosen on
+  the module (parameter `bank`), so older patches sound the same.
+- **Sequencer patterns** (`src/modules/sequencer/banks.ts`): shown as Pattern A–H, called banks
+  0..7 in code and files. Bank 1 (A) keeps the old parameter ids
+  (`pitch1`, `on1`, ...), so an older patch's pattern becomes bank 1; banks 2..8 use `b2pitch1`,
+  `b2on1`, ... The pattern buttons A–H choose which bank is edited; a lamp shows the bank playing
+  (meter `bank`). On the timeline the keys A–H set a selected block's pattern. Copy/Paste copies a bank through a clipboard shared by all sequencers (not saved).
 - **Automation lanes** (`patch.lanes`): one per control (module + parameter), points of time and
   value in the parameter's own range, straight lines between them (`valueAt`).
 - **Song settings** (`project.timeline`): song end and the loop (on/off, start, end).
 - Removing a module removes its blocks and lanes; duplicating a patch copies them. All of it is
   saved in the file, autosaved and undoable.
+- **Blocks in the engine:** every sequencer node gets its blocks (`PatchNode.clips` with the
+  graph, a `clips` message when they change). The Sequencer reads the transport position sample
+  by sample: inside a block it plays that block's bank and starts at step 1 when the block
+  begins (also after a loop jump or when Play starts inside it); outside blocks its gate stays
+  low and its pitch holds.
 - **Playing:** Play starts at the playhead (`transportState.start`, screen state); while playing,
   moving the playhead jumps the transport there (`locate`, modules keep their state). The loop is
   sent to the engine, where the transport jumps back on the exact sample (`Transport.wrapAt`,

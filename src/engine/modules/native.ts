@@ -11,7 +11,7 @@ import { Sequencer } from './Sequencer';
 
 export const NATIVE_MODULES: Readonly<Record<string, ModuleFactory>> = {
   'native:clock': (_sr, transport) => new Clock(transport),
-  'native:sequencer': () => new Sequencer(),
+  'native:sequencer': (_sr, transport) => new Sequencer(transport),
   'native:envelope': (sr) => new Envelope(sr),
   'native:scope': (sr) => new Scope(sr),
   'native:recorder': () => new Recorder(),

@@ -59,8 +59,8 @@ export interface Patch {
 // Times on the timeline are in beats (quarter notes) from the start of the song; 4 beats = 1 bar.
 
 /**
- * A block on a sequencer's row: while the song is inside it, the sequencer plays the block's own
- * pattern, starting at its first step. Blocks on one row never overlap.
+ * A block on a sequencer's row: while the song is inside it, the sequencer plays one of its banks,
+ * starting at its first step. Blocks on one row never overlap.
  */
 export interface Clip {
   /** Unique within its patch ("b1", "b2", ...), never reused there. */
@@ -69,8 +69,8 @@ export interface Clip {
   module: string;
   start: number;
   length: number;
-  /** The block's pattern: values of the module's pattern parameters (`patternParams`). */
-  params: Record<string, number>;
+  /** Which of the module's banks plays, 0-based (shown as Bank 1..8). */
+  bank: number;
 }
 
 export interface AutomationPoint {

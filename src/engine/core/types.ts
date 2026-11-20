@@ -67,6 +67,11 @@ export interface DspModule {
    * none. Called about 20 times per second; the arrays are moved to the main thread.
    */
   takeRecorded?(): RecordedAudio | null;
+  /**
+   * Modules with a pattern (sequencers): the timeline blocks to play, replacing earlier ones.
+   * Called from the message handler, so it may allocate.
+   */
+  setClips?(clips: readonly EngineClip[]): void;
   /** Clear internal state (delay lines, filter memory, phases). */
   reset(): void;
   /** Release resources when removed from the patch. */
@@ -92,10 +97,20 @@ export function isSink(m: DspModule): m is SinkModule {
 export type ModuleFactory = (sampleRate: number, transport: Transport) => DspModule;
 
 /** Serializable description of the audio graph sent to the engine. */
+/** A timeline block for the engine: from `start` up to (not including) `end`, in beats. */
+export interface EngineClip {
+  start: number;
+  end: number;
+  /** Which bank plays, 0-based. */
+  bank: number;
+}
+
 export interface PatchNode {
   id: string;
   kind: string;
   params?: Record<string, number>;
+  /** Modules with banks: their timeline blocks (none: they play the bank chosen on the module). */
+  clips?: EngineClip[];
   /**
    * Sinks only: whether it is heard (default true). A silent sink fades out and then everything
    * that only feeds it stops rendering (a muted or un-soloed mixer channel).

@@ -1,14 +1,16 @@
 import type { ModuleDefinition, ParamSpec } from '../types';
+import { SEQUENCER_BANKS, SEQUENCER_STEPS, stepParam } from './banks';
 import SequencerPanel from './SequencerPanel.svelte';
 
-const STEPS = [1, 2, 3, 4, 5, 6, 7, 8];
+const STEPS = Array.from({ length: SEQUENCER_STEPS }, (_, i) => i + 1);
+const BANKS = Array.from({ length: SEQUENCER_BANKS }, (_, i) => i);
 
 export const sequencer: ModuleDefinition = {
   type: 'sequencer',
   version: 1,
   title: 'Sequencer',
   category: 'Sequencing',
-  description: 'Eight steps with a note and an on/off switch each, moved on by a clock.',
+  description: 'Eight steps with a note and an on/off switch each, moved on by a clock, in eight patterns (A–H).',
   signal: 'pitch',
   width: 420,
   inputs: [{ id: 'clock', label: 'clock', signal: 'gate' }],
@@ -17,23 +19,34 @@ export const sequencer: ModuleDefinition = {
     { id: 'gate', label: 'gate', signal: 'gate' },
   ],
   params: [
-    ...STEPS.map(
-      (n): ParamSpec => ({
-        id: `pitch${n}`,
-        label: String(n),
-        min: -24,
-        max: 24,
-        default: 0,
-        step: 1,
-        bipolar: true,
-        format: 'note',
-      }),
-    ),
-    ...STEPS.map(
-      (n): ParamSpec => ({ id: `on${n}`, label: `Step ${n}`, min: 0, max: 1, default: 1, step: 1, format: 'toggle' }),
-    ),
+    ...BANKS.flatMap((b) => [
+      ...STEPS.map(
+        (n): ParamSpec => ({
+          id: stepParam(b, 'pitch', n),
+          label: String(n),
+          min: -24,
+          max: 24,
+          default: 0,
+          step: 1,
+          bipolar: true,
+          format: 'note',
+        }),
+      ),
+      ...STEPS.map(
+        (n): ParamSpec => ({
+          id: stepParam(b, 'on', n),
+          label: `Step ${n}`,
+          min: 0,
+          max: 1,
+          default: 1,
+          step: 1,
+          format: 'toggle',
+        }),
+      ),
+    ]),
+    { id: 'bank', label: 'Pattern', min: 0, max: SEQUENCER_BANKS - 1, default: 0, step: 1 },
   ],
-  patternParams: [...STEPS.map((n) => `pitch${n}`), ...STEPS.map((n) => `on${n}`)],
+  banks: SEQUENCER_BANKS,
   panel: SequencerPanel,
   engine: 'native:sequencer',
 };

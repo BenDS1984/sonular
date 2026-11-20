@@ -18,7 +18,7 @@ const def = (type: string, inputs: string[], outputs: string[]): ModuleDefinitio
   panel: null as unknown as ModuleDefinition['panel'],
   engine: `test:${type}`,
 });
-/** A sequencer-like module: two steps that make up its pattern. */
+/** A sequencer-like module with four banks. */
 const seq: ModuleDefinition = {
   ...def('seq', [], ['pitch']),
   params: [
@@ -26,7 +26,7 @@ const seq: ModuleDefinition = {
     { id: 'p2', label: '2', min: -24, max: 24, default: 0 },
     { id: 'rate', label: 'Rate', min: 0, max: 1, default: 0.5 },
   ],
-  patternParams: ['p1', 'p2'],
+  banks: 4,
 };
 const DEFS = [def('src', [], ['out']), def('sink', ['L', 'R'], []), seq];
 const getDef = (t: string) => DEFS.find((d) => d.type === t);
@@ -58,8 +58,8 @@ const sample = (): Project => ({
       cables: [],
       view: { x: 0, y: 0, zoom: 1 },
       clips: [
-        { id: 'b1', module: 'seq1', start: 0, length: 16, params: { p1: 0, p2: 7 } },
-        { id: 'b3', module: 'seq1', start: 16, length: 8, params: { p1: -12, p2: 3 } },
+        { id: 'b1', module: 'seq1', start: 0, length: 16, bank: 0 },
+        { id: 'b3', module: 'seq1', start: 16, length: 8, bank: 3 },
       ],
       lanes: [],
     },
@@ -194,24 +194,26 @@ describe('project files', () => {
       expect(project.patches[0]!.lanes).toEqual([]);
     });
 
-    it('drops blocks that cannot be placed and fills in missing pattern values', () => {
+    it('drops blocks that cannot be placed and keeps banks in range', () => {
       const { project, warnings } = parseProjectFile(
         file({
           modules: [seqModule, { id: 'src1', type: 'src', x: 0, y: 0, params: {} }],
           clips: [
-            { id: 'b2', module: 'seq1', start: 4, length: 4, params: { p1: 99, rate: 1 } },
-            { id: 'b5', module: 'seq1', start: 6, length: 4, params: {} }, // overlaps the first
-            { id: 'b2', module: 'seq1', start: 8, length: 4, params: {} }, // duplicate id
-            { id: 'b7', module: 'src1', start: 0, length: 4, params: {} }, // module without a pattern
-            { id: 'b8', module: 'gone1', start: 0, length: 4, params: {} }, // module does not exist
-            { id: 'b9', module: 'seq1', start: 20, length: 0, params: {} }, // too short
+            { id: 'b2', module: 'seq1', start: 4, length: 4, bank: 9 }, // no bank 10: the last one
+            { id: 'b5', module: 'seq1', start: 6, length: 4, bank: 1 }, // overlaps the first
+            { id: 'b2', module: 'seq1', start: 8, length: 4, params: {} }, // duplicate id, no bank
+            { id: 'b7', module: 'src1', start: 0, length: 4, bank: 0 }, // module without banks
+            { id: 'b8', module: 'gone1', start: 0, length: 4, bank: 0 }, // module does not exist
+            { id: 'b9', module: 'seq1', start: 20, length: 0, bank: 0 }, // too short
+            { id: 'b10', module: 'seq1', start: 12, length: 4, bank: 1.7 },
           ],
         }),
         getDef,
       );
       expect(project.patches[0]!.clips).toEqual([
-        { id: 'b2', module: 'seq1', start: 4, length: 4, params: { p1: 24, p2: 6 } },
-        { id: 'b3', module: 'seq1', start: 8, length: 4, params: { p1: 5, p2: 6 } },
+        { id: 'b2', module: 'seq1', start: 4, length: 4, bank: 3 },
+        { id: 'b11', module: 'seq1', start: 8, length: 4, bank: 0 },
+        { id: 'b10', module: 'seq1', start: 12, length: 4, bank: 2 },
       ]);
       expect(warnings.join(' ')).toMatch(/Removed 4 timeline blocks/);
     });
