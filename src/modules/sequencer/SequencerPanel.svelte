@@ -130,8 +130,9 @@
   }
   .btn {
     flex: 1;
+    min-width: 46px;
     height: 22px;
-    padding: 0;
+    padding: 0 6px;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm);
     background: var(--surface-control);

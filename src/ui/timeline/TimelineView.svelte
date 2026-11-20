@@ -28,6 +28,10 @@
     clampBank,
     hasBanks,
     MAX_BEATS,
+    moduleLabel,
+    moduleTooltip,
+    numberedTitle,
+    renameModule,
     MIN_CLIP_LENGTH,
     removeClip,
   } from '../../patch/timeline';
@@ -36,6 +40,7 @@
   import { bankColor } from '../../modules/sequencer/bankClipboard.svelte';
   import { bankLetter } from '../../modules/sequencer/banks';
   import { channelColor } from '../channelColors';
+  import EditableName from '../components/EditableName.svelte';
   import {
     clampPpb,
     formatLength,
@@ -58,12 +63,13 @@
   const tracks = $derived(
     project.patches.map((patch) => {
       const seqs = patch.modules.filter((m) => hasBanks(getDefinition(m.type)));
-      const rows = seqs.map((module, i) => {
-        const title = getDefinition(module.type)?.title ?? module.type;
-        const sameType = seqs.filter((s) => s.type === module.type);
-        const n = sameType.indexOf(module) + 1;
-        return { module, label: sameType.length > 1 ? `${title} ${n}` : title, index: i };
-      });
+      const rows = seqs
+        .map((module) => {
+          const def = getDefinition(module.type);
+          return { module, def, label: moduleLabel(def, module), numbered: numberedTitle(def, module) };
+        })
+        // In order of their numbers, so a renamed sequencer keeps its place.
+        .sort((a, b) => a.numbered.localeCompare(b.numbered, undefined, { numeric: true }));
       return { patch, rows };
     }),
   );
@@ -547,7 +553,16 @@
             <span class="name">{t.patch.name}</span>
           </div>
           {#each t.rows as r (r.module.id)}
-            <div class="row-name" style:height={`${ROW_H}px`}>{r.label}</div>
+            <div class="row-name" style:height={`${ROW_H}px`}>
+              <EditableName
+                text={r.label}
+                value={r.module.name ?? ''}
+                placeholder={r.numbered}
+                label="Sequencer name"
+                title={moduleTooltip(r.def, r.module)}
+                onrename={(name) => renameModule(r.module, name)}
+              />
+            </div>
           {:else}
             <div class="row-name empty" style:height={`${EMPTY_H}px`}>No sequencer</div>
           {/each}
@@ -802,6 +817,8 @@
   .row-name {
     display: flex;
     align-items: center;
+    min-width: 0;
+    overflow: hidden;
     padding: 0 8px 0 22px;
     font-size: var(--text-sm);
     color: var(--text-secondary);

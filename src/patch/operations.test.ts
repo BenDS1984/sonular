@@ -46,8 +46,10 @@ describe('patch operations', () => {
     const b = addModule(p, getDef('src')!, 0, 0);
     expect([a.id, b.id]).toEqual(['src1', 'src2']);
     expect(a.params).toEqual({ level: 0.5 });
+    // A removed module's number is not handed out while a higher one exists.
     removeModule(p, 'src1');
-    expect(nextModuleId(p, 'src')).toBe('src1');
+    expect(nextModuleId(p, 'src')).toBe('src3');
+    expect(nextModuleId(p, 'srcx')).toBe('srcx1');
   });
 
   it('only connects outputs to inputs of another module', () => {

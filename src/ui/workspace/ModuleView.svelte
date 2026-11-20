@@ -9,6 +9,7 @@
   import { canvasState, patch, removeModule, selectModule } from '../../patch/patch.svelte';
   import { snap } from '../../patch/geometry';
   import { isPortConnected } from '../../patch/operations';
+  import { moduleLabel, moduleTooltip, numberedTitle, renameModule } from '../../patch/timeline';
   import type { ModuleInstance } from '../../patch/types';
   import { interaction, isValidTarget } from './interaction.svelte';
 
@@ -90,7 +91,15 @@
     aria-label={`${def.title} ${module.id}`}
   >
     <ModulePanel
-      title={def.title}
+      title={def.banks ? moduleLabel(def, module) : def.title}
+      rename={def.banks
+        ? {
+            value: module.name ?? '',
+            placeholder: numberedTitle(def, module),
+            tooltip: moduleTooltip(def, module),
+            onrename: (name) => renameModule(module, name),
+          }
+        : undefined}
       signal={def.signal}
       family={def.category}
       width={def.width}

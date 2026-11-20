@@ -9,6 +9,10 @@ import {
   freeRange,
   laneOf,
   nextClipId,
+  moduleLabel,
+  moduleTooltip,
+  numberedTitle,
+  renameModule,
   removeClip,
   removeLane,
   valueAt,
@@ -67,6 +71,23 @@ describe('timeline blocks', () => {
     addClip(p, seq, 'seq1', 0, 4, 0);
     addClip(p, seq, 'seq1', 8, 4, 0);
     expect(p.clips.map((c) => c.id)).toEqual(['b1', 'b2']);
+  });
+});
+
+describe('sequencer names', () => {
+  it('numbers a sequencer by its id, so the number never moves to another one', () => {
+    expect(numberedTitle(seq, { id: 'seq3', type: 'seq' })).toBe('seq 3');
+    expect(numberedTitle(undefined, { id: 'x', type: 'gone' })).toBe('gone');
+  });
+
+  it('shows the user\'s own name, and goes back to the number when it is cleared', () => {
+    const m: { id: string; type: string; name?: string } = { id: 'seq3', type: 'seq' };
+    renameModule(m, '  Kick ');
+    expect(moduleLabel(seq, m)).toBe('Kick');
+    expect(moduleTooltip(seq, m)).toBe('Kick (seq 3)');
+    renameModule(m, '   ');
+    expect(m).toEqual({ id: 'seq3', type: 'seq' });
+    expect(moduleLabel(seq, m)).toBe('seq 3');
   });
 });
 

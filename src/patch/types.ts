@@ -11,6 +11,8 @@ export interface ModuleInstance {
   /** Unique within its patch, never reused there. */
   id: string;
   type: string;
+  /** The user's own name for the module (sequencers: shown on the module and its timeline row). */
+  name?: string;
   /** Position of the top-left corner on the canvas, in canvas pixels. */
   x: number;
   y: number;

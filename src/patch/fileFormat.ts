@@ -95,7 +95,14 @@ export function serializeProject(project: Project, now = new Date()): string {
         id: p.id,
         name: p.name,
         color: p.color,
-        modules: p.modules.map((m) => ({ id: m.id, type: m.type, x: m.x, y: m.y, params: { ...m.params } })),
+        modules: p.modules.map((m) => ({
+          id: m.id,
+          type: m.type,
+          ...(m.name ? { name: m.name } : {}),
+          x: m.x,
+          y: m.y,
+          params: { ...m.params },
+        })),
         cables: p.cables.map((c) => ({ id: c.id, from: { ...c.from }, to: { ...c.to } })),
         view: { ...p.view },
         clips: p.clips.map((c) => ({ id: c.id, module: c.module, start: c.start, length: c.length, bank: c.bank })),
@@ -199,6 +206,9 @@ export function validateProject(raw: unknown, getDef: DefinitionLookup, fallback
 }
 
 const clampBeats = (v: number) => Math.min(MAX_BEATS, Math.max(0, v));
+
+/** Longest name a module can have. */
+const MAX_NAME_LENGTH = 40;
 
 /** Song end and loop; files from before the timeline get the defaults. */
 function validateTimeline(raw: unknown): Timeline {
@@ -322,9 +332,11 @@ function validatePatchContent(
       const v = rawParams[spec.id];
       params[spec.id] = isFiniteNumber(v) ? Math.min(spec.max, Math.max(spec.min, v)) : spec.default;
     }
+    const name = typeof m['name'] === 'string' ? m['name'].trim().slice(0, MAX_NAME_LENGTH) : '';
     modules.push({
       id,
       type: def.type,
+      ...(name ? { name } : {}),
       x: isFiniteNumber(m['x']) ? m['x'] : 0,
       y: isFiniteNumber(m['y']) ? m['y'] : 0,
       params,

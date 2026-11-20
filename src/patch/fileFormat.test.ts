@@ -54,7 +54,7 @@ const sample = (): Project => ({
       id: 'p3',
       name: 'Pad',
       color: 5,
-      modules: [{ id: 'seq1', type: 'seq', x: 0, y: 0, params: { p1: 0, p2: 7, rate: 0.5 } }],
+      modules: [{ id: 'seq1', type: 'seq', name: 'Kick', x: 0, y: 0, params: { p1: 0, p2: 7, rate: 0.5 } }],
       cables: [],
       view: { x: 0, y: 0, zoom: 1 },
       clips: [

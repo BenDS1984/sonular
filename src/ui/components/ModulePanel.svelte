@@ -6,6 +6,7 @@
   import type { Snippet } from 'svelte';
   import type { SignalType } from '../signals';
   import type { ModuleDefinition } from '../../modules/types';
+  import EditableName from './EditableName.svelte';
 
   interface Props {
     title: string;
@@ -19,6 +20,8 @@
     ports?: Snippet;
     onheaderpointerdown?: (e: PointerEvent) => void;
     onremove?: () => void;
+    /** When given, the title can be renamed by double-clicking it. */
+    rename?: { value: string; placeholder: string; tooltip: string; onrename: (name: string) => void };
   }
 
   let {
@@ -31,7 +34,10 @@
     ports,
     onheaderpointerdown,
     onremove,
+    rename,
   }: Props = $props();
+
+  let nameField: EditableName | undefined = $state();
 </script>
 
 <section
@@ -42,8 +48,23 @@
   style:--module-family={`var(--family-${family.toLowerCase()})`}
 >
   <!-- svelte-ignore a11y_no_static_element_interactions (dragging by the header is a mouse affordance; keyboard moving comes later) -->
-  <header class="header" onpointerdown={onheaderpointerdown}>
-    <h3 class="title">{title}</h3>
+  <!-- The header grabs the pointer for dragging, so a double-click to rename arrives here. -->
+  <header class="header" onpointerdown={onheaderpointerdown} ondblclick={rename ? () => nameField?.start() : undefined}>
+    <h3 class="title">
+      {#if rename}
+        <EditableName
+          bind:this={nameField}
+          text={title}
+          value={rename.value}
+          placeholder={rename.placeholder}
+          label="Module name"
+          title={rename.tooltip}
+          onrename={rename.onrename}
+        />
+      {:else}
+        {title}
+      {/if}
+    </h3>
     {#if onremove}
       <button
         class="remove"
@@ -110,7 +131,10 @@
     letter-spacing: 0.01em;
   }
   .title {
-    flex: none;
+    flex: 0 1 auto;
+    min-width: 0;
+    display: flex;
+    overflow: hidden;
   }
   .remove {
     display: grid;

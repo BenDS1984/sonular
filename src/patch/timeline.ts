@@ -19,6 +19,34 @@ export function emptyTimeline(): Timeline {
 /** Whether a module type gets a row of blocks on the timeline. */
 export const hasBanks = (def: ModuleDefinition | undefined): boolean => (def?.banks ?? 0) > 0;
 
+/**
+ * Name of a module with a timeline row, with its number: "Sequencer 2". The number comes from the
+ * module id (sequencer2), so it stays the same when other sequencers are added or removed.
+ */
+export function numberedTitle(def: ModuleDefinition | undefined, module: { id: string; type: string }): string {
+  const title = def?.title ?? module.type;
+  const n = /(\d+)$/.exec(module.id);
+  return n ? `${title} ${n[1]}` : title;
+}
+
+/** What a module with a timeline row is called: the user's name, else "Sequencer 2". */
+export function moduleLabel(def: ModuleDefinition | undefined, module: { id: string; type: string; name?: string }): string {
+  return module.name || numberedTitle(def, module);
+}
+
+/** Tooltip for a module with its own name: "Kick (Sequencer 3)". */
+export function moduleTooltip(def: ModuleDefinition | undefined, module: { id: string; type: string; name?: string }): string {
+  const numbered = numberedTitle(def, module);
+  return module.name ? `${module.name} (${numbered})` : numbered;
+}
+
+/** Give a module its own name; an empty name goes back to the numbered one. */
+export function renameModule(module: { name?: string }, name: string): void {
+  const n = name.trim().slice(0, 40);
+  if (n) module.name = n;
+  else delete module.name;
+}
+
 /** A bank number brought into a module's range (whole, 0..banks-1). */
 export function clampBank(def: ModuleDefinition | undefined, bank: number): number {
   const last = (def?.banks ?? 1) - 1;

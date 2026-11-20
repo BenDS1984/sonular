@@ -12,7 +12,7 @@ export const sequencer: ModuleDefinition = {
   category: 'Sequencing',
   description: 'Eight steps with a note and an on/off switch each, moved on by a clock, in eight patterns (A–H).',
   signal: 'pitch',
-  width: 420,
+  width: 464,
   inputs: [{ id: 'clock', label: 'clock', signal: 'gate' }],
   outputs: [
     { id: 'pitch', label: 'pitch', signal: 'pitch' },
