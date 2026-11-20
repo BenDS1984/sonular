@@ -63,7 +63,7 @@
 <div class="steps">
   {#each STEPS as n (n)}
     {@const onId = stepParam(bank, 'on', n)}
-    {@const on = (module.params[onId] ?? 1) >= 0.5}
+    {@const on = (module.params[onId] ?? 0) >= 0.5}
     <div class="step" class:off={!on}>
       <Led level={current === n ? 1 : 0} signal="pitch" label={current === n ? `Step ${n} playing` : ''} />
       <ParamKnob {module} {def} param={stepParam(bank, 'pitch', n)} size="sm" />

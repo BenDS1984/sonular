@@ -4,6 +4,7 @@
  * ("pitch1".."pitch8", "on1".."on8"), so older patches open with their pattern in bank 1; banks
  * 2..8 use "b2pitch1", "b2on1", and so on. The parameter "bank" is the bank chosen on the module
  * (0-based): the one being edited, and the one that plays when the sequencer has no timeline blocks.
+ * Every step starts switched off; patch files store each switch, so older patches keep theirs.
  */
 export const SEQUENCER_BANKS = 8;
 export const SEQUENCER_STEPS = 8;

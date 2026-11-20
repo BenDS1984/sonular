@@ -25,6 +25,12 @@ describe('sequencer banks', () => {
     expect(sequencer.banks).toBe(8);
   });
 
+  it('starts with every step switched off', () => {
+    const switches = sequencer.params.filter((p) => parseStepParam(p.id)?.kind === 'on');
+    expect(switches).toHaveLength(64);
+    for (const p of switches) expect(p.default).toBe(0);
+  });
+
   it('copies one bank into another', () => {
     const params: Record<string, number> = {};
     for (const id of bankParams(0)) params[id] = 0;

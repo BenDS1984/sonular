@@ -38,7 +38,8 @@ export const sequencer: ModuleDefinition = {
           label: `Step ${n}`,
           min: 0,
           max: 1,
-          default: 1,
+          // A new sequencer starts silent: the user switches on the steps they want.
+          default: 0,
           step: 1,
           format: 'toggle',
         }),

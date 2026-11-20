@@ -102,7 +102,8 @@ describe('Sequencer', () => {
   function sequencer(off: number[] = []) {
     const seq = new Sequencer();
     NOTES.forEach((st, s) => seq.setParam(`pitch${s + 1}`, st));
-    off.forEach((s) => seq.setParam(`on${s}`, 0));
+    // Steps start switched off: switch all on except `off`.
+    NOTES.forEach((_st, s) => seq.setParam(`on${s + 1}`, off.includes(s + 1) ? 0 : 1));
     return seq;
   }
 
@@ -201,7 +202,7 @@ describe('Clock, Sequencer and Envelope in a patch', () => {
     const patch: EnginePatch = {
       nodes: [
         { id: 'clock', kind: 'native:clock', params: { ratio1: 0 } }, // ×4: sixteenth notes
-        { id: 'seq', kind: 'native:sequencer', params: { pitch1: 0, pitch2: 12, pitch3: -12, on4: 0 } },
+        { id: 'seq', kind: 'native:sequencer', params: { pitch1: 0, pitch2: 12, pitch3: -12, on1: 1, on2: 1, on3: 1, on4: 0, on5: 1, on6: 1, on7: 1, on8: 1 } },
         { id: 'osc', kind: 'faust:osc', params: { wave: 0, level: 0.5 } },
         { id: 'env', kind: 'native:envelope', params: { attack: 0.002, decay: 0.05, sustain: 1, release: 0.01 } },
         { id: 'out', kind: 'faust:channel', params: { level: 1 } },

@@ -48,7 +48,7 @@ export class Sequencer implements DspModule {
   private readonly transport: Transport | null;
   /** All banks after each other: bank b, step s at b * 8 + s. */
   private readonly pitch = new Float32Array(SEQUENCER_BANKS * SEQUENCER_STEPS);
-  private readonly on = new Uint8Array(SEQUENCER_BANKS * SEQUENCER_STEPS).fill(1);
+  private readonly on = new Uint8Array(SEQUENCER_BANKS * SEQUENCER_STEPS);
   /** Offset of the chosen bank (parameter "bank") in the arrays. */
   private base = 0;
   /** Current step index, −1 before the first clock edge. */

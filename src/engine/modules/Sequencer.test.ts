@@ -136,6 +136,14 @@ describe('Sequencer with timeline blocks', () => {
     expect([...meters]).toEqual([2, 2]);
   });
 
+  it('keeps the gate low until steps are switched on', () => {
+    const seq = new Sequencer(new Transport(SR));
+    const clock = new Float32Array(BLOCK_SIZE).fill(1);
+    const outs = [new Float32Array(BLOCK_SIZE), new Float32Array(BLOCK_SIZE)];
+    seq.process([clock], [false], outs, BLOCK_SIZE);
+    expect(Math.max(...outs[1]!)).toBe(0);
+  });
+
   it('shows the bank of the block playing, and none between blocks', () => {
     const t = new Transport(SR);
     const seq = new Sequencer(t);
