@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ModuleDefinition } from '../modules/types';
 import { emptyTimeline } from '../patch/timeline';
 import type { Patch, Project } from '../patch/types';
-import { audiblePatches, toEnginePatch } from './toEnginePatch';
+import { audiblePatches, engineClips, toEnginePatch } from './toEnginePatch';
 
 const def = (type: string, inputs: string[], outputs: string[]): ModuleDefinition => ({
   type,
@@ -44,6 +44,21 @@ const project = (...patches: Patch[]): Project => ({
 });
 
 describe('project to engine graph', () => {
+  it('sends no blocks for a Free patch, so its sequencers play the chosen pattern', () => {
+    const patch = {
+      clips: [
+        { id: 'b2', module: 'seq1', start: 8, length: 4, bank: 1 },
+        { id: 'b1', module: 'seq1', start: 0, length: 4, bank: 0 },
+      ],
+    } as unknown as Patch;
+    expect(engineClips(patch, 'seq1')).toEqual([
+      { start: 0, end: 4, bank: 0 },
+      { start: 8, end: 12, bank: 1 },
+    ]);
+    patch.free = true;
+    expect(engineClips(patch, 'seq1')).toEqual([]);
+  });
+
   it('puts every patch in one graph, with ids per patch', () => {
     const g = toEnginePatch(project(patch('p1'), patch('p2')), getDef);
     expect(g.nodes.map((n) => n.id)).toEqual(['p1/osc1', 'p1/channel1', 'p2/osc1', 'p2/channel1']);

@@ -55,6 +55,11 @@ export interface Patch {
   clips: Clip[];
   /** Automation lines of this patch's controls (shown under its timeline track). */
   lanes: AutomationLane[];
+  /**
+   * Free: the patch ignores the timeline. Its sequencers play the pattern chosen on the module, as
+   * if they had no blocks (the blocks stay, and count again when Free is switched off).
+   */
+  free?: boolean;
 }
 
 // ---------- Timeline ----------

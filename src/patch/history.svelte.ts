@@ -40,6 +40,7 @@ const snapshot = (): string =>
       cables: p.cables,
       clips: p.clips,
       lanes: p.lanes,
+      free: p.free,
     })),
   });
 

@@ -107,6 +107,7 @@ export function serializeProject(project: Project, now = new Date()): string {
         view: { ...p.view },
         clips: p.clips.map((c) => ({ id: c.id, module: c.module, start: c.start, length: c.length, bank: c.bank })),
         lanes: p.lanes.map((l) => ({ module: l.module, param: l.param, points: l.points.map((pt) => ({ ...pt })) })),
+        ...(p.free ? { free: true } : {}),
       })),
     },
   };
@@ -169,6 +170,7 @@ export function validateProject(raw: unknown, getDef: DefinitionLookup, fallback
     const patch: Patch = { id, name, color, modules, cables, view, clips: [], lanes: [] };
     patch.clips = validateClips(rp['clips'], modules, getDef, w);
     patch.lanes = validateLanes(rp['lanes'], modules, getDef, w);
+    if (rp['free'] === true) patch.free = true;
     w.push(...ensureChannel(patch, getDef));
     const prefix = rawPatches.length > 1 ? `${name}: ` : '';
     for (const msg of w) warnings.push(prefix + msg);

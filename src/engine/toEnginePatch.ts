@@ -66,8 +66,12 @@ export function toEnginePatch(project: Project, getDef: DefinitionLookup): Engin
   return { nodes, connections };
 }
 
-/** A module's timeline blocks as the engine takes them, sorted by start. */
+/**
+ * A module's timeline blocks as the engine takes them, sorted by start. None for a Free patch: its
+ * sequencers then play the pattern chosen on the module.
+ */
 export function engineClips(patch: Patch, moduleId: string): EngineClip[] {
+  if (patch.free) return [];
   return patch.clips
     .filter((c) => c.module === moduleId)
     .map((c) => ({ start: c.start, end: c.start + c.length, bank: c.bank }))

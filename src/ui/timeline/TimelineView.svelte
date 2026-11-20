@@ -551,6 +551,19 @@
           <div class="track-name" style:height={`${TRACK_H}px`} title={t.patch.name}>
             <span class="dot" aria-hidden="true"></span>
             <span class="name">{t.patch.name}</span>
+            <button
+              type="button"
+              class="free-toggle"
+              class:on={t.patch.free}
+              aria-pressed={!!t.patch.free}
+              title={t.patch.free
+                ? 'Free: this patch ignores the timeline and its sequencers play the pattern chosen on the module. Click to follow the timeline again.'
+                : 'Follows the timeline. Click for Free: ignore the blocks and play the pattern chosen on the module.'}
+              onclick={() => {
+                if (t.patch.free) delete t.patch.free;
+                else t.patch.free = true;
+              }}>Free</button
+            >
           </div>
           {#each t.rows as r (r.module.id)}
             <div class="row-name" style:height={`${ROW_H}px`}>
@@ -575,7 +588,7 @@
   <div class="body" bind:this={body} bind:clientWidth={viewW} {onscroll} onwheel={(e) => onwheel(e, 'body')}>
     <div class="content" class:beats={showsBeats(ppb)} style:width={`${contentW}px`}>
       {#each tracks as t (t.patch.id)}
-        <div class="track" style:--track-color={channelColor(t.patch.color)}>
+        <div class="track" class:free={t.patch.free} style:--track-color={channelColor(t.patch.color)}>
           <div class="track-top" style:height={`${TRACK_H}px`}></div>
           {#each t.rows as r (r.module.id)}
             <!-- svelte-ignore a11y_no_static_element_interactions (drawing blocks is a pointer gesture) -->
@@ -801,6 +814,32 @@
     font-weight: var(--weight-bold);
     color: var(--text-strong);
     background: color-mix(in srgb, var(--track-color) 14%, transparent);
+  }
+  .free-toggle {
+    flex: none;
+    margin-left: auto;
+    height: 18px;
+    padding: 0 6px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface-control);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+  .free-toggle:hover {
+    background: var(--surface-control-hover);
+    color: var(--text-default);
+  }
+  .free-toggle.on {
+    border-color: var(--track-color);
+    background: color-mix(in srgb, var(--track-color) 45%, transparent);
+    color: var(--text-strong);
+  }
+  /* A Free patch ignores its blocks: they stay, faded. */
+  .track.free .block:not(.ghost) {
+    opacity: 0.35;
   }
   .dot {
     flex: none;

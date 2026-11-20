@@ -62,6 +62,7 @@ const sample = (): Project => ({
         { id: 'b3', module: 'seq1', start: 16, length: 8, bank: 3 },
       ],
       lanes: [],
+      free: true,
     },
   ],
   timeline: { end: 96, loop: { on: true, start: 16, end: 32 } },

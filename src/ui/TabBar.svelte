@@ -244,6 +244,9 @@
           <!-- svelte-ignore a11y_no_static_element_interactions (rename is also in the ⋯ menu) -->
           <span class="name" ondblclick={() => startRename(p)}>{p.name}</span>
         {/if}
+        {#if p.free}
+          <span class="free" title="Free: this patch ignores the timeline">FREE</span>
+        {/if}
         {#if active && editing !== p.id}
           <button
             class="more"
@@ -294,6 +297,17 @@
     {:else}
       <div class="popover menu" role="menu" aria-label={`Options for ${menuPatch.name}`} use:keepInside={menu.x}>
         <button type="button" role="menuitem" onclick={() => startRename(menuPatch)}>Rename</button>
+        <button
+          type="button"
+          role="menuitemcheckbox"
+          aria-checked={!!menuPatch.free}
+          title="Free: the patch's sequencers ignore the timeline blocks and play the pattern chosen on the module"
+          onclick={() => {
+            if (menuPatch.free) delete menuPatch.free;
+            else menuPatch.free = true;
+            closeMenu();
+          }}>{menuPatch.free ? 'Follow the timeline' : 'Ignore timeline (Free)'}</button
+        >
         <button
           type="button"
           role="menuitem"
@@ -435,6 +449,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .free {
+    flex: none;
+    padding: 1px 4px;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--tab-color) 40%, transparent);
+    color: var(--text-strong);
+    font-size: 9px;
+    font-weight: var(--weight-bold);
+    letter-spacing: 0.04em;
   }
   .name-input {
     height: 20px;
