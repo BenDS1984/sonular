@@ -12,6 +12,7 @@
   import { moduleLabel, moduleTooltip, numberedTitle, renameModule } from '../../patch/timeline';
   import type { ModuleInstance } from '../../patch/types';
   import { interaction, isValidTarget } from './interaction.svelte';
+  import { flash } from '../focus.svelte';
 
   interface Props {
     module: ModuleInstance;
@@ -82,6 +83,7 @@
 {#if def}
   <div
     class="module-view"
+    class:flash={flash.module === module.id}
     bind:this={root}
     style:left={`${module.x}px`}
     style:top={`${module.y}px`}
@@ -145,6 +147,20 @@
 <style>
   .module-view {
     position: absolute;
+    border-radius: var(--radius-md);
+  }
+  /* Lights up briefly after a jump from the timeline. */
+  .module-view.flash {
+    animation: flash 1.4s ease-out;
+  }
+  @keyframes flash {
+    0%,
+    40% {
+      box-shadow: 0 0 0 3px var(--border-focus), 0 0 24px 4px var(--border-focus);
+    }
+    100% {
+      box-shadow: 0 0 0 3px transparent, 0 0 24px 4px transparent;
+    }
   }
   .group {
     display: flex;

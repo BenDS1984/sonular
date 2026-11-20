@@ -1,7 +1,9 @@
 <script lang="ts">
   import Led from '../../ui/components/Led.svelte';
   import Toggle from '../../ui/components/Toggle.svelte';
-  import { meterValue } from '../../engine/engine.svelte';
+  import { engineState, meterValue } from '../../engine/engine.svelte';
+  import { activePatch } from '../../patch/patch.svelte';
+  import { showOnTimeline } from '../../ui/focus.svelte';
   import ParamKnob from '../ParamKnob.svelte';
   import type { ModulePanelProps } from '../types';
   import { bankClipboard, bankColor } from './bankClipboard.svelte';
@@ -19,6 +21,18 @@
   // Meter "step" is 1..8 for the step playing, 0 before the first clock pulse. Shown only while
   // the bank on screen is the one playing.
   const current = $derived(playing === bank ? Math.round(meterValue(module.id, 'step')) : 0);
+
+  // Who decides what plays: the timeline (when this sequencer has blocks and the patch is not
+  // Free), or the pattern chosen here.
+  const owner = $derived(activePatch());
+  const hasBlocks = $derived(owner.clips.some((c) => c.module === module.id));
+  const status = $derived.by(() => {
+    if (owner.free) return { kind: 'free', text: `Free: plays pattern ${bankLetter(bank)}` };
+    if (!hasBlocks) return { kind: 'own', text: `No blocks on the timeline: plays pattern ${bankLetter(bank)}` };
+    if (!engineState.playing) return { kind: 'follows', text: 'Timeline: plays its blocks' };
+    if (playing >= 0) return { kind: 'timeline', text: `Timeline: plays pattern ${bankLetter(playing)}` };
+    return { kind: 'silent', text: 'Timeline: silent here (no block)' };
+  });
 
   function copy() {
     bankClipboard.steps = readBank(module.params, bank);
@@ -38,13 +52,14 @@
       role="radio"
       class="bank"
       class:selected={b === bank}
+      class:playing={b === playing}
       aria-checked={b === bank}
       style:--bank-color={bankColor(b)}
       style:--bank-bg={bankColor(b, 30, 0.45)}
-      title={`Edit pattern ${bankLetter(b)}${b === playing ? ' (playing)' : ''}`}
+      style:--bank-dim={bankColor(b, 26, 0.3)}
+      title={`Edit pattern ${bankLetter(b)}${b === playing ? ' (playing now)' : ''}`}
       onclick={() => (module.params['bank'] = b)}
     >
-      <span class="lamp" class:lit={b === playing} aria-hidden="true"></span>
       {bankLetter(b)}
     </button>
   {/each}
@@ -59,6 +74,18 @@
     Paste
   </button>
 </div>
+
+<button
+  type="button"
+  class="status {status.kind}"
+  style:--bank-color={bankColor(status.kind === 'timeline' ? playing : bank)}
+  title="Show this sequencer on the timeline"
+  onclick={() => showOnTimeline(owner.id, module.id)}
+>
+  <span class="status-dot" aria-hidden="true"></span>
+  <span class="status-text">{status.text}</span>
+  <span class="status-link">Timeline ↗</span>
+</button>
 
 <div class="steps">
   {#each STEPS as n (n)}
@@ -93,40 +120,92 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
+  /* Each pattern keeps its own colour, the same as its blocks on the timeline. */
   .bank {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 3px;
     width: 30px;
     height: 22px;
     padding: 0;
-    border: 1px solid var(--border-strong);
+    border: 1px solid transparent;
     border-radius: var(--radius-sm);
-    background: var(--surface-control);
-    color: var(--text-muted);
+    background: var(--bank-dim);
+    color: var(--bank-color);
     font-size: var(--text-xs);
     font-weight: var(--weight-bold);
     cursor: pointer;
   }
   .bank:hover {
-    background: var(--surface-control-hover);
-    color: var(--text-default);
+    background: var(--bank-bg);
   }
+  /* The pattern being edited: outlined. */
   .bank.selected {
     border-color: var(--bank-color);
     background: var(--bank-bg);
+    color: var(--text-strong);
+  }
+  /* The pattern playing now: lit. */
+  .bank.playing {
+    background: var(--bank-color);
+    color: #101215;
+    box-shadow: 0 0 6px var(--bank-color);
+  }
+  .bank.playing.selected {
+    border-color: var(--text-strong);
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    height: 20px;
+    margin-bottom: var(--space-2);
+    padding: 0 6px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: rgb(255 255 255 / 0.04);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    text-align: left;
+    cursor: pointer;
+  }
+  .status:hover {
+    background: rgb(255 255 255 / 0.09);
     color: var(--text-default);
   }
-  .lamp {
-    width: 5px;
-    height: 5px;
+  .status-dot {
+    flex: none;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    background: rgb(255 255 255 / 0.12);
+    background: var(--text-muted);
   }
-  .lamp.lit {
+  .status.timeline,
+  .status.own,
+  .status.follows {
+    color: var(--text-default);
+  }
+  .status.timeline .status-dot {
     background: var(--bank-color);
     box-shadow: 0 0 5px var(--bank-color);
+  }
+  .status.own .status-dot {
+    background: var(--bank-color);
+  }
+  .status.free .status-dot {
+    background: var(--border-focus);
+  }
+  .status-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .status-link {
+    flex: none;
+    opacity: 0.7;
   }
   .btn {
     flex: 1;

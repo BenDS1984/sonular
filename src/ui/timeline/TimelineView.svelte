@@ -41,6 +41,7 @@
   import { bankLetter } from '../../modules/sequencer/banks';
   import { channelColor } from '../channelColors';
   import EditableName from '../components/EditableName.svelte';
+  import { flash, showModule } from '../focus.svelte';
   import {
     clampPpb,
     formatLength,
@@ -346,6 +347,29 @@
     createBlock(patch, moduleId, start, Math.min(hi, start + BEATS_PER_BAR) - start);
   }
 
+  /** Open the block's sequencer with the block's pattern ready to edit. */
+  function openBlock(e: MouseEvent, patch: Patch, clip: Clip) {
+    e.stopPropagation();
+    const module = patch.modules.find((m) => m.id === clip.module);
+    if (!module) return;
+    module.params['bank'] = clip.bank;
+    showModule(patch.id, module.id);
+  }
+
+  // After a jump from a module, scroll the tracks so its row is in view.
+  let heads: HTMLDivElement | undefined = $state();
+  $effect(() => {
+    if (!flash.row || !heads || !body) return;
+    void flash.n;
+    const el = heads.querySelector<HTMLElement>(`[data-row="${CSS.escape(flash.row)}"]`);
+    if (!el) return;
+    const top = el.offsetTop;
+    const view = body.clientHeight;
+    if (top < body.scrollTop || top + el.offsetHeight > body.scrollTop + view) {
+      body.scrollTop = Math.max(0, top - view / 2);
+    }
+  });
+
   function onblockpointerdown(e: PointerEvent, patch: Patch, clip: Clip) {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -545,7 +569,7 @@
 
   <!-- Track names, scrolled along with the tracks -->
   <div class="heads">
-    <div class="heads-inner" style:transform={`translateY(${-timelineView.scrollTop}px)`}>
+    <div class="heads-inner" bind:this={heads} style:transform={`translateY(${-timelineView.scrollTop}px)`}>
       {#each tracks as t (t.patch.id)}
         <div class="track-head" style:--track-color={channelColor(t.patch.color)}>
           <div class="track-name" style:height={`${TRACK_H}px`} title={t.patch.name}>
@@ -566,7 +590,12 @@
             >
           </div>
           {#each t.rows as r (r.module.id)}
-            <div class="row-name" style:height={`${ROW_H}px`}>
+            <div
+              class="row-name"
+              class:flash={flash.row === `${t.patch.id}:${r.module.id}`}
+              data-row={`${t.patch.id}:${r.module.id}`}
+              style:height={`${ROW_H}px`}
+            >
               <EditableName
                 text={r.label}
                 value={r.module.name ?? ''}
@@ -575,6 +604,13 @@
                 title={moduleTooltip(r.def, r.module)}
                 onrename={(name) => renameModule(r.module, name)}
               />
+              <button
+                type="button"
+                class="show-module"
+                aria-label={`Show ${r.label} in its patch`}
+                title="Show this sequencer in its patch"
+                onclick={() => showModule(t.patch.id, r.module.id)}>↗</button
+              >
             </div>
           {:else}
             <div class="row-name empty" style:height={`${EMPTY_H}px`}>No sequencer</div>
@@ -614,7 +650,7 @@
                   aria-label={`Pattern ${bankLetter(c.bank)}, block ${formatPosition(c.start)}, ${formatLength(c.length)}`}
                   title={`Pattern ${bankLetter(c.bank)}: ${formatPosition(c.start)} – ${formatPosition(c.start + c.length)} (${formatLength(c.length)})`}
                   onpointerdown={(e) => onblockpointerdown(e, t.patch, c)}
-                  ondblclick={(e) => e.stopPropagation()}
+                  ondblclick={(e) => openBlock(e, t.patch, c)}
                   oncontextmenu={(e) => {
                     e.preventDefault();
                     selectClip(t.patch.id, c.id);
@@ -862,6 +898,35 @@
     font-size: var(--text-sm);
     color: var(--text-secondary);
     border-top: 1px solid var(--border-subtle);
+  }
+  .show-module {
+    flex: none;
+    margin-left: auto;
+    width: 20px;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: inherit;
+    font-size: var(--text-sm);
+    opacity: 0.55;
+    cursor: pointer;
+  }
+  .show-module:hover {
+    opacity: 1;
+    background: rgb(255 255 255 / 0.12);
+  }
+  /* Lights up briefly after a jump from the module. */
+  .row-name.flash {
+    animation: row-flash 1.4s ease-out;
+  }
+  @keyframes row-flash {
+    0%,
+    40% {
+      background: color-mix(in srgb, var(--border-focus) 35%, transparent);
+      color: var(--text-strong);
+    }
   }
   .row-name.empty {
     color: var(--text-muted);
