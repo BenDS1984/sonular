@@ -146,6 +146,47 @@ export function nearestFreeStart(
   return best;
 }
 
+/** A block of a group moved together, with the blocks it must not overlap (on its own row). */
+export interface GroupItem {
+  start: number;
+  length: number;
+  others: readonly { start: number; length: number }[];
+}
+
+/**
+ * The shift (in beats) for a group of blocks moved together: `want` if every block is free there,
+ * else the nearest shift (at least `min`) where all of them fit without overlapping the other
+ * blocks on their rows and stay within the song. NaN when there is none.
+ */
+export function nearestGroupShift(items: readonly GroupItem[], want: number, min = -Infinity): number {
+  if (items.length === 0) return want;
+  const fits = (d: number) =>
+    d >= min &&
+    items.every((it) => {
+      const s = it.start + d;
+      if (s < -1e-9 || s + it.length > MAX_BEATS + 1e-9) return false;
+      return !it.others.some((o) => s < o.start + o.length - 1e-9 && o.start < s + it.length - 1e-9);
+    });
+  // Candidates: the wanted shift, the song's edges, and every shift that puts a block right
+  // against one of the blocks in its way (left or right of it).
+  const candidates = [want, min];
+  for (const it of items) {
+    candidates.push(-it.start, MAX_BEATS - it.length - it.start);
+    for (const o of it.others) candidates.push(o.start - it.length - it.start, o.start + o.length - it.start);
+  }
+  let best = NaN;
+  let bestDist = Infinity;
+  for (const d of candidates) {
+    if (!Number.isFinite(d) || !fits(d)) continue;
+    const dist = Math.abs(d - want);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = d;
+    }
+  }
+  return best + 0; // no -0
+}
+
 export function freeRange(patch: Pick<Patch, 'clips'>, module: string, at: number, ignore?: string) {
   let lo = 0;
   let hi = MAX_BEATS;

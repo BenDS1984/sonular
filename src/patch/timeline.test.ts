@@ -34,6 +34,7 @@ import {
   LANE_HEIGHT,
   MAX_LANE_HEIGHT,
   nearestFreeStart,
+  nearestGroupShift,
 } from './timeline';
 import type { Patch } from './types';
 
@@ -375,5 +376,37 @@ describe('dragging a block past others', () => {
     expect(nearestFreeStart(patch, 's', 3, 4, 'a')).toBe(0);
     // Too long for the gap 8–12 next to where it is dropped: goes after the last block.
     expect(nearestFreeStart(patch, 's', 9, 6, 'a')).toBe(14);
+  });
+});
+
+describe('moving several blocks together', () => {
+  // Two selected blocks on two rows; row 1 has a block at 8–12, row 2 one at 6–8.
+  const items = [
+    { start: 0, length: 4, others: [{ start: 8, length: 4 }] },
+    { start: 2, length: 2, others: [{ start: 6, length: 2 }] },
+  ];
+
+  it('moves the group as far as wanted when everything is free there', () => {
+    expect(nearestGroupShift(items, 1)).toBe(1);
+  });
+
+  it('jumps the whole group to the nearest shift where all blocks fit', () => {
+    // A shift of 5 puts the first block on 5–9 (taken from 8); 4 puts the second on 6–8 (taken).
+    // The nearest shift where both fit is 2 (0–4 → 2–6 and 2–4 → 4–6).
+    const d = nearestGroupShift(items, 5);
+    for (const it of items) {
+      const s = it.start + d;
+      for (const o of it.others) expect(s >= o.start + o.length || s + it.length <= o.start).toBe(true);
+    }
+    expect(d).toBe(2);
+  });
+
+  it('never moves blocks before the start of the song', () => {
+    expect(nearestGroupShift(items, -10)).toBe(0);
+  });
+
+  it('finds the first free place at or after a minimum shift (duplicate, paste)', () => {
+    // Duplicating right after the group (span 4): row 2 would land on 6–8 (taken).
+    expect(nearestGroupShift(items, 4, 4)).toBe(12);
   });
 });

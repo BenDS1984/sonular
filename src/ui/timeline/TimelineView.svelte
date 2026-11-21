@@ -3,10 +3,15 @@
   sequencers. Each block on a sequencer's row plays one of the sequencer's patterns (A–H; banks in
   the data) while the song is inside the block, starting at step 1; it shows the pattern's letter
   in the pattern's tint.
-  - row: drag on an empty part to draw a block, double-click to add a one-bar block; a new block
-    plays the pattern chosen on the sequencer
-  - block: click to select it, drag to move (it jumps over other blocks to the nearest free place), drag its edges to resize; keys A–H choose its
-    pattern, Delete removes it, Ctrl+D copies it to the next free place; right-click for a menu
+  - row: double-click an empty part to add a one-bar block (it plays the pattern chosen on the
+    sequencer); drag on an empty part to select the blocks in a box, across rows and patches
+    (Shift adds to the selection); a click on an empty part clears the selection
+  - block: click to select it, Shift+click to add it to the selection or take it out; drag to move
+    all selected blocks (blocked, they jump together to the nearest place where all fit); drag its
+    edges to resize; double-click to open its pattern; right-click for a menu
+  - keys: Ctrl+A selects all blocks, Escape clears; on the selection, A–H choose the pattern,
+    Delete removes, Ctrl+D copies right after it, Ctrl+C copies and Ctrl+V pastes at the playhead
+    (on the same sequencers, at the first place from there where all fit)
   - ruler: click or drag to place the playhead (Play starts there; while playing it jumps)
   - the strip above the numbers holds the loop: drag it to move, drag its edges to resize, drag
     on an empty part to draw a new one, double-click it to switch it on or off
@@ -25,7 +30,8 @@
     BEATS_PER_BAR,
     duplicateClip,
     freeRange,
-    nearestFreeStart,
+    nearestGroupShift,
+    nextClipId,
     clampBank,
     hasBanks,
     MAX_BEATS,
@@ -46,7 +52,16 @@
   import type { AutomationLane, Clip, Patch } from '../../patch/types';
   import AutomationLaneRow from './AutomationLaneRow.svelte';
   import { placeMenu } from '../placeMenu';
-  import { clearClipSelection, clipSelection, isClipSelected, selectClip } from './clipSelection.svelte';
+  import {
+    clearClipSelection,
+    clipKey,
+    clipSelection,
+    isClipSelected,
+    selectClip,
+    setClipSelection,
+    toggleClip,
+  } from './clipSelection.svelte';
+  import { blockClipboard } from './blockClipboard';
   import { bankColor } from '../../modules/sequencer/bankClipboard.svelte';
   import { bankLetter } from '../../modules/sequencer/banks';
   import { channelColor } from '../channelColors';
@@ -374,13 +389,21 @@
   }
 
   // ---------- Blocks ----------
+  /** A selected block being moved, where it started and the blocks it must not overlap. */
+  interface MovingBlock {
+    patch: Patch;
+    clip: Clip;
+    start0: number;
+    others: Clip[];
+  }
   type BlockDrag =
-    | { kind: 'draw'; patch: Patch; module: string; anchor: number; start: number; end: number; lo: number; hi: number }
-    | { kind: 'move'; patch: Patch; clip: Clip; grab: number }
+    | { kind: 'box'; x0: number; y0: number; x1: number; y1: number; base: string[] }
+    | { kind: 'move'; clip: Clip; grab: number; items: MovingBlock[] }
     | { kind: 'resize-start' | 'resize-end'; patch: Patch; clip: Clip; lo: number; hi: number };
-  let blockDrag: BlockDrag | null = $state(null);
-  /** Whether the pointer moved since the press (a plain click draws nothing). */
-  let blockMoved = false;
+  let blockDrag = $state<BlockDrag | null>(null);
+  let content: HTMLDivElement | undefined = $state();
+  /** A press that moves less than this (px) is a click, not a box. */
+  const CLICK_SLOP = 3;
 
   const clipsOn = (patch: Patch, module: string) => patch.clips.filter((c) => c.module === module);
 
@@ -415,16 +438,52 @@
     return (module && getDefinition(module.type)?.banks) || 1;
   }
 
-  function onrowpointerdown(e: PointerEvent, patch: Patch, moduleId: string) {
+  /** Where the pointer is in the song area, in pixels from its top left corner. */
+  function contentPoint(e: MouseEvent) {
+    const r = content?.getBoundingClientRect();
+    return { x: e.clientX - (r?.left ?? 0), y: e.clientY - (r?.top ?? 0) };
+  }
+
+  /** A press on an empty spot of a row starts a selection box (Shift adds to the selection). */
+  function onrowpointerdown(e: PointerEvent) {
     if (e.button !== 0) return;
     e.preventDefault();
     menu = null;
-    clearClipSelection();
-    const at = bodyBeat(e);
-    const { lo, hi } = freeRange(patch, moduleId, at);
-    const anchor = clamp(Math.floor(at / unitOf(e)) * unitOf(e), lo, hi);
-    blockDrag = { kind: 'draw', patch, module: moduleId, anchor, start: anchor, end: anchor, lo, hi };
+    const { x, y } = contentPoint(e);
+    blockDrag = { kind: 'box', x0: x, y0: y, x1: x, y1: y, base: e.shiftKey ? [...clipSelection.keys] : [] };
+    if (!e.shiftKey) clearClipSelection();
     startBlockDrag();
+  }
+
+  const selectBox = $derived(
+    blockDrag?.kind === 'box'
+      ? {
+          x: Math.min(blockDrag.x0, blockDrag.x1),
+          y: Math.min(blockDrag.y0, blockDrag.y1),
+          w: Math.abs(blockDrag.x1 - blockDrag.x0),
+          h: Math.abs(blockDrag.y1 - blockDrag.y0),
+        }
+      : null,
+  );
+
+  /** The selected blocks and their patches (blocks that no longer exist are left out). */
+  function selectedBlocks(): { patch: Patch; clip: Clip }[] {
+    const out: { patch: Patch; clip: Clip }[] = [];
+    for (const patch of project.patches) {
+      for (const clip of patch.clips) if (isClipSelected(patch.id, clip.id)) out.push({ patch, clip });
+    }
+    return out;
+  }
+
+  /** The selected blocks ready to move together, with the blocks on their rows that stay put. */
+  function movingBlocks(): MovingBlock[] {
+    const sel = selectedBlocks();
+    return sel.map(({ patch, clip }) => ({
+      patch,
+      clip,
+      start0: clip.start,
+      others: patch.clips.filter((c) => c.module === clip.module && !isClipSelected(patch.id, c.id)),
+    }));
   }
 
   function onrowdblclick(e: MouseEvent, patch: Patch, moduleId: string) {
@@ -462,16 +521,23 @@
     e.preventDefault();
     e.stopPropagation();
     menu = null;
-    selectClip(patch.id, clip.id);
+    if (e.shiftKey) {
+      toggleClip(patch.id, clip.id);
+      return;
+    }
     const edge = (e.target as HTMLElement).dataset['edge'];
-    const { lo, hi } = freeRange(patch, clip.module, clip.start, clip.id);
-    if (edge === 'start' || edge === 'end') blockDrag = { kind: edge === 'start' ? 'resize-start' : 'resize-end', patch, clip, lo, hi };
-    else blockDrag = { kind: 'move', patch, clip, grab: bodyBeat(e) - clip.start };
+    if (edge === 'start' || edge === 'end') {
+      selectClip(patch.id, clip.id);
+      const { lo, hi } = freeRange(patch, clip.module, clip.start, clip.id);
+      blockDrag = { kind: edge === 'start' ? 'resize-start' : 'resize-end', patch, clip, lo, hi };
+    } else {
+      if (!isClipSelected(patch.id, clip.id)) selectClip(patch.id, clip.id);
+      blockDrag = { kind: 'move', clip, grab: bodyBeat(e) - clip.start, items: movingBlocks() };
+    }
     startBlockDrag();
   }
 
   function startBlockDrag() {
-    blockMoved = false;
     window.addEventListener('pointermove', onblockdragmove);
     window.addEventListener('pointerup', onblockdragend);
     window.addEventListener('pointercancel', onblockdragend);
@@ -480,21 +546,41 @@
   function onblockdragmove(e: PointerEvent) {
     const d = blockDrag;
     if (!d) return;
-    blockMoved = true;
     const unit = unitOf(e);
     const at = bodyBeat(e);
     const min = Math.max(MIN_CLIP_LENGTH, unit);
     switch (d.kind) {
-      case 'draw': {
-        const s = clamp(Math.round(at / unit) * unit, d.lo, d.hi);
-        d.start = Math.min(d.anchor, s);
-        d.end = s === d.anchor ? Math.min(d.hi, d.anchor + unit) : Math.max(d.anchor, s);
+      case 'box': {
+        const { x, y } = contentPoint(e);
+        d.x1 = x;
+        d.y1 = y;
+        const r = content?.getBoundingClientRect();
+        if (!r) break;
+        const left = Math.min(d.x0, x) + r.left;
+        const right = Math.max(d.x0, x) + r.left;
+        const top = Math.min(d.y0, y) + r.top;
+        const bottom = Math.max(d.y0, y) + r.top;
+        const inside: string[] = [];
+        for (const el of content!.querySelectorAll<HTMLElement>('.block[data-key]')) {
+          const b = el.getBoundingClientRect();
+          if (b.right > left && b.left < right && b.bottom > top && b.top < bottom) inside.push(el.dataset['key']!);
+        }
+        setClipSelection([...new Set([...d.base, ...inside])]);
         break;
       }
-      case 'move':
-        // Free to pass other blocks: it lands on the nearest free place where it fits.
-        d.clip.start = nearestFreeStart(d.patch, d.clip.module, snap(at - d.grab, unit), d.clip.length, d.clip.id);
+      case 'move': {
+        // The grabbed block lands on the grid; the others move by the same amount. Blocked by
+        // other blocks, the group jumps to the nearest place where all of them fit.
+        const grabbed = d.items.find((it) => it.clip === d.clip);
+        const start0 = grabbed?.start0 ?? d.clip.start;
+        const want = snap(at - d.grab, unit) - start0;
+        const shift = nearestGroupShift(
+          d.items.map((it) => ({ start: it.start0, length: it.clip.length, others: it.others })),
+          want,
+        );
+        if (!Number.isNaN(shift)) for (const it of d.items) it.clip.start = it.start0 + shift;
         break;
+      }
       case 'resize-end': {
         const end = clamp(snap(at, unit), d.clip.start + min, d.hi);
         if (end > d.clip.start) d.clip.length = end - d.clip.start;
@@ -518,18 +604,96 @@
     window.removeEventListener('pointermove', onblockdragmove);
     window.removeEventListener('pointerup', onblockdragend);
     window.removeEventListener('pointercancel', onblockdragend);
-    if (d?.kind === 'draw' && blockMoved && d.end - d.start >= MIN_CLIP_LENGTH) {
-      createBlock(d.patch, d.module, d.start, d.end - d.start);
+    if (d?.kind === 'box') {
+      const click = Math.abs(d.x1 - d.x0) < CLICK_SLOP && Math.abs(d.y1 - d.y0) < CLICK_SLOP;
+      if (click) setClipSelection([...d.base]);
     }
   }
 
   $effect(() => () => onblockdragend());
 
-  /** The selected block and its patch, if it still exists. */
-  function selectedBlock(): { patch: Patch; clip: Clip } | null {
-    const patch = project.patches.find((p) => p.id === clipSelection.patch);
-    const clip = patch?.clips.find((c) => c.id === clipSelection.clip);
-    return patch && clip ? { patch, clip } : null;
+  /** Remove the selected blocks. */
+  function deleteSelected() {
+    for (const { patch, clip } of selectedBlocks()) removeClip(patch, clip.id);
+    clearClipSelection();
+  }
+
+  /** Add blocks for a group placed at `shift` from where `items` say, and select them. */
+  function placeGroup(items: { patch: Patch; module: string; start: number; length: number; bank: number }[], shift: number) {
+    const keys: string[] = [];
+    for (const it of items) {
+      const module = it.patch.modules.find((m) => m.id === it.module);
+      const clip: Clip = {
+        id: nextClipId(it.patch),
+        module: it.module,
+        start: it.start + shift,
+        length: it.length,
+        bank: clampBank(module && getDefinition(module.type), it.bank),
+      };
+      it.patch.clips.push(clip);
+      keys.push(clipKey(it.patch.id, clip.id));
+    }
+    setClipSelection(keys);
+  }
+
+  const othersOn = (patch: Patch, module: string) => patch.clips.filter((c) => c.module === module);
+
+  /** Ctrl+D: copy the selected blocks, as a group, to the first free place right after them. */
+  function duplicateSelected() {
+    const sel = selectedBlocks();
+    if (sel.length === 0) return;
+    const first = Math.min(...sel.map((s) => s.clip.start));
+    const span = Math.max(...sel.map((s) => s.clip.start + s.clip.length)) - first;
+    const items = sel.map(({ patch, clip }) => ({ patch, module: clip.module, start: clip.start, length: clip.length, bank: clip.bank }));
+    const shift = nearestGroupShift(
+      items.map((it) => ({ start: it.start, length: it.length, others: othersOn(it.patch, it.module) })),
+      span,
+      span,
+    );
+    if (!Number.isNaN(shift)) placeGroup(items, shift);
+  }
+
+  /** Ctrl+C: remember the selected blocks. */
+  function copySelected() {
+    const sel = selectedBlocks();
+    if (sel.length === 0) return;
+    const first = Math.min(...sel.map((s) => s.clip.start));
+    blockClipboard.blocks = sel.map(({ patch, clip }) => ({
+      patch: patch.id,
+      module: clip.module,
+      offset: clip.start - first,
+      length: clip.length,
+      bank: clip.bank,
+    }));
+  }
+
+  /** Ctrl+V: paste copied blocks at the playhead, or at the first place after it where they fit. */
+  function pasteBlocks() {
+    const at = Math.max(0, snap(shownBeat, snapUnit(timelineView.ppb)));
+    const items = blockClipboard.blocks.flatMap((b) => {
+      const patch = project.patches.find((p) => p.id === b.patch);
+      if (!patch || !patch.modules.some((m) => m.id === b.module)) return [];
+      return [{ patch, module: b.module, start: at + b.offset, length: b.length, bank: b.bank }];
+    });
+    if (items.length === 0) return;
+    const shift = nearestGroupShift(
+      items.map((it) => ({ start: it.start, length: it.length, others: othersOn(it.patch, it.module) })),
+      0,
+      0,
+    );
+    if (!Number.isNaN(shift)) placeGroup(items, shift);
+  }
+
+  /** Keys A–H: let every selected block play that pattern (where its sequencer has it). */
+  function setSelectedBank(bank: number): boolean {
+    let any = false;
+    for (const { patch, clip } of selectedBlocks()) {
+      if (bank < banksOf(patch, clip)) {
+        setBank(patch, clip, bank);
+        any = true;
+      }
+    }
+    return any;
   }
 
   function deleteBlock(patch: Patch, clip: Clip) {
@@ -557,21 +721,33 @@
       clearClipSelection();
       return;
     }
-    const sel = selectedBlock();
-    if (!sel) return;
+    const mod = e.ctrlKey || e.metaKey;
+    const key = e.key.toLowerCase();
+    if (mod && key === 'a') {
+      e.preventDefault();
+      setClipSelection(project.patches.flatMap((p) => p.clips.map((c) => clipKey(p.id, c.id))));
+      return;
+    }
+    if (mod && key === 'v') {
+      if (blockClipboard.blocks.length > 0) {
+        e.preventDefault();
+        pasteBlocks();
+      }
+      return;
+    }
+    if (clipSelection.keys.length === 0) return;
     if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
-      deleteBlock(sel.patch, sel.clip);
-    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+      deleteSelected();
+    } else if (mod && key === 'd') {
       e.preventDefault();
-      copyBlock(sel.patch, sel.clip);
-    } else if (!e.ctrlKey && !e.metaKey && !e.altKey && /^[a-z]$/i.test(e.key)) {
-      // A–H: the pattern the block plays.
-      const bank = e.key.toUpperCase().charCodeAt(0) - 65;
-      if (bank < banksOf(sel.patch, sel.clip)) {
-        e.preventDefault();
-        setBank(sel.patch, sel.clip, bank);
-      }
+      duplicateSelected();
+    } else if (mod && key === 'c') {
+      e.preventDefault();
+      copySelected();
+    } else if (!mod && !e.altKey && /^[a-z]$/i.test(e.key)) {
+      // A–H: the pattern the blocks play.
+      if (setSelectedBank(e.key.toUpperCase().charCodeAt(0) - 65)) e.preventDefault();
     }
   }
 
@@ -787,7 +963,7 @@
 
   <!-- The tracks -->
   <div class="body" bind:this={body} bind:clientWidth={viewW} {onscroll} onwheel={(e) => onwheel(e, 'body')}>
-    <div class="content" class:beats={showsBeats(ppb)} style:width={`${contentW}px`}>
+    <div class="content" bind:this={content} class:beats={showsBeats(ppb)} style:width={`${contentW}px`}>
       {#each tracks as t (t.patch.id)}
         <div class="track" class:free={t.patch.free} style:--track-color={channelColor(t.patch.color)}>
           <div class="track-top" style:height={`${TRACK_H}px`}></div>
@@ -797,7 +973,7 @@
               class="row"
               style:height={`${ROW_H}px`}
               aria-label={`${t.patch.name}: ${r.label}`}
-              onpointerdown={(e) => onrowpointerdown(e, t.patch, r.module.id)}
+              onpointerdown={onrowpointerdown}
               ondblclick={(e) => onrowdblclick(e, t.patch, r.module.id)}
             >
               {#each clipsOn(t.patch, r.module.id) as c (c.id)}
@@ -805,7 +981,8 @@
                 <div
                   class="block"
                   class:selected
-                  class:moving={blockDrag && blockDrag.kind !== 'draw' && blockDrag.clip === c}
+                  class:moving={blockDrag?.kind === 'move' && blockDrag.items.some((it) => it.clip === c)}
+                  data-key={clipKey(t.patch.id, c.id)}
                   style:left={`${c.start * ppb}px`}
                   style:width={`${c.length * ppb}px`}
                   style:--bank-color={bankColor(c.bank)}
@@ -827,9 +1004,6 @@
                   <span class="edge end" data-edge="end"></span>
                 </div>
               {/each}
-              {#if blockDrag?.kind === 'draw' && blockDrag.patch === t.patch && blockDrag.module === r.module.id && blockDrag.end > blockDrag.start}
-                <div class="block ghost" style:left={`${blockDrag.start * ppb}px`} style:width={`${(blockDrag.end - blockDrag.start) * ppb}px`}></div>
-              {/if}
             </div>
           {:else}
             <div class="row empty" style:height={`${EMPTY_H}px`}></div>
@@ -860,6 +1034,9 @@
       {/if}
       <div class="end-shade" style:left={`${timeline.end * ppb}px`}></div>
       <div class="playhead" style:left={`${shownBeat * ppb}px`}></div>
+      {#if selectBox}
+        <div class="select-box" style:left={`${selectBox.x}px`} style:top={`${selectBox.y}px`} style:width={`${selectBox.w}px`} style:height={`${selectBox.h}px`}></div>
+      {/if}
     </div>
   </div>
 </main>
@@ -1345,9 +1522,11 @@
   .block.moving {
     cursor: grabbing;
   }
-  .block.ghost {
-    background: color-mix(in srgb, var(--track-color) 25%, transparent);
-    border-style: dashed;
+  .select-box {
+    position: absolute;
+    z-index: 5;
+    border: 1px dashed var(--text-strong);
+    background: rgb(255 255 255 / 0.08);
     pointer-events: none;
   }
   .bank-label {
