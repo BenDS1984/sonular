@@ -13,6 +13,7 @@
   import { dialogs } from './ui/dialogs.svelte';
   import { prefs } from './ui/prefs.svelte';
   import UpdateBanner from './ui/UpdateBanner.svelte';
+  import SideBrowser from './ui/browser/SideBrowser.svelte';
 
   // First visit: show the welcome window once.
   if (!prefs.welcomed) dialogs.welcome = true;
@@ -37,7 +38,12 @@
     {:else if view.main === 'timeline'}
       <TimelineView />
     {:else}
-      <Workspace />
+      <div class="patch-row">
+        {#if prefs.browserOpen}
+          <SideBrowser />
+        {/if}
+        <Workspace />
+      </div>
     {/if}
   </div>
   <SaveDialog />
@@ -52,5 +58,10 @@
     display: flex;
     flex-direction: column;
     height: 100%;
+  }
+  .patch-row {
+    flex: 1;
+    min-height: 0;
+    display: flex;
   }
 </style>

@@ -5,30 +5,24 @@
   - drag empty space (or middle mouse anywhere) to pan; scroll to pan, Ctrl + scroll to zoom
   - drag a module by its header; click to select
   - drag from a jack to patch a cable; drag a connected input to move/remove its cable
-  - double-click empty space to add a module there
+  - double-click empty space to search the browser for a module to add there
+  - drop a module from the browser to add it there; drop a .sonular file to open it
   Keyboard: Delete/Backspace removes the selection, Escape cancels.
 -->
 <script lang="ts">
   import ModuleView from './workspace/ModuleView.svelte';
   import CableLayer from './workspace/CableLayer.svelte';
-  import ModuleBrowser from './workspace/ModuleBrowser.svelte';
   import ZoomControls from './workspace/ZoomControls.svelte';
   import SyncSwitch from './workspace/SyncSwitch.svelte';
   import Minimap from './workspace/Minimap.svelte';
   import { prefs } from './prefs.svelte';
-  import { addModule, canvasState, deleteSelection, fitAll, isPatchEmpty, patch } from '../patch/patch.svelte';
-  import { GRID, SNAP, snap, toCanvas, zoomAt } from '../patch/geometry';
-  import type { ModuleDefinition } from '../modules/types';
+  import { canvasState, deleteSelection, fitAll, isPatchEmpty, patch } from '../patch/patch.svelte';
+  import { GRID, toCanvas, zoomAt } from '../patch/geometry';
+  import { getDefinition } from '../modules/registry';
   import { openProjectFile } from '../patch/fileActions';
-  import {
-    beginCableDrag,
-    cancelCableDrag,
-    closeBrowser,
-    endCableDrag,
-    interaction,
-    openBrowser,
-    updateCableDrag,
-  } from './workspace/interaction.svelte';
+  import { beginCableDrag, cancelCableDrag, endCableDrag, interaction, updateCableDrag } from './workspace/interaction.svelte';
+  import { placeModule } from './workspace/placeModule';
+  import { MODULE_DRAG_TYPE, requestBrowserSearch, sideBrowser } from './browser/browserPanel.svelte';
 
   let el: HTMLElement | undefined = $state();
 
@@ -124,10 +118,7 @@
   }
 
   function onwheel(e: WheelEvent) {
-    // The module browser popup scrolls its own list; everywhere else (knobs too) the wheel
-    // pans or zooms the canvas.
-    const t = e.target as HTMLElement;
-    if (t.closest('.browser')) return;
+    // Everywhere on the canvas (knobs too) the wheel pans or zooms.
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
       const p = local(e);
@@ -142,7 +133,7 @@
     const target = e.target as HTMLElement;
     if (target !== el && !target.classList.contains('world')) return;
     const p = local(e);
-    openBrowser({ x: p.x, y: p.y }, toCanvas(patch.view, p.x, p.y));
+    requestBrowserSearch(toCanvas(patch.view, p.x, p.y));
   }
 
   // ---------- Zoom controls ----------
@@ -160,29 +151,6 @@
   const fit = fitAll;
 
 
-  // ---------- Adding modules ----------
-
-  function pick(def: ModuleDefinition) {
-    const place = interaction.browser?.place;
-    closeBrowser();
-    if (!place) return;
-    // Centre horizontally on the chosen point, header just below it; then move right until the
-    // new module no longer overlaps an existing one.
-    let x = snap(place.x - def.width / 2);
-    const y = snap(place.y - 16);
-    const ESTIMATED_HEIGHT = 240;
-    for (let guard = 0; guard < 100; guard++) {
-      const hit = patch.modules.find((m) => {
-        const s = canvasState.moduleSizes[m.id] ?? { w: 200, h: ESTIMATED_HEIGHT };
-        return x < m.x + s.w && x + def.width > m.x && y < m.y + s.h && y + ESTIMATED_HEIGHT > m.y;
-      });
-      if (!hit) break;
-      // Round up, so the gap never shrinks below one grid cell.
-      x = Math.ceil((hit.x + (canvasState.moduleSizes[hit.id]?.w ?? 200) + GRID) / SNAP) * SNAP;
-    }
-    addModule(def.type, x, y);
-  }
-
   function onkeydown(e: KeyboardEvent) {
     const t = e.target as HTMLElement;
     if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t.isContentEditable) return;
@@ -193,40 +161,42 @@
       }
     } else if (e.key === 'Escape') {
       if (interaction.cable) cancelCableDrag();
-      else if (interaction.browser) closeBrowser();
+      else if (sideBrowser.place) sideBrowser.place = null;
       else canvasState.selection = null;
     }
   }
 
-  // ---------- Dropping a project file onto the canvas ----------
+  // ---------- Dropping a module from the browser, or a project file, onto the canvas ----------
 
   let dropping = $state(false);
 
-  function hasFiles(e: DragEvent) {
-    return !!e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files');
-  }
+  const hasType = (e: DragEvent, type: string) => !!e.dataTransfer && Array.from(e.dataTransfer.types).includes(type);
 
   function ondragover(e: DragEvent) {
-    if (!hasFiles(e)) return;
+    if (hasType(e, MODULE_DRAG_TYPE)) {
+      e.preventDefault();
+      e.dataTransfer!.dropEffect = 'copy';
+      return;
+    }
+    if (!hasType(e, 'Files')) return;
     e.preventDefault();
     e.dataTransfer!.dropEffect = 'copy';
     dropping = true;
   }
 
   function ondrop(e: DragEvent) {
-    if (!hasFiles(e)) return;
+    if (hasType(e, MODULE_DRAG_TYPE)) {
+      e.preventDefault();
+      const def = getDefinition(e.dataTransfer!.getData(MODULE_DRAG_TYPE));
+      if (def) placeModule(def, canvasPoint(e));
+      return;
+    }
+    if (!hasType(e, 'Files')) return;
     e.preventDefault();
     dropping = false;
     const file = e.dataTransfer!.files[0];
     if (file) void openProjectFile(file);
   }
-
-  const browserPos = $derived.by(() => {
-    const b = interaction.browser;
-    if (!b) return null;
-    const { w, h } = canvasState.viewport;
-    return { x: Math.max(8, Math.min(b.screen.x, w - 308)), y: Math.max(8, Math.min(b.screen.y, h - 428)) };
-  });
 </script>
 
 <svelte:window {onkeydown} />
@@ -259,7 +229,7 @@
   {#if isPatchEmpty()}
     <div class="empty">
       <p class="title">Your patch is empty</p>
-      <p class="hint">Double-click anywhere to add a module, or use <strong>+ Module</strong> in the top bar.</p>
+      <p class="hint">Drag a module from the <strong>Browser</strong> on the left, or double-click here to search one.</p>
     </div>
   {/if}
 
@@ -282,9 +252,6 @@
     ontoggleminimap={() => (prefs.minimap = !prefs.minimap)}
   />
 
-  {#if interaction.browser && browserPos}
-    <ModuleBrowser x={browserPos.x} y={browserPos.y} onpick={pick} onclose={closeBrowser} />
-  {/if}
 </main>
 
 <style>

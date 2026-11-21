@@ -5,11 +5,11 @@
   import IconButton from './components/IconButton.svelte';
   import TempoField from './components/TempoField.svelte';
   import CpuGraph from './CpuGraph.svelte';
-  import { canvasState, DEFAULT_PROJECT_NAME, isPatchEmpty, patch, project } from '../patch/patch.svelte';
-  import { toCanvas } from '../patch/geometry';
+  import { DEFAULT_PROJECT_NAME, isPatchEmpty, project } from '../patch/patch.svelte';
   import { historyState, redo, undo } from '../patch/history.svelte';
   import { chooseProjectFile, newProject, requestSave } from '../patch/fileActions';
-  import { interaction, closeBrowser, openBrowser } from './workspace/interaction.svelte';
+  import { toggleBrowserPanel } from './browser/browserPanel.svelte';
+  import { prefs } from './prefs.svelte';
   import { dialogs } from './dialogs.svelte';
   import { view } from './view.svelte';
   import { automationRecording, toggleAutomationRecording } from './recordAutomation.svelte';
@@ -43,16 +43,6 @@
   function toggleFullscreen() {
     if (document.fullscreenElement) void document.exitFullscreen();
     else void document.documentElement.requestFullscreen().catch(() => {});
-  }
-
-  function toggleBrowser() {
-    if (interaction.browser) {
-      closeBrowser();
-      return;
-    }
-    // Popup under the button (top-right of the canvas); new module goes in the middle of the view.
-    const { w, h } = canvasState.viewport;
-    openBrowser({ x: w - 308, y: 8 }, toCanvas(patch.view, w / 2, h / 2));
   }
 
   // Position as bar.beat.sixteenth in 4/4, counted from 1.
@@ -96,6 +86,13 @@
       return;
     }
 
+    // B shows or hides the browser on the left of a patch.
+    if (!typing && !e.altKey && !e.repeat && e.key.toLowerCase() === 'b' && view.main === 'patch') {
+      e.preventDefault();
+      toggleBrowserPanel();
+      return;
+    }
+
     // Space toggles playback unless the user is typing or operating a focused control.
     if (e.code !== 'Space' || e.repeat) return;
     if (typing || el instanceof HTMLButtonElement) return;
@@ -107,6 +104,16 @@
 <svelte:window {onkeydown} />
 
 <header class="topbar">
+  <IconButton
+    icon="browser"
+    label={view.main !== 'patch'
+      ? 'Browser (open a patch to use it)'
+      : prefs.browserOpen
+        ? 'Hide the browser (B)'
+        : 'Show the browser: modules to drag onto the patch (B)'}
+    disabled={view.main !== 'patch'}
+    onclick={toggleBrowserPanel}
+  />
   <div class="logo" aria-label="Sonular">
     <img src="/favicon.svg" alt="" width="20" height="20" />
     <span>SONULAR</span>
@@ -201,21 +208,6 @@
   </div>
 
   <div class="group">
-    <button
-      class="pill"
-      class:open={!!interaction.browser}
-      type="button"
-      title={view.main !== 'patch' ? 'Open a patch to add modules' : 'Add module (or double-click the canvas)'}
-      disabled={view.main !== 'patch'}
-      aria-expanded={!!interaction.browser}
-      onpointerdown={(e) => e.stopPropagation()}
-      onclick={toggleBrowser}
-    >
-      <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-        <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-      </svg>
-      <span class="module-label">Module</span>
-    </button>
     <MasterMeter left={engineState.peakL} right={engineState.peakR} active={engineState.playing} tick={engineState.statsTick} />
     <span class="cpu-wrap">
       <button
@@ -480,9 +472,6 @@
     }
   }
   @media (max-width: 1160px) {
-    .module-label {
-      display: none;
-    }
     .topbar {
       gap: 6px;
     }
