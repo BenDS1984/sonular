@@ -29,18 +29,26 @@ export function numberedTitle(def: ModuleDefinition | undefined, module: { id: s
   return n ? `${title} ${n[1]}` : title;
 }
 
-/** What a module with a timeline row is called: the user's name, else "Sequencer 2". */
+/**
+ * What a module is called without a name of its own: "Sequencer 2" for modules with a timeline row
+ * (they need the number there), else the plain title ("Oscillator").
+ */
+export function defaultTitle(def: ModuleDefinition | undefined, module: { id: string; type: string }): string {
+  return hasBanks(def) ? numberedTitle(def, module) : (def?.title ?? module.type);
+}
+
+/** What a module is called: the user's name, else its default title. */
 export function moduleLabel(def: ModuleDefinition | undefined, module: { id: string; type: string; name?: string }): string {
-  return module.name || numberedTitle(def, module);
+  return module.name || defaultTitle(def, module);
 }
 
-/** Tooltip for a module with its own name: "Kick (Sequencer 3)". */
+/** Tooltip for a module with its own name: "Kick (Sequencer 3)", "Bass (Oscillator)". */
 export function moduleTooltip(def: ModuleDefinition | undefined, module: { id: string; type: string; name?: string }): string {
-  const numbered = numberedTitle(def, module);
-  return module.name ? `${module.name} (${numbered})` : numbered;
+  const base = defaultTitle(def, module);
+  return module.name ? `${module.name} (${base})` : base;
 }
 
-/** Give a module its own name; an empty name goes back to the numbered one. */
+/** Give a module its own name; an empty name goes back to the default title. */
 export function renameModule(module: { name?: string }, name: string): void {
   const n = name.trim().slice(0, 40);
   if (n) module.name = n;

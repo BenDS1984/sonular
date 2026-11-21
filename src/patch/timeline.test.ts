@@ -74,7 +74,16 @@ describe('timeline blocks', () => {
   });
 });
 
-describe('sequencer names', () => {
+describe('module names', () => {
+  it('lets any module have its own name, without a number for modules off the timeline', () => {
+    const m: { id: string; type: string; name?: string } = { id: 'plain2', type: 'plain' };
+    expect(moduleLabel(plain, m)).toBe('seq');
+    renameModule(m, 'Bass');
+    expect(moduleLabel(plain, m)).toBe('Bass');
+    expect(moduleTooltip(plain, m)).toBe('Bass (seq)');
+  });
+
+
   it('numbers a sequencer by its id, so the number never moves to another one', () => {
     expect(numberedTitle(seq, { id: 'seq3', type: 'seq' })).toBe('seq 3');
     expect(numberedTitle(undefined, { id: 'x', type: 'gone' })).toBe('gone');

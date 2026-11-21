@@ -9,7 +9,8 @@
   import { canvasState, patch, removeModule, selectModule } from '../../patch/patch.svelte';
   import { snap } from '../../patch/geometry';
   import { isPortConnected } from '../../patch/operations';
-  import { moduleLabel, moduleTooltip, numberedTitle, renameModule } from '../../patch/timeline';
+  import { defaultTitle, moduleLabel, moduleTooltip, renameModule } from '../../patch/timeline';
+  import { CHANNEL_TYPE } from '../../patch/operations';
   import type { ModuleInstance } from '../../patch/types';
   import { interaction, isValidTarget } from './interaction.svelte';
   import { flash } from '../focus.svelte';
@@ -93,11 +94,11 @@
     aria-label={`${def.title} ${module.id}`}
   >
     <ModulePanel
-      title={def.banks ? moduleLabel(def, module) : def.title}
-      rename={def.banks
+      title={moduleLabel(def, module)}
+      rename={def.type !== CHANNEL_TYPE
         ? {
             value: module.name ?? '',
-            placeholder: numberedTitle(def, module),
+            placeholder: defaultTitle(def, module),
             tooltip: moduleTooltip(def, module),
             onrename: (name) => renameModule(module, name),
           }
