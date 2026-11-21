@@ -5,7 +5,7 @@
   in the pattern's tint.
   - row: drag on an empty part to draw a block, double-click to add a one-bar block; a new block
     plays the pattern chosen on the sequencer
-  - block: click to select it, drag to move, drag its edges to resize; keys A–H choose its
+  - block: click to select it, drag to move (it jumps over other blocks to the nearest free place), drag its edges to resize; keys A–H choose its
     pattern, Delete removes it, Ctrl+D copies it to the next free place; right-click for a menu
   - ruler: click or drag to place the playhead (Play starts there; while playing it jumps)
   - the strip above the numbers holds the loop: drag it to move, drag its edges to resize, drag
@@ -25,6 +25,7 @@
     BEATS_PER_BAR,
     duplicateClip,
     freeRange,
+    nearestFreeStart,
     clampBank,
     hasBanks,
     MAX_BEATS,
@@ -356,7 +357,7 @@
   // ---------- Blocks ----------
   type BlockDrag =
     | { kind: 'draw'; patch: Patch; module: string; anchor: number; start: number; end: number; lo: number; hi: number }
-    | { kind: 'move'; patch: Patch; clip: Clip; grab: number; lo: number; hi: number }
+    | { kind: 'move'; patch: Patch; clip: Clip; grab: number }
     | { kind: 'resize-start' | 'resize-end'; patch: Patch; clip: Clip; lo: number; hi: number };
   let blockDrag: BlockDrag | null = $state(null);
   /** Whether the pointer moved since the press (a plain click draws nothing). */
@@ -446,7 +447,7 @@
     const edge = (e.target as HTMLElement).dataset['edge'];
     const { lo, hi } = freeRange(patch, clip.module, clip.start, clip.id);
     if (edge === 'start' || edge === 'end') blockDrag = { kind: edge === 'start' ? 'resize-start' : 'resize-end', patch, clip, lo, hi };
-    else blockDrag = { kind: 'move', patch, clip, grab: bodyBeat(e) - clip.start, lo, hi };
+    else blockDrag = { kind: 'move', patch, clip, grab: bodyBeat(e) - clip.start };
     startBlockDrag();
   }
 
@@ -472,7 +473,8 @@
         break;
       }
       case 'move':
-        d.clip.start = clamp(snap(at - d.grab, unit), d.lo, d.hi - d.clip.length);
+        // Free to pass other blocks: it lands on the nearest free place where it fits.
+        d.clip.start = nearestFreeStart(d.patch, d.clip.module, snap(at - d.grab, unit), d.clip.length, d.clip.id);
         break;
       case 'resize-end': {
         const end = clamp(snap(at, unit), d.clip.start + min, d.hi);

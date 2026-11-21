@@ -33,6 +33,7 @@ import {
   setLaneHeight,
   LANE_HEIGHT,
   MAX_LANE_HEIGHT,
+  nearestFreeStart,
 } from './timeline';
 import type { Patch } from './types';
 
@@ -349,5 +350,30 @@ describe('lane heights', () => {
     expect(laneHeight(patch, 'osc1', 'level')).toBe(MAX_LANE_HEIGHT);
     setLaneHeight(patch, 'osc1', 'tune', 10);
     expect(patch.view.laneHeights).toEqual({ 'osc1:level': MAX_LANE_HEIGHT });
+  });
+});
+
+describe('dragging a block past others', () => {
+  // Pattern A at 0–4, Pattern B at 4–8, another block at 12–14.
+  const patch = {
+    clips: [
+      { id: 'a', module: 's', start: 0, length: 4, bank: 0 },
+      { id: 'b', module: 's', start: 4, length: 4, bank: 1 },
+      { id: 'c', module: 's', start: 12, length: 2, bank: 2 },
+      { id: 'x', module: 'other', start: 8, length: 4, bank: 0 },
+    ],
+  };
+
+  it('stays where it is dragged when that is free (other modules do not count)', () => {
+    expect(nearestFreeStart(patch, 's', 8, 4, 'a')).toBe(8);
+  });
+
+  it('jumps over a block in its way to the nearest place where it fits', () => {
+    // Dragged onto Pattern B, a bit right of its middle: lands right after it.
+    expect(nearestFreeStart(patch, 's', 5, 4, 'a')).toBe(8);
+    // A bit left of B's middle: back to the free space before it.
+    expect(nearestFreeStart(patch, 's', 3, 4, 'a')).toBe(0);
+    // Too long for the gap 8–12 next to where it is dropped: goes after the last block.
+    expect(nearestFreeStart(patch, 's', 9, 6, 'a')).toBe(14);
   });
 });

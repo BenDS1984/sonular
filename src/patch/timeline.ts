@@ -110,6 +110,42 @@ export function addClip(
  * of the block before it to the start of the block after it. A block being moved or resized
  * stays inside this range, so it never jumps over or into its neighbours.
  */
+/**
+ * Where a block of `length` beats goes when it is dragged to `want`: there if it is free there,
+ * else the nearest place (left or right) where it fits without overlapping the module's other
+ * blocks, so a dragged block jumps over the blocks in its way.
+ */
+export function nearestFreeStart(
+  patch: Pick<Patch, 'clips'>,
+  module: string,
+  want: number,
+  length: number,
+  ignore?: string,
+): number {
+  const others = patch.clips
+    .filter((c) => c.module === module && c.id !== ignore)
+    .sort((a, b) => a.start - b.start);
+  let best = want;
+  let bestDist = Infinity;
+  let from = 0;
+  const gaps: [number, number][] = [];
+  for (const c of others) {
+    gaps.push([from, c.start]);
+    from = Math.max(from, c.start + c.length);
+  }
+  gaps.push([from, MAX_BEATS]);
+  for (const [a, b] of gaps) {
+    if (b - a < length) continue;
+    const s = Math.min(b - length, Math.max(a, want));
+    const d = Math.abs(s - want);
+    if (d < bestDist) {
+      bestDist = d;
+      best = s;
+    }
+  }
+  return best;
+}
+
 export function freeRange(patch: Pick<Patch, 'clips'>, module: string, at: number, ignore?: string) {
   let lo = 0;
   let hi = MAX_BEATS;
