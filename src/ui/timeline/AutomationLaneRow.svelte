@@ -6,6 +6,7 @@
   - drag a point to move it; it snaps to the grid, hold Alt for sixteenths; it stays between its
     neighbours
   - double-click a point, or select it and press Delete, to remove it
+  - pointing at a point, or dragging it, shows its value and position next to it
 -->
 <script lang="ts">
   import { paramFormatter } from '../../modules/paramFormat';
@@ -60,6 +61,21 @@
   let svg: SVGSVGElement | undefined = $state();
   let selected = $state(-1);
   let dragging = $state(-1);
+  let hovered = $state(-1);
+
+  const LABEL_H = 16;
+  /** The value label: for the point being dragged, else the one pointed at. */
+  const label = $derived.by(() => {
+    const i = dragging >= 0 ? dragging : hovered;
+    const pt = lane.points[i];
+    if (!pt) return null;
+    const text = `${format(pt.value)} · ${formatPosition(pt.time)}`;
+    const x = pt.time * ppb;
+    const y = yOf(pt.value);
+    // Above the point, or below it when it sits near the top of the lane.
+    const top = y - LABEL_H - 6 >= 0 ? y - LABEL_H - 6 : y + 6;
+    return { text, x: x + 8, y: top, w: text.length * 6.7 + 10 };
+  });
 
   function local(e: PointerEvent | MouseEvent) {
     const r = svg!.getBoundingClientRect();
@@ -90,7 +106,11 @@
   }
 
   function onpointermove(e: PointerEvent) {
-    if (dragging < 0) return;
+    if (dragging < 0) {
+      const target = (e.target as Element).closest<SVGElement>('[data-point]');
+      hovered = target ? Number(target.dataset['point']) : -1;
+      return;
+    }
     const { x, y } = local(e);
     movePoint(lane, dragging, timeAt(e, x), valueAtY(y));
   }
@@ -99,11 +119,12 @@
     dragging = -1;
   }
 
+  // The lane captures the pointer on pointerdown (for dragging), so the browser sends the
+  // double-click to the lane, not to the point: remove the point the first click selected.
   function ondblclick(e: MouseEvent) {
     e.stopPropagation();
-    const target = (e.target as Element).closest<SVGElement>('[data-point]');
-    if (!target) return;
-    removePoint(lane, Number(target.dataset['point']));
+    if (selected < 0) return;
+    removePoint(lane, selected);
     selected = -1;
   }
 
@@ -131,6 +152,7 @@
   {onpointermove}
   {onpointerup}
   onpointercancel={onpointerup}
+  onpointerleave={() => (hovered = -1)}
   {ondblclick}
   {onkeydown}
   onblur={() => (selected = -1)}
@@ -144,10 +166,14 @@
       cx={pt.time * ppb}
       cy={yOf(pt.value)}
       r={R}
-    >
-      <title>{format(pt.value)} at {formatPosition(pt.time)} — drag to move, double-click to remove</title>
-    </circle>
+    />
   {/each}
+  {#if label}
+    <g class="value-label" transform={`translate(${label.x} ${label.y})`} aria-hidden="true">
+      <rect width={label.w} height={LABEL_H} rx="3" />
+      <text x="5" y={LABEL_H - 4.5}>{label.text}</text>
+    </g>
+  {/if}
 </svg>
 
 <style>
@@ -170,5 +196,18 @@
   .point:hover,
   .point.selected {
     fill: var(--lane-color);
+  }
+  .value-label {
+    pointer-events: none;
+  }
+  .value-label rect {
+    fill: var(--surface-bar);
+    stroke: var(--lane-color);
+    stroke-width: 1;
+  }
+  .value-label text {
+    fill: var(--text-strong);
+    font-size: 11px;
+    font-family: var(--font-mono);
   }
 </style>
