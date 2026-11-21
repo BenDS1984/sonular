@@ -8,7 +8,7 @@
 import { clampTempo, DEFAULT_TEMPO } from '../engine/core/Transport';
 import type { ModuleDefinition } from '../modules/types';
 import { ensureChannel } from './operations';
-import { BEATS_PER_BAR, clampBank, emptyTimeline, hasBanks, MAX_BEATS, MIN_CLIP_LENGTH } from './timeline';
+import { BEATS_PER_BAR, clampBank, clampLaneHeight, emptyTimeline, hasBanks, LANE_HEIGHT, MAX_BEATS, MIN_CLIP_LENGTH } from './timeline';
 import type { AutomationLane, Cable, Clip, ModuleInstance, Patch, Project, Timeline } from './types';
 
 export const FILE_FORMAT = 'sonular-project';
@@ -104,7 +104,7 @@ export function serializeProject(project: Project, now = new Date()): string {
           params: { ...m.params },
         })),
         cables: p.cables.map((c) => ({ id: c.id, from: { ...c.from }, to: { ...c.to } })),
-        view: { ...p.view },
+        view: { ...p.view, ...(p.view.laneHeights ? { laneHeights: { ...p.view.laneHeights } } : {}) },
         clips: p.clips.map((c) => ({ id: c.id, module: c.module, start: c.start, length: c.length, bank: c.bank })),
         lanes: p.lanes.map((l) => ({ module: l.module, param: l.param, points: l.points.map((pt) => ({ ...pt })) })),
         ...(p.free ? { free: true } : {}),
@@ -382,7 +382,14 @@ function validatePatchContent(
     x: isFiniteNumber(v['x']) ? v['x'] : 0,
     y: isFiniteNumber(v['y']) ? v['y'] : 0,
     zoom: isFiniteNumber(v['zoom']) && v['zoom'] > 0 ? v['zoom'] : 1,
-  };
+  } as Patch['view'];
+  if (isObject(v['laneHeights'])) {
+    const heights: Record<string, number> = {};
+    for (const [key, h] of Object.entries(v['laneHeights'])) {
+      if (isFiniteNumber(h) && clampLaneHeight(h) !== LANE_HEIGHT) heights[key] = clampLaneHeight(h);
+    }
+    if (Object.keys(heights).length > 0) view.laneHeights = heights;
+  }
 
   return { modules, cables, view, warnings };
 }

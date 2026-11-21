@@ -38,6 +38,11 @@ export interface ViewState {
   x: number;
   y: number;
   zoom: number;
+  /**
+   * Heights in pixels of automation lanes on the timeline that are not the standard height, by
+   * "<module id>:<param>". Saved with the view: not part of undo.
+   */
+  laneHeights?: Record<string, number>;
 }
 
 export interface Patch {

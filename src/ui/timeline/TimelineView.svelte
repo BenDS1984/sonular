@@ -37,10 +37,14 @@
     removeLane,
     addAutomation,
     laneOf,
+    LANE_HEIGHT,
+    laneHeight,
+    setLaneHeight,
   } from '../../patch/timeline';
   import { overrideKey, overrides } from '../../engine/overrides.svelte';
   import type { AutomationLane, Clip, Patch } from '../../patch/types';
   import AutomationLaneRow from './AutomationLaneRow.svelte';
+  import { placeMenu } from '../placeMenu';
   import { clearClipSelection, clipSelection, isClipSelected, selectClip } from './clipSelection.svelte';
   import { bankColor } from '../../modules/sequencer/bankClipboard.svelte';
   import { bankLetter } from '../../modules/sequencer/banks';
@@ -64,7 +68,27 @@
   const EMPTY_H = 28;
   const LOOP_H = 14;
   const EDGE_PX = 6;
-  const LANE_H = 52;
+
+  // ---------- Lane heights: drag a lane's bottom edge, double-click it for the standard height ----------
+  let laneResize: { patch: Patch; lane: AutomationLane; y0: number; h0: number } | null = $state(null);
+
+  function onresizedown(e: PointerEvent, patch: Patch, lane: AutomationLane) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    laneResize = { patch, lane, y0: e.clientY, h0: laneHeight(patch, lane.module, lane.param) };
+  }
+
+  function onresizemove(e: PointerEvent) {
+    if (!laneResize) return;
+    const { patch, lane, y0, h0 } = laneResize;
+    setLaneHeight(patch, lane.module, lane.param, h0 + e.clientY - y0);
+  }
+
+  function onresizeend() {
+    laneResize = null;
+  }
 
   // ---------- Tracks ----------
   const tracks = $derived(
@@ -99,7 +123,7 @@
   // "+ Automation" menu of a track: every control of the patch that can be automated, by module.
   // Sequencers are left out (their 128 step controls would bury the rest; right-click a step
   // knob to automate it).
-  let addMenu: { x: number; y: number; patch: Patch } | null = $state(null);
+  let addMenu: { x: number; y: number; above: number; patch: Patch } | null = $state(null);
 
   function automatableControls(patch: Patch) {
     return patch.modules
@@ -539,6 +563,25 @@
 </script>
 
 <main class="timeline" aria-label="Timeline" style:--ppb={`${ppb}px`} style:--bar={`${ppb * BEATS_PER_BAR}px`}>
+  {#snippet resizer(patch: Patch, lane: AutomationLane)}
+    <div
+      class="lane-resize"
+      class:active={laneResize?.lane === lane}
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label="Lane height"
+      title="Drag to change the lane's height; double-click for the standard height"
+      onpointerdown={(e) => onresizedown(e, patch, lane)}
+      onpointermove={onresizemove}
+      onpointerup={onresizeend}
+      onpointercancel={onresizeend}
+      ondblclick={(e) => {
+        e.stopPropagation();
+        setLaneHeight(patch, lane.module, lane.param, LANE_HEIGHT);
+      }}
+    ></div>
+  {/snippet}
+
   <!-- Top left: loop switch and zoom -->
   <div class="corner">
     <button
@@ -653,7 +696,7 @@
               aria-haspopup="menu"
               onclick={(e) => {
                 const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                addMenu = { x: r.left, y: r.bottom + 4, patch: t.patch };
+                addMenu = { x: r.left, y: r.bottom + 4, above: r.top - 4, patch: t.patch };
               }}>+</button
             >
           </div>
@@ -693,7 +736,7 @@
                 class:paused
                 class:flash={flash.row === `${t.patch.id}:${l.lane.module}`}
                 data-row={`${t.patch.id}:${l.lane.module}`}
-                style:height={`${LANE_H}px`}
+                style:height={`${laneHeight(t.patch, l.lane.module, l.lane.param)}px`}
                 title={`Automation: ${l.label} · ${l.spec.label}. Right-click for options.`}
                 oncontextmenu={(e) => {
                   e.preventDefault();
@@ -712,6 +755,7 @@
                   title="Remove automation"
                   onclick={() => removeLane(t.patch, l.lane.module, l.lane.param)}>×</button
                 >
+                {@render resizer(t.patch, l.lane)}
               </div>
             {/each}
           {/if}
@@ -774,9 +818,17 @@
               <div
                 class="lane-row"
                 class:paused={!!overrides.keys[overrideKey(t.patch.id, l.lane.module, l.lane.param)]}
-                style:height={`${LANE_H}px`}
+                style:height={`${laneHeight(t.patch, l.lane.module, l.lane.param)}px`}
               >
-                <AutomationLaneRow lane={l.lane} spec={l.spec} {ppb} width={contentW} height={LANE_H - 1} color="var(--automation)" />
+                <AutomationLaneRow
+                  lane={l.lane}
+                  spec={l.spec}
+                  {ppb}
+                  width={contentW}
+                  height={laneHeight(t.patch, l.lane.module, l.lane.param) - 1}
+                  color="var(--track-color)"
+                />
+                {@render resizer(t.patch, l.lane)}
               </div>
             {/each}
           {/if}
@@ -794,7 +846,7 @@
 {#if menu}
   {@const m = menu}
   <div class="backdrop" role="presentation" onpointerdown={() => (menu = null)} oncontextmenu={(e) => e.preventDefault()}></div>
-  <div class="menu" role="menu" style:left={`${Math.min(m.x, innerWidth - 180)}px`} style:top={`${Math.min(m.y, innerHeight - 150)}px`}>
+  <div class="menu" role="menu" use:placeMenu={{ x: m.x, y: m.y }}>
     <div class="menu-caption">Pattern <kbd>A–{bankLetter(banksOf(m.patch, m.clip) - 1)}</kbd></div>
     <div class="menu-banks" role="group" aria-label="Pattern">
       {#each Array.from({ length: banksOf(m.patch, m.clip) }, (_, i) => i) as b (b)}
@@ -821,7 +873,7 @@
   {@const m = addMenu}
   {@const groups = automatableControls(m.patch)}
   <div class="backdrop" role="presentation" onpointerdown={() => (addMenu = null)} oncontextmenu={(e) => e.preventDefault()}></div>
-  <div class="menu add-menu" role="menu" style:left={`${Math.min(m.x, innerWidth - 220)}px`} style:top={`${m.y}px`}>
+  <div class="menu add-menu" role="menu" style:--track-color={channelColor(m.patch.color)} use:placeMenu={{ x: m.x, y: m.y, above: m.above }}>
     <div class="menu-caption">Automate a control of {m.patch.name}</div>
     {#each groups as g (g.module.id)}
       <div class="menu-group">{g.label}</div>
@@ -847,7 +899,7 @@
 {#if laneMenu}
   {@const m = laneMenu}
   <div class="backdrop" role="presentation" onpointerdown={() => (laneMenu = null)} oncontextmenu={(e) => e.preventDefault()}></div>
-  <div class="menu" role="menu" style:left={`${Math.min(m.x, innerWidth - 180)}px`} style:top={`${Math.min(m.y, innerHeight - 60)}px`}>
+  <div class="menu" role="menu" use:placeMenu={{ x: m.x, y: m.y }}>
     <button
       type="button"
       role="menuitem"
@@ -1114,6 +1166,19 @@
     border-top: 1px solid var(--border-subtle);
     cursor: crosshair;
   }
+  .lane-resize {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -3px;
+    height: 7px;
+    z-index: 2;
+    cursor: ns-resize;
+  }
+  .lane-resize:hover,
+  .lane-resize.active {
+    background: linear-gradient(transparent 2px, var(--track-color) 2px, var(--track-color) 4px, transparent 4px);
+  }
   .lane-row {
     position: relative;
     border-top: 1px dashed var(--border-subtle);
@@ -1124,6 +1189,7 @@
     opacity: 0.35;
   }
   .lane-name {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -1147,9 +1213,9 @@
   .lane-paused {
     flex: none;
     padding: 0 4px;
-    border: 1px dashed var(--automation);
+    border: 1px dashed var(--track-color);
     border-radius: var(--radius-sm);
-    color: var(--automation);
+    color: var(--track-color);
     font-size: 9px;
   }
   .lane-row.paused :global(svg) {
@@ -1193,7 +1259,7 @@
   .add-menu .check {
     display: inline-block;
     width: 16px;
-    color: var(--automation);
+    color: var(--track-color);
   }
   .add-menu button.has {
     color: var(--text-muted);

@@ -29,6 +29,10 @@ import {
   removePoints,
   copyPoints,
   pastePoints,
+  laneHeight,
+  setLaneHeight,
+  LANE_HEIGHT,
+  MAX_LANE_HEIGHT,
 } from './timeline';
 import type { Patch } from './types';
 
@@ -332,5 +336,18 @@ describe('several points at once', () => {
     const l = { module: 'm', param: 'tune', points: [] as { time: number; value: number }[] };
     pastePoints(tune, l, copied, 8);
     expect(l.points).toEqual([{ time: 8, value: -24 }, { time: 14, value: 5 }]);
+  });
+});
+
+describe('lane heights', () => {
+  it('stores heights per lane in the view, within limits, and forgets the standard height', () => {
+    const patch = { view: { x: 0, y: 0, zoom: 1 } as { x: number; y: number; zoom: number; laneHeights?: Record<string, number> } };
+    expect(laneHeight(patch, 'osc1', 'tune')).toBe(LANE_HEIGHT);
+    setLaneHeight(patch, 'osc1', 'tune', 140.4);
+    setLaneHeight(patch, 'osc1', 'level', 5000);
+    expect(laneHeight(patch, 'osc1', 'tune')).toBe(140);
+    expect(laneHeight(patch, 'osc1', 'level')).toBe(MAX_LANE_HEIGHT);
+    setLaneHeight(patch, 'osc1', 'tune', 10);
+    expect(patch.view.laneHeights).toEqual({ 'osc1:level': MAX_LANE_HEIGHT });
   });
 });

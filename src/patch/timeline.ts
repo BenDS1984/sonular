@@ -420,3 +420,28 @@ export function pastePoints(spec: ParamSpec, lane: AutomationLane, copied: reado
   lane.points = [...before.map((p) => ({ ...p })), ...pasted, ...after.map((p) => ({ ...p }))];
   return pasted.map((_, k) => before.length + k);
 }
+
+// ---------- Lane heights ----------
+
+/** Standard (and smallest) height of an automation lane on the timeline, in pixels. */
+export const LANE_HEIGHT = 52;
+export const MAX_LANE_HEIGHT = 300;
+
+export const clampLaneHeight = (h: number) => Math.round(Math.min(MAX_LANE_HEIGHT, Math.max(LANE_HEIGHT, h)));
+
+/** Height of a lane on the timeline, in pixels. */
+export function laneHeight(patch: Pick<Patch, 'view'>, module: string, param: string): number {
+  const h = patch.view.laneHeights?.[`${module}:${param}`];
+  return h === undefined ? LANE_HEIGHT : clampLaneHeight(h);
+}
+
+/** Set a lane's height (kept with the patch's view); the standard height is not stored. */
+export function setLaneHeight(patch: Pick<Patch, 'view'>, module: string, param: string, height: number): void {
+  const h = clampLaneHeight(height);
+  const key = `${module}:${param}`;
+  if (h === LANE_HEIGHT) {
+    if (patch.view.laneHeights) delete patch.view.laneHeights[key];
+    return;
+  }
+  (patch.view.laneHeights ??= {})[key] = h;
+}

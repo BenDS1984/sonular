@@ -68,6 +68,8 @@ Each patch is one timeline track. Times are in beats (quarter notes) from the st
   selects several, which move together (`moveGroup`), are deleted together (`removePoints`) or
   copied and pasted at the playhead (`copyPoints`/`pastePoints`, as knob positions, so a shape
   can be pasted onto another control; pasting replaces the points in that stretch).
+  Dragging a lane's bottom edge changes its height (52–300 px, double-click for the standard);
+  heights are kept per lane in the patch's view (`view.laneHeights`), saved but not undoable.
 - **Song settings** (`project.timeline`): song end and the loop (on/off, start, end).
 - Removing a module removes its blocks and lanes; duplicating a patch copies them. All of it is
   saved in the file, autosaved and undoable.
