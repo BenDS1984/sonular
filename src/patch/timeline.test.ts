@@ -35,6 +35,7 @@ import {
   MAX_LANE_HEIGHT,
   nearestFreeStart,
   nearestGroupShift,
+  setCurve,
 } from './timeline';
 import type { Patch } from './types';
 
@@ -408,5 +409,43 @@ describe('moving several blocks together', () => {
   it('finds the first free place at or after a minimum shift (duplicate, paste)', () => {
     // Duplicating right after the group (span 4): row 2 would land on 6–8 (taken).
     expect(nearestGroupShift(items, 4, 4)).toBe(12);
+  });
+});
+
+describe('bent automation lines', () => {
+  const lin = { id: 'level', label: 'Level', min: 0, max: 1, default: 0 };
+  const bentLane = () => ({ module: 'm', param: 'level', points: [{ time: 0, value: 0, curve: 0.6 }, { time: 8, value: 1 }] });
+
+  it('a point added on a bent line keeps the line exactly as it was', () => {
+    const l = bentLane();
+    const before = [1, 2, 3, 5, 7].map((t) => laneValueAt(lin, l.points, t)!);
+    addPoint(l, 2, laneValueAt(lin, l.points, 2)!);
+    const after = [1, 2, 3, 5, 7].map((t) => laneValueAt(lin, l.points, t)!);
+    after.forEach((v, k) => expect(v).toBeCloseTo(before[k]!, 9));
+  });
+
+  it('straight lines store no bend', () => {
+    const pt: { time: number; value: number; curve?: number } = { time: 0, value: 0, curve: 0.5 };
+    setCurve(pt, 0);
+    expect('curve' in pt).toBe(false);
+    setCurve(pt, 3);
+    expect(pt.curve).toBe(1);
+  });
+
+  it('moving, copying and pasting keep bends', () => {
+    const l = bentLane();
+    moveGroup(lin, l, bentLane().points, [0, 1], 2, 0);
+    expect(l.points[0]!.curve).toBe(0.6);
+    const copied = copyPoints(lin, l.points, [0, 1]);
+    const target = { module: 'm', param: 'level', points: [] as { time: number; value: number; curve?: number }[] };
+    pastePoints(lin, target, copied, 16);
+    expect(target.points[0]!.curve).toBe(0.6);
+    expect(laneValueAt(lin, target.points, 20)).toBeCloseTo(laneValueAt(lin, bentLane().points, 4)!, 9);
+  });
+
+  it('recording over part of a bent line keeps the rest of it as it was', () => {
+    const base = bentLane().points;
+    const pts = punchIn(lin, base, 3, 4, [{ time: 3, value: 0 }, { time: 4, value: 0 }], 0);
+    for (const t of [1, 2, 2.9, 4.1, 6, 7.5]) expect(laneValueAt(lin, pts, t)).toBeCloseTo(laneValueAt(lin, base, t)!, 9);
   });
 });

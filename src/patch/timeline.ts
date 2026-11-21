@@ -282,9 +282,10 @@ export function laneValueAt(spec: ParamSpec, points: readonly AutomationPoint[],
   const hold = holdsSteps(spec);
   const times = points.map((p) => p.time);
   const positions = points.map((p) => toNormalized(p.value, spec.min, spec.max, scale));
+  const curves = points.map((p) => p.curve ?? 0);
   let i = 0;
   while (i < times.length - 2 && times[i + 1]! <= time) i++;
-  const v = fromNormalized(positionAt(times, positions, time, i, hold), spec.min, spec.max, scale);
+  const v = fromNormalized(positionAt(times, positions, time, i, hold, curves), spec.min, spec.max, scale);
   return hold ? quantize(v, spec.step!, spec.min) : v;
 }
 
@@ -303,8 +304,25 @@ export function addPoint(lane: AutomationLane, time: number, value: number): num
   const t = Math.min(MAX_BEATS, Math.max(0, time));
   let i = 0;
   while (i < lane.points.length && lane.points[i]!.time <= t) i++;
-  lane.points.splice(i, 0, { time: t, value });
+  const prev = lane.points[i - 1];
+  const next = lane.points[i];
+  const point: AutomationPoint = { time: t, value };
+  if (prev?.curve && next && next.time > prev.time) {
+    // Split the bend: each part keeps the curve's shape over its share of the time.
+    const share = (t - prev.time) / (next.time - prev.time);
+    const c = prev.curve;
+    setCurve(prev, c * share);
+    setCurve(point, c * (1 - share));
+  }
+  lane.points.splice(i, 0, point);
   return i;
+}
+
+/** Set a point's bend (to the next point); a straight line stores none. */
+export function setCurve(point: AutomationPoint, curve: number): void {
+  const c = Math.min(1, Math.max(-1, curve));
+  if (Math.abs(c) < 1e-3) delete point.curve;
+  else point.curve = c;
 }
 
 /** Move a point; it stays between its neighbours, so the order of points never changes. */
@@ -405,11 +423,20 @@ export function punchIn(
   for (const p of base) if (p.time < from) out.push({ ...p });
   if (from > 0) {
     const before = base.length > 0 ? laneValueAt(spec, base, from)! : own;
+    // The old line runs on up to the recording: its last bend now ends there.
+    const last = out[out.length - 1];
+    const next = base.find((p) => p.time >= from);
+    if (last?.curve && next && next.time > last.time) setCurve(last, last.curve * ((from - last.time) / (next.time - last.time)));
     out.push({ time: from, value: before });
   }
-  for (const p of samples) out.push({ ...p });
+  for (const p of samples) out.push({ time: p.time, value: p.value });
   if (base.length > 0) {
-    out.push({ time: to, value: laneValueAt(spec, base, to)! });
+    // ... and resumes after it, with the rest of the bend it was in.
+    const k = base.findIndex((p) => p.time > to);
+    const prev = k > 0 ? base[k - 1] : k < 0 ? base[base.length - 1] : undefined;
+    const resume: AutomationPoint = { time: to, value: laneValueAt(spec, base, to)! };
+    if (prev?.curve && k > 0) setCurve(resume, prev.curve * ((base[k]!.time - to) / (base[k]!.time - prev.time)));
+    out.push(resume);
     for (const p of base) if (p.time > to) out.push({ ...p });
   }
   return out;
@@ -447,7 +474,7 @@ export function moveGroup(
     if (!sel.has(i)) return { ...p };
     const pos = Math.min(1, Math.max(0, toNormalized(p.value, spec.min, spec.max, scale) + dpos));
     const v = fromNormalized(pos, spec.min, spec.max, scale);
-    return { time: p.time + shift, value: step > 0 ? quantize(v, step, spec.min) : v };
+    return { ...p, time: p.time + shift, value: step > 0 ? quantize(v, step, spec.min) : v };
   });
 }
 
@@ -464,6 +491,7 @@ export function removePoints(lane: AutomationLane, indices: readonly number[]): 
 export interface CopiedPoint {
   time: number;
   position: number;
+  curve?: number;
 }
 
 export function copyPoints(spec: ParamSpec, points: readonly AutomationPoint[], indices: readonly number[]): CopiedPoint[] {
@@ -474,7 +502,11 @@ export function copyPoints(spec: ParamSpec, points: readonly AutomationPoint[], 
     .map((i) => points[i]!);
   if (picked.length === 0) return [];
   const t0 = picked[0]!.time;
-  return picked.map((p) => ({ time: p.time - t0, position: toNormalized(p.value, spec.min, spec.max, scale) }));
+  return picked.map((p) => ({
+    time: p.time - t0,
+    position: toNormalized(p.value, spec.min, spec.max, scale),
+    ...(p.curve ? { curve: p.curve } : {}),
+  }));
 }
 
 /**
@@ -490,7 +522,11 @@ export function pastePoints(spec: ParamSpec, lane: AutomationLane, copied: reado
   const pasted = copied
     .map((c) => {
       const v = fromNormalized(Math.min(1, Math.max(0, c.position)), spec.min, spec.max, scale);
-      return { time: Math.min(MAX_BEATS, start + c.time), value: step > 0 ? quantize(v, step, spec.min) : v };
+      return {
+        time: Math.min(MAX_BEATS, start + c.time),
+        value: step > 0 ? quantize(v, step, spec.min) : v,
+        ...(c.curve ? { curve: c.curve } : {}),
+      };
     });
   const before = lane.points.filter((p) => p.time < start);
   const after = lane.points.filter((p) => p.time > end);

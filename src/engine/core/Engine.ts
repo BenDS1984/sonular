@@ -247,7 +247,7 @@ export class Engine {
       const l = a.lane;
       const hold = l.step > 0;
       a.hint = segmentAt(l.times, beat, a.hint);
-      let v = fromNormalized(positionAt(l.times, l.positions, beat, a.hint, hold), l.min, l.max, l.scale);
+      let v = fromNormalized(positionAt(l.times, l.positions, beat, a.hint, hold, l.curves), l.min, l.max, l.scale);
       if (hold) v = quantize(v, l.step, l.min);
       if (v !== a.last) {
         a.node.module.setParam(l.param, v);

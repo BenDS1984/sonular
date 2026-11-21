@@ -48,7 +48,7 @@ const sample = (): Project => ({
       cables: [{ id: 'c1', from: { module: 'src1', port: 'out' }, to: { module: 'sink1', port: 'L' } }],
       view: { x: 5, y: 6, zoom: 0.8, laneHeights: { 'src1:level': 120 } },
       clips: [],
-      lanes: [{ module: 'src1', param: 'level', points: [{ time: 0, value: 0 }, { time: 8, value: 1 }] }],
+      lanes: [{ module: 'src1', param: 'level', points: [{ time: 0, value: 0, curve: -0.4 }, { time: 8, value: 1 }] }],
     },
     {
       id: 'p3',
@@ -111,6 +111,21 @@ describe('project files', () => {
       ],
       timeline: emptyTimeline(),
     });
+  });
+
+  it('keeps valid bends of automation lines and repairs broken ones', () => {
+    const file = JSON.parse(serializeProject(sample()));
+    file.project.patches[0].lanes[0].points = [
+      { time: 0, value: 0, curve: 5 },
+      { time: 4, value: 1, curve: 'bent' },
+      { time: 8, value: 0, curve: 0 },
+    ];
+    const { project } = parseProjectFile(JSON.stringify(file), getDef);
+    expect(project.patches[0]!.lanes[0]!.points).toEqual([
+      { time: 0, value: 0, curve: 1 },
+      { time: 4, value: 1 },
+      { time: 8, value: 0 },
+    ]);
   });
 
   it('keeps valid lane heights and drops broken ones', () => {

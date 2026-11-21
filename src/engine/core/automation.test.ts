@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { laneValueAt, positionAt, segmentAt, type EngineLane } from './automation';
+import { bend, curveForMidpoint, laneValueAt, positionAt, segmentAt, type EngineLane } from './automation';
 import { Engine } from './Engine';
 import { BLOCK_SIZE, type DspModule, type ModuleFactory } from './types';
 import { Master } from '../modules/Master';
@@ -128,5 +128,45 @@ describe('automation in the engine', () => {
       connections: [{ from: { node: 'c', port: 0 }, to: { node: 'master', port: 0 } }],
     });
     expect(renderTo(0.6)).toBeCloseTo(0.4);
+  });
+});
+
+describe('bent lines', () => {
+  it('runs from start to end, fast first for a positive bend, slow first for a negative one', () => {
+    for (const c of [-1, -0.3, 0.4, 1]) {
+      expect(bend(0, c)).toBeCloseTo(0, 9);
+      expect(bend(1, c)).toBeCloseTo(1, 9);
+    }
+    expect(bend(0.5, 0)).toBe(0.5);
+    expect(bend(0.5, 0.5)).toBeGreaterThan(0.5);
+    expect(bend(0.5, -0.5)).toBeLessThan(0.5);
+    // Always moving the same way: never overshoots or turns back.
+    let prev = 0;
+    for (let t = 0.01; t <= 1; t += 0.01) {
+      expect(bend(t, 1)).toBeGreaterThanOrEqual(prev);
+      prev = bend(t, 1);
+    }
+  });
+
+  it('puts the middle where the handle is dragged', () => {
+    for (const m of [0.1, 0.3, 0.5, 0.8]) expect(bend(0.5, curveForMidpoint(m))).toBeCloseTo(m, 9);
+  });
+
+  it('keeps its shape when split: each part is again a bent line', () => {
+    const c = 0.7;
+    const share = 0.3; // split at 30 % of the time
+    const at = bend(share, c);
+    for (const t of [0.1, 0.5, 0.9]) {
+      // Left part, scaled to 0..1, equals a bend of c·share.
+      expect(bend(share * t, c) / at).toBeCloseTo(bend(t, c * share), 9);
+      // Right part equals a bend of c·(1 − share).
+      expect((bend(share + (1 - share) * t, c) - at) / (1 - at)).toBeCloseTo(bend(t, c * (1 - share)), 9);
+    }
+  });
+
+  it('is followed by the engine', () => {
+    const lane: EngineLane = { node: 'n', param: 'value', times: [0, 4], positions: [0, 1], curves: [0.5, 0], min: 0, max: 1, scale: 'linear', step: 0 };
+    expect(laneValueAt(lane, 2)).toBeCloseTo(bend(0.5, 0.5), 9);
+    expect(positionAt([0, 4], [1, 0], 1, 0, false, [-0.5])).toBeCloseTo(1 - bend(0.25, -0.5), 9);
   });
 });

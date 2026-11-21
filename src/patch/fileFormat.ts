@@ -296,7 +296,13 @@ function validateLanes(
     const points: AutomationLane['points'] = [];
     for (const pt of Array.isArray(l['points']) ? l['points'] : []) {
       if (!isObject(pt) || !isFiniteNumber(pt['time']) || !isFiniteNumber(pt['value'])) continue;
-      points.push({ time: clampBeats(pt['time']), value: Math.min(spec.max, Math.max(spec.min, pt['value'])) });
+      const point: AutomationLane['points'][number] = {
+        time: clampBeats(pt['time']),
+        value: Math.min(spec.max, Math.max(spec.min, pt['value'])),
+      };
+      const curve = pt['curve'];
+      if (isFiniteNumber(curve) && Math.abs(curve) >= 1e-3) point.curve = Math.min(1, Math.max(-1, curve));
+      points.push(point);
     }
     points.sort((a, b) => a.time - b.time);
     lanes.push({ module: module.id, param: spec.id, points });

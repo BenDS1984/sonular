@@ -61,8 +61,11 @@ Each patch is one timeline track. Times are in beats (quarter notes) from the st
   `b2on1`, ... The pattern buttons A–H choose which bank is edited; a lamp shows the bank playing
   (meter `bank`). On the timeline the keys A–H set a selected block's pattern. Copy/Paste copies a bank through a clipboard shared by all sequencers (not saved).
 - **Automation lanes** (`patch.lanes`): one per control (module + parameter), points of time and
-  value in the parameter's own range. Lines are straight along the knob's travel (so even on
-  logarithmic knobs); choices and switches hold each point until the next (`laneValueAt`).
+  value in the parameter's own range. Lines run along the knob's travel (so even on
+  logarithmic knobs), straight or bent: a point's optional `curve` (-1..1) bends the line to the
+  next point with an exponential shape (`bend` in `src/engine/core/automation.ts`), so a split
+  piece is again such a curve and adding a point keeps the line exactly; a handle in the middle
+  of each line sets it (`curveForMidpoint`), double-click straightens; choices and switches hold each point until the next (`laneValueAt`).
   Started from a knob's right-click menu ("Automate"), drawn on the timeline under the patch's
   track (`AutomationLaneRow.svelte`): double-click adds or removes a point, a box or Shift+click
   selects several, which move together (`moveGroup`), are deleted together (`removePoints`) or

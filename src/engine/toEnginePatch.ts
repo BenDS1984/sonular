@@ -101,6 +101,7 @@ export function engineLanes(project: Project, getDef: DefinitionLookup, paused: 
         param: l.param,
         times: points.map((pt) => pt.time),
         positions: points.map((pt) => toNormalized(pt.value, spec.min, spec.max, scale)),
+        curves: points.map((pt) => pt.curve ?? 0),
         min: spec.min,
         max: spec.max,
         scale,

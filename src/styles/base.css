@@ -13,6 +13,12 @@ body,
   margin: 0;
 }
 
+/* While something is dragged (src/ui/dragLook.ts): one cursor everywhere, no flicker. */
+html.dragging,
+html.dragging * {
+  cursor: var(--drag-cursor) !important;
+}
+
 body {
   background: var(--bg-app);
   color: var(--text-default);

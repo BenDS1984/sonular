@@ -58,7 +58,7 @@ describe('automation lanes for the engine', () => {
   it('sends points sorted, as knob positions, and skips controls that do not exist', () => {
     const lanes = engineLanes(project(withLane('p1')), getLvl);
     expect(lanes).toEqual([
-      { node: 'p1/osc1', param: 'level', times: [0, 4], positions: [0.5, 1], min: 0, max: 2, scale: 'linear', step: 0 },
+      { node: 'p1/osc1', param: 'level', times: [0, 4], positions: [0.5, 1], curves: [0, 0], min: 0, max: 2, scale: 'linear', step: 0 },
     ]);
   });
 

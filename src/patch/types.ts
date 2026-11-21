@@ -90,9 +90,14 @@ export interface AutomationPoint {
   time: number;
   /** In the parameter's own range and units. */
   value: number;
+  /**
+   * Bend of the line from this point to the next (-1..1): positive starts fast, negative starts
+   * slow. Left out (or 0) for a straight line.
+   */
+  curve?: number;
 }
 
-/** The movement of one control over time: straight lines between points, sorted by time. */
+/** The movement of one control over time: lines (straight or bent) between points, sorted by time. */
 export interface AutomationLane {
   module: string;
   param: string;

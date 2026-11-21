@@ -52,6 +52,7 @@
   import type { AutomationLane, Clip, Patch } from '../../patch/types';
   import AutomationLaneRow from './AutomationLaneRow.svelte';
   import { placeMenu } from '../placeMenu';
+  import { endDragLook, startDragLook } from '../dragLook';
   import {
     clearClipSelection,
     clipKey,
@@ -94,6 +95,7 @@
     e.stopPropagation();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     laneResize = { patch, lane, y0: e.clientY, h0: laneHeight(patch, lane.module, lane.param) };
+    startDragLook('ns-resize');
   }
 
   function onresizemove(e: PointerEvent) {
@@ -103,6 +105,7 @@
   }
 
   function onresizeend() {
+    if (laneResize) endDragLook();
     laneResize = null;
   }
 
@@ -336,6 +339,7 @@
     if (kind === 'loop-move') drag = { kind, grab: b - loop.start, length: loop.end - loop.start };
     else if (kind === 'loop-new') drag = { kind, anchor: snap(b, unitFor(e)) };
     else drag = { kind };
+    startDragLook(kind === 'loop-start' || kind === 'loop-end' || kind === 'end' ? 'ew-resize' : kind === 'loop-move' ? 'grabbing' : 'pointer');
     if (kind === 'playhead') setPlayhead(snap(b, unitFor(e)));
   }
 
@@ -379,6 +383,7 @@
 
   function onrulerpointerup() {
     drag = null;
+    endDragLook();
   }
 
   function ondblclick(e: MouseEvent) {
@@ -538,6 +543,8 @@
   }
 
   function startBlockDrag() {
+    const k = blockDrag?.kind;
+    startDragLook(k === 'resize-start' || k === 'resize-end' ? 'ew-resize' : k === 'move' ? 'grabbing' : 'default');
     window.addEventListener('pointermove', onblockdragmove);
     window.addEventListener('pointerup', onblockdragend);
     window.addEventListener('pointercancel', onblockdragend);
@@ -601,6 +608,7 @@
   function onblockdragend() {
     const d = blockDrag;
     blockDrag = null;
+    if (d) endDragLook();
     window.removeEventListener('pointermove', onblockdragmove);
     window.removeEventListener('pointerup', onblockdragend);
     window.removeEventListener('pointercancel', onblockdragend);
@@ -1511,7 +1519,7 @@
     cursor: grab;
     z-index: 1;
   }
-  .block:hover {
+  :global(html:not(.dragging)) .block:hover {
     background: color-mix(in srgb, var(--bank-color, var(--track-color)) 50%, var(--surface-module));
   }
   .block.selected {
