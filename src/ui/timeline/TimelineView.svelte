@@ -11,7 +11,7 @@
   - the strip above the numbers holds the loop: drag it to move, drag its edges to resize, drag
     on an empty part to draw a new one, double-click it to switch it on or off
   - the End flag marks the end of the song; drag it to change the length
-  - Ctrl + mouse wheel zooms around the pointer; the wheel scrolls (Shift: sideways)
+  - the − and + buttons zoom around the playhead; Ctrl + mouse wheel zooms around the pointer; the wheel scrolls (Shift: sideways)
   Dragging snaps to the grid (bar, beat or sixteenth, depending on the zoom); hold Alt to place
   freely on sixteenths.
 -->
@@ -178,6 +178,25 @@
     requestAnimationFrame(() => {
       if (!body) return;
       body.scrollLeft = z.scrollLeft;
+      onscroll();
+    });
+  }
+
+  /**
+   * The zoom buttons zoom around the playhead: it keeps its place on screen, or, when it is out
+   * of view, ends up in the middle.
+   */
+  function zoomAtPlayhead(factor: number) {
+    const x = shownBeat * timelineView.ppb - timelineView.scrollLeft;
+    if (x >= 0 && x <= viewW) {
+      zoomTo(factor, x);
+      return;
+    }
+    const z = zoomAround(timelineView.ppb, timelineView.scrollLeft, 0, factor);
+    timelineView.ppb = z.ppb;
+    requestAnimationFrame(() => {
+      if (!body) return;
+      body.scrollLeft = Math.max(0, shownBeat * z.ppb - viewW / 2);
       onscroll();
     });
   }
@@ -607,10 +626,10 @@
       Loop
     </button>
     <span class="grow"></span>
-    <button class="tool icon" type="button" title="Zoom out (Ctrl + wheel)" aria-label="Zoom out" onclick={() => zoomTo(1 / 1.5)}>
+    <button class="tool icon" type="button" title="Zoom out around the playhead (Ctrl + wheel: around the pointer)" aria-label="Zoom out" onclick={() => zoomAtPlayhead(1 / 1.5)}>
       <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
     </button>
-    <button class="tool icon" type="button" title="Zoom in (Ctrl + wheel)" aria-label="Zoom in" onclick={() => zoomTo(1.5)}>
+    <button class="tool icon" type="button" title="Zoom in around the playhead (Ctrl + wheel: around the pointer)" aria-label="Zoom in" onclick={() => zoomAtPlayhead(1.5)}>
       <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
     </button>
     <button class="tool icon" type="button" title="Show the whole song" aria-label="Show the whole song" onclick={fitSong}>
