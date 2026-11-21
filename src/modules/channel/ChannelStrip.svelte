@@ -9,7 +9,7 @@
   import Meter from '../../ui/components/Meter.svelte';
   import Toggle from '../../ui/components/Toggle.svelte';
   import ParamKnob from '../ParamKnob.svelte';
-  import { isAutomated, isOverridden, openControlMenu, setControl, shownValue } from '../../ui/automation.svelte';
+  import { isAutomated, isOverridden, isRecordingControl, openControlMenu, setControl, shownValue } from '../../ui/automation.svelte';
   import type { ModuleInstance, Patch } from '../../patch/types';
   import { CHANNEL_COLORS, channelColor } from '../../ui/channelColors';
   import type { ModuleDefinition } from '../types';
@@ -131,7 +131,8 @@
       <div
         class="fader-wrap"
         class:automated={isAutomated(module, 'level')}
-        class:overridden={isAutomated(module, 'level') && isOverridden(module, 'level')}
+        class:overridden={isAutomated(module, 'level') && !isRecordingControl(module, 'level') && isOverridden(module, 'level')}
+        class:recording={isRecordingControl(module, 'level')}
         oncontextmenu={(e) => openControlMenu(e, module, 'level', `${target.name} · ${levelSpec.label}`)}
       >
         <Fader
@@ -283,5 +284,9 @@
   .fader-wrap.overridden :global(.fader) {
     box-shadow: none;
     outline: 2px dashed var(--automation);
+  }
+  .fader-wrap.recording :global(.fader) {
+    border-radius: var(--radius-sm);
+    box-shadow: 0 0 0 2px var(--danger);
   }
 </style>

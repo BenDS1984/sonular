@@ -5,6 +5,7 @@
  */
 import type { ModuleDefinition } from '../modules/types';
 import { CHANNEL_TYPE } from '../patch/operations';
+import { holdsSteps } from '../patch/timeline';
 import type { Patch, Project } from '../patch/types';
 import type { EngineClip, EnginePatch } from './core/types';
 import type { EngineLane } from './core/automation';
@@ -103,7 +104,8 @@ export function engineLanes(project: Project, getDef: DefinitionLookup, paused: 
         min: spec.min,
         max: spec.max,
         scale,
-        step: spec.step ?? 0,
+        // 0 = glide; choices and switches hold each point at their step.
+        step: holdsSteps(spec) ? spec.step! : 0,
       });
     }
   }

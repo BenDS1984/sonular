@@ -76,9 +76,22 @@ Each patch is one timeline track. Times are in beats (quarter notes) from the st
   message (`engineLanes`, none for Free patches), with points as knob positions. At the start of
   every block (128 samples, about 3 ms) the engine sets each automated control to its lane's value
   at the transport position (`src/engine/core/automation.ts`); modules smooth the steps as they do
-  for a turned knob. Knobs show the lane's value at the playhead. Turning an automated control
+  for a turned knob. Choices and switches (`holdsSteps`: a stepped control with format `choice` or
+  `toggle`) hold each point; knobs that turn in steps but stand for a number (Tune) glide between
+  points, which snap to the steps when drawn. Knobs show the lane's value at the playhead. Turning an automated control
   takes it over: its lane is left out of the `automation` message (`src/engine/overrides.svelte.ts`)
   until the next Play, and the knob shows a dashed ring.
+- **Recording automation** (`src/ui/recordAutomation.svelte.ts`): with the "Automation" button
+  in the top bar on, turning a control while the song plays (not in a Free patch) records it.
+  Only the stretch being touched is replaced ("touch" mode): a touch starts with the first change
+  and ends when the mouse button is released, or 600 ms after the last keyboard change. While it
+  lasts the control's lane is paused (as an override) so the knob is heard directly, and it is
+  sampled every 30 ms at the estimated song position (`currentBeat`: the last reported beat moved
+  on by the time since, wrapped round the loop). The lane is redrawn live with `punchIn` (old
+  points outside the stretch stay, a point 1/16 beat before and after keeps the old line around
+  it) and thinned with `thinPoints` when the touch ends (points within 0.5 % of the knob's travel
+  of the line are dropped; stepped controls keep only changes). A loop jump ends a pass and starts
+  a new one. A touch is one undo step.
 - **Playing:** Play starts at the playhead (`transportState.start`, screen state); while playing,
   moving the playhead jumps the transport there (`locate`, modules keep their state). The loop is
   sent to the engine, where the transport jumps back on the exact sample (`Transport.wrapAt`,

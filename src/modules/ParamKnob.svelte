@@ -8,7 +8,7 @@
   import type { SignalType } from '../ui/signals';
   import type { ModuleInstance } from '../patch/types';
   import { paramFormatter } from './paramFormat';
-  import { isAutomated, isOverridden, openControlMenu, setControl, shownValue } from '../ui/automation.svelte';
+  import { isAutomated, isOverridden, isRecordingControl, openControlMenu, setControl, shownValue } from '../ui/automation.svelte';
   import type { ModuleDefinition } from './types';
 
   interface Props {
@@ -26,7 +26,8 @@
   const spec = $derived(def.params.find((p) => p.id === param));
   const format = $derived(spec ? paramFormatter(spec) : undefined);
   const automated = $derived(isAutomated(module, param));
-  const overridden = $derived(automated && isOverridden(module, param));
+  const recording = $derived(isRecordingControl(module, param));
+  const overridden = $derived(automated && !recording && isOverridden(module, param));
 </script>
 
 {#if spec}
@@ -35,7 +36,10 @@
     class="param-knob"
     class:automated
     class:overridden
-    title={overridden
+    class:recording
+    title={recording
+      ? 'Recording automation'
+      : overridden
       ? 'Automation paused: you turned this knob. It follows its automation again at the next Play.'
       : automated
         ? 'Automated — right-click for options'
@@ -73,5 +77,10 @@
     box-shadow: none;
     outline: 2px dashed var(--automation);
     outline-offset: 0;
+  }
+  /* Being recorded: a red ring while it is turned. */
+  .param-knob.recording :global(.knob svg) {
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--danger);
   }
 </style>

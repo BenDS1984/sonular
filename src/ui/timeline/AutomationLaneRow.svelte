@@ -1,7 +1,8 @@
 <!--
   One automation lane on the timeline: the movement of one control drawn as a line through points.
   Height is the knob's position (bottom = minimum, top = maximum), so a straight line is the knob
-  turning evenly. Stepped controls (choices, switches) hold each point until the next.
+  turning evenly. Choices and switches hold each point until the next; knobs that turn in steps
+  (Tune) glide between points, which snap to the steps.
   - click on the lane to add a point (keep the button down to drag it into place)
   - drag a point to move it; it snaps to the grid, hold Alt for sixteenths; it stays between its
     neighbours
@@ -11,7 +12,7 @@
 <script lang="ts">
   import { paramFormatter } from '../../modules/paramFormat';
   import type { ParamSpec } from '../../modules/types';
-  import { addPoint, movePoint, removePoint } from '../../patch/timeline';
+  import { addPoint, holdsSteps, movePoint, removePoint } from '../../patch/timeline';
   import type { AutomationLane } from '../../patch/types';
   import { fromNormalized, quantize, toNormalized } from '../scale';
   import { formatPosition, snap, snapUnit } from './timelineGeometry';
@@ -35,6 +36,7 @@
 
   const scale = $derived(spec.scale ?? 'linear');
   const step = $derived(spec.step ?? 0);
+  const hold = $derived(holdsSteps(spec));
   const format = $derived(paramFormatter(spec));
 
   const yOf = (value: number) => PAD + (1 - toNormalized(value, spec.min, spec.max, scale)) * (height - 2 * PAD);
@@ -52,7 +54,7 @@
     for (let i = 0; i < pts.length; i++) {
       const x = pts[i]!.time * ppb;
       const y = yOf(pts[i]!.value);
-      if (step > 0 && i > 0) d += ` H${x}`;
+      if (hold && i > 0) d += ` H${x}`;
       d += ` L${x} ${y}`;
     }
     return `${d} H${width}`;

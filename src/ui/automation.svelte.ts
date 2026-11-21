@@ -9,6 +9,7 @@ import { project } from '../patch/patch.svelte';
 import { addAutomation, laneOf, laneValueAt, removeLane } from '../patch/timeline';
 import type { ModuleInstance, Patch } from '../patch/types';
 import { showOnTimeline } from './focus.svelte';
+import { isRecording, recordControl } from './recordAutomation.svelte';
 import { timelineView } from './timeline/timelineScreen.svelte';
 
 /** The patch a module belongs to. */
@@ -34,12 +35,20 @@ export function isOverridden(module: ModuleInstance, param: string): boolean {
   return !!patch && !!overrides.keys[overrideKey(patch.id, module.id, param)];
 }
 
+/** Whether a control's movement is being recorded right now. Reactive. */
+export function isRecordingControl(module: ModuleInstance, param: string): boolean {
+  return isRecording(patchOf(module), module, param);
+}
+
 /**
- * Set a control from its knob, fader or switch. An automated control is taken over: its lane
- * pauses until the next Play (not in a Free patch, which ignores its lanes anyway).
+ * Set a control from its knob, fader or switch. While automation is being recorded the movement
+ * goes into its lane; otherwise an automated control is taken over: its lane pauses until the
+ * next Play (not in a Free patch, which ignores its lanes anyway).
  */
 export function setControl(module: ModuleInstance, param: string, value: number) {
+  const before = module.params[param] ?? 0;
   module.params[param] = value;
+  if (recordControl(patchOf(module), module, param, before)) return;
   const a = activeLane(module, param);
   if (a && !a.patch.free) overrides.keys[overrideKey(a.patch.id, module.id, param)] = true;
 }

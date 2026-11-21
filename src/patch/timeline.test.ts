@@ -21,6 +21,10 @@ import {
   addPoint,
   movePoint,
   removePoint,
+  punchIn,
+  RECORD_GUARD,
+  thinPoints,
+  holdsSteps,
 } from './timeline';
 import type { Patch } from './types';
 
@@ -157,7 +161,7 @@ describe('automation lanes', () => {
       { time: 4, value: 20000 },
     ];
     expect(laneValueAt(log, pts, 2)).toBeCloseTo(632.5, 0);
-    const sw = { id: 's', label: 'S', min: 0, max: 3, default: 0, step: 1 };
+    const sw = { id: 's', label: 'S', min: 0, max: 3, default: 0, step: 1, format: 'choice' as const };
     expect(laneValueAt(sw, [{ time: 0, value: 0 }, { time: 4, value: 3 }], 3.9)).toBe(0);
     expect(laneValueAt(sw, [], 1)).toBeUndefined();
   });
@@ -197,5 +201,71 @@ describe('timeline and patch editing', () => {
     expect(copy.lanes).toEqual(project.patches[0]!.lanes);
     copy.clips[0]!.bank = 6;
     expect(project.patches[0]!.clips[0]!.bank).toBe(3);
+  });
+});
+
+describe('recording automation', () => {
+  const lin = { id: 'level', label: 'Level', min: 0, max: 1, default: 0 };
+  const sw = { id: 'wave', label: 'Wave', min: 0, max: 3, default: 0, step: 1, format: 'choice' as const };
+
+  it('thins a recorded movement to the points it needs', () => {
+    // A straight ramp sampled 41 times, held, then a jump: only the corners remain.
+    const samples = [];
+    for (let i = 0; i <= 40; i++) samples.push({ time: i * 0.1, value: i / 40 });
+    for (let i = 1; i <= 10; i++) samples.push({ time: 4 + i * 0.1, value: 1 });
+    samples.push({ time: 5.1, value: 0.2 });
+    const thin = thinPoints(lin, samples);
+    expect(thin.map((p) => p.time)).toEqual([0, 4, 5, 5.1].map((t) => expect.closeTo(t, 6)));
+    // Every dropped sample lies within half a percent of the thinned line.
+    for (const p of samples) expect(Math.abs(laneValueAt(lin, thin, p.time)! - p.value)).toBeLessThan(0.006);
+  });
+
+  it('keeps only the changes of a stepped control', () => {
+    const v = [0, 0, 0, 2, 2, 1, 1, 1];
+    const thin = thinPoints(sw, v.map((value, i) => ({ time: i, value })));
+    expect(thin).toEqual([{ time: 0, value: 0 }, { time: 3, value: 2 }, { time: 5, value: 1 }, { time: 7, value: 1 }]);
+  });
+
+  it('replaces only the recorded stretch and keeps the old line around it', () => {
+    const base = [{ time: 0, value: 0 }, { time: 8, value: 0.8 }, { time: 16, value: 0 }];
+    const rec = [{ time: 4, value: 1 }, { time: 6, value: 0.2 }];
+    const pts = punchIn(lin, base, 4, 6, rec, 0.5);
+    expect(pts.map((p) => p.time)).toEqual([0, 4 - RECORD_GUARD, 4, 6, 6 + RECORD_GUARD, 8, 16]);
+    // Old line just before and just after the recording, recording in between.
+    expect(laneValueAt(lin, pts, 2)).toBeCloseTo(0.2, 6);
+    expect(laneValueAt(lin, pts, 4 - RECORD_GUARD)).toBeCloseTo(laneValueAt(lin, base, 4 - RECORD_GUARD)!, 6);
+    expect(laneValueAt(lin, pts, 5)).toBeCloseTo(0.6, 6);
+    expect(laneValueAt(lin, pts, 7)).toBeCloseTo(0.7, 6);
+    expect(laneValueAt(lin, pts, 12)).toBeCloseTo(0.4, 6);
+  });
+
+  it("starts a new lane from the control's own value and holds the last recorded value", () => {
+    const pts = punchIn(lin, [], 4, 6, [{ time: 4, value: 1 }, { time: 6, value: 0.2 }], 0.5);
+    expect(pts).toEqual([{ time: 4 - RECORD_GUARD, value: 0.5 }, { time: 4, value: 1 }, { time: 6, value: 0.2 }]);
+    expect(laneValueAt(lin, pts, 0)).toBe(0.5);
+    expect(laneValueAt(lin, pts, 20)).toBe(0.2);
+  });
+});
+
+describe('stepped knobs in automation', () => {
+  const tune = { id: 'tune', label: 'Tune', min: -24, max: 24, default: 0, step: 1, format: 'semitones' as const };
+  const wave = { id: 'wave', label: 'Wave', min: 0, max: 3, default: 0, step: 1, format: 'choice' as const, choices: ['a', 'b', 'c', 'd'] };
+  const pts = [{ time: 0, value: 0 }, { time: 4, value: 12 }];
+
+  it('glides a number knob that turns in steps (Tune), and holds choices', () => {
+    expect(holdsSteps(tune)).toBe(false);
+    expect(holdsSteps(wave)).toBe(true);
+    expect(laneValueAt(tune, pts, 1)).toBeCloseTo(3, 6);
+    expect(laneValueAt(tune, pts, 1.5)).toBeCloseTo(4.5, 6);
+    expect(laneValueAt(wave, [{ time: 0, value: 0 }, { time: 4, value: 3 }], 3.9)).toBe(0);
+  });
+
+  it('records a steady turn of a stepped knob as one slope, not a staircase', () => {
+    // Turned evenly from 0 to 12 semitones over 4 beats: the knob reports whole semitones.
+    const samples = [];
+    for (let i = 0; i <= 100; i++) samples.push({ time: i * 0.04, value: Math.round(i * 0.12) });
+    const thin = thinPoints(tune, samples);
+    expect(thin.length).toBeLessThanOrEqual(4);
+    for (const p of samples) expect(Math.abs(laneValueAt(tune, thin, p.time)! - p.value)).toBeLessThanOrEqual(1);
   });
 });

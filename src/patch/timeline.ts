@@ -155,9 +155,9 @@ export function laneOf(patch: Pick<Patch, 'lanes'>, module: string, param: strin
 export function ensureLane(patch: Patch, module: string, param: string): AutomationLane {
   const existing = laneOf(patch, module, param);
   if (existing) return existing;
-  const lane: AutomationLane = { module, param, points: [] };
-  patch.lanes.push(lane);
-  return lane;
+  patch.lanes.push({ module, param, points: [] });
+  // The lane as stored (in the app a reactive copy), so later changes to it are seen.
+  return patch.lanes[patch.lanes.length - 1]!;
 }
 
 export function removeLane(patch: Patch, module: string, param: string): void {
@@ -187,19 +187,28 @@ export function valueAt(points: readonly AutomationPoint[], time: number): numbe
 }
 
 /**
+ * Whether a lane holds each point's value until the next instead of gliding: choices and switches
+ * (a waveform, on/off), where nothing lies between two values. Knobs that turn in steps but stand
+ * for a number (Tune in semitones) glide in automation; only their drawn points snap to the steps.
+ */
+export function holdsSteps(spec: ParamSpec): boolean {
+  return (spec.step ?? 0) > 0 && (spec.format === 'choice' || spec.format === 'toggle' || !!spec.choices);
+}
+
+/**
  * Value of a control's lane at a time, exactly as the engine plays it: straight lines along the
- * knob's travel (so also even on logarithmic knobs), stepped controls holding each point.
+ * knob's travel (so also even on logarithmic knobs), choices and switches holding each point.
  */
 export function laneValueAt(spec: ParamSpec, points: readonly AutomationPoint[], time: number): number | undefined {
   if (points.length === 0) return undefined;
   const scale = spec.scale ?? 'linear';
-  const step = spec.step ?? 0;
+  const hold = holdsSteps(spec);
   const times = points.map((p) => p.time);
   const positions = points.map((p) => toNormalized(p.value, spec.min, spec.max, scale));
   let i = 0;
   while (i < times.length - 2 && times[i + 1]! <= time) i++;
-  const v = fromNormalized(positionAt(times, positions, time, i, step > 0), spec.min, spec.max, scale);
-  return step > 0 ? quantize(v, step, spec.min) : v;
+  const v = fromNormalized(positionAt(times, positions, time, i, hold), spec.min, spec.max, scale);
+  return hold ? quantize(v, spec.step!, spec.min) : v;
 }
 
 /**
@@ -239,4 +248,92 @@ export function removePoint(lane: AutomationLane, index: number): void {
 export function removeModuleTimeline(patch: Patch, module: string): void {
   patch.clips = patch.clips.filter((c) => c.module !== module);
   patch.lanes = patch.lanes.filter((l) => l.module !== module);
+}
+
+// ---------- Recording automation ----------
+
+/**
+ * Gap in beats between a recorded stretch and the old line around it: the old line runs on until
+ * just before the recording starts and resumes just after it ends.
+ */
+export const RECORD_GUARD = 1 / 16;
+
+/**
+ * A recorded movement with only the points needed to draw it: points that lie within `tolerance`
+ * (a share of the knob's travel) of the straight line between their neighbours are dropped.
+ * Choices and switches keep only the points where the value changes. Samples must be sorted by time.
+ */
+export function thinPoints(spec: ParamSpec, samples: readonly AutomationPoint[], tolerance = 0.005): AutomationPoint[] {
+  if (samples.length <= 2) return samples.map((p) => ({ ...p }));
+  if (holdsSteps(spec)) {
+    const kept = [samples[0]!];
+    for (let i = 1; i < samples.length; i++) {
+      if (samples[i]!.value !== kept[kept.length - 1]!.value) kept.push(samples[i]!);
+    }
+    const last = samples[samples.length - 1]!;
+    if (kept[kept.length - 1] !== last) kept.push(last);
+    return kept.map((p) => ({ ...p }));
+  }
+  const scale = spec.scale ?? 'linear';
+  const pos = samples.map((p) => toNormalized(p.value, spec.min, spec.max, scale));
+  // A knob that turns in steps records as a staircase: allow one step, so a steady turn becomes
+  // one smooth slope.
+  const step = spec.step ?? 0;
+  if (step > 0) tolerance = Math.max(tolerance, step / (spec.max - spec.min));
+  const keep = new Uint8Array(samples.length);
+  keep[0] = 1;
+  keep[samples.length - 1] = 1;
+  // Ramer–Douglas–Peucker, measuring the vertical distance (knob travel) to the line.
+  const stack: [number, number][] = [[0, samples.length - 1]];
+  while (stack.length > 0) {
+    const [a, b] = stack.pop()!;
+    const ta = samples[a]!.time;
+    const span = samples[b]!.time - ta;
+    let worst = -1;
+    let worstDist = tolerance;
+    for (let i = a + 1; i < b; i++) {
+      const f = span > 0 ? (samples[i]!.time - ta) / span : 0;
+      const d = Math.abs(pos[i]! - (pos[a]! + f * (pos[b]! - pos[a]!)));
+      if (d > worstDist) {
+        worstDist = d;
+        worst = i;
+      }
+    }
+    if (worst >= 0) {
+      keep[worst] = 1;
+      stack.push([a, worst], [worst, b]);
+    }
+  }
+  return samples.filter((_, i) => keep[i]).map((p) => ({ ...p }));
+}
+
+/**
+ * The points of a lane after recording over `start`…`end`: the old points (`base`) outside that
+ * stretch stay, the recorded `samples` replace the ones inside it, and a point just before and
+ * just after keeps the old line as it was around the recording. A lane without old points keeps
+ * the control's own value (`own`) before the recording and the last recorded value after it.
+ */
+export function punchIn(
+  spec: ParamSpec,
+  base: readonly AutomationPoint[],
+  start: number,
+  end: number,
+  samples: readonly AutomationPoint[],
+  own: number,
+): AutomationPoint[] {
+  if (samples.length === 0) return base.map((p) => ({ ...p }));
+  const from = start - RECORD_GUARD;
+  const to = end + RECORD_GUARD;
+  const out: AutomationPoint[] = [];
+  for (const p of base) if (p.time < from) out.push({ ...p });
+  if (from > 0) {
+    const before = base.length > 0 ? laneValueAt(spec, base, from)! : own;
+    out.push({ time: from, value: before });
+  }
+  for (const p of samples) out.push({ ...p });
+  if (base.length > 0) {
+    out.push({ time: to, value: laneValueAt(spec, base, to)! });
+    for (const p of base) if (p.time > to) out.push({ ...p });
+  }
+  return out;
 }

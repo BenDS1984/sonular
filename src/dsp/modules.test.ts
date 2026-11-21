@@ -152,6 +152,34 @@ describe('Oscillator', () => {
     expect(peak).toBeLessThanOrEqual(0.7001);
   });
 
+  it('plays Tune between semitones, so automation can glide it', () => {
+    const osc = load('osc');
+    osc.setParam('wave', WAVES.sine);
+    osc.setParam('tune', 3.5);
+    expect(estimateFrequency(render(osc, 1).subarray(SR / 2))).toBeCloseTo(261.6256 * 2 ** (3.5 / 12), 0);
+  });
+
+  it('glides Tune without clicks when automation moves it every block', () => {
+    const osc = load('osc');
+    osc.setParam('wave', WAVES.sine);
+    const pitch = new Float32Array(BLOCK_SIZE);
+    const out = new Float32Array(BLOCK_SIZE);
+    for (let b = 0; b < 100; b++) osc.process([pitch], [true], [out], BLOCK_SIZE);
+    let prev = out[BLOCK_SIZE - 1]!;
+    let worst = 0;
+    const blocks = Math.round(SR / BLOCK_SIZE); // one second: C4 up an octave and back
+    for (let b = 0; b < blocks; b++) {
+      osc.setParam('tune', 12 * Math.sin((Math.PI * b) / blocks));
+      osc.process([pitch], [true], [out], BLOCK_SIZE);
+      for (const v of out) {
+        worst = Math.max(worst, Math.abs(v - prev));
+        prev = v;
+      }
+    }
+    // A clean sine at level 0.7 up to C5 never steps more than 2π·523·0.7/sr ≈ 0.048 per sample.
+    expect(worst).toBeLessThan(0.05);
+  });
+
   it('refuses metadata that does not belong to its code', () => {
     const osc = program('osc');
     const mixerMeta = program('mixer').meta;

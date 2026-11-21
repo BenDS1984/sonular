@@ -45,6 +45,23 @@ function bufferFromUrl(): BufferSize {
  */
 export const transportState = $state({ start: 0 });
 
+/** When `engineState.beat` was last updated (performance.now()). */
+let beatAt = 0;
+
+/**
+ * The song position right now, in beats: the last reported position moved on by the time since
+ * then (positions arrive every 50 ms), wrapped round the loop. Not reactive.
+ */
+export function currentBeat(): number {
+  if (!engineState.playing) return engineState.beat;
+  let b = engineState.beat + (Math.min(200, performance.now() - beatAt) / 60000) * project.tempo;
+  const loop = project.timeline.loop;
+  if (loop.on && loop.end > loop.start && engineState.beat < loop.end && b >= loop.end) {
+    b = loop.start + ((b - loop.end) % (loop.end - loop.start));
+  }
+  return b;
+}
+
 /** Put the playhead somewhere; while playing, playback jumps there. */
 export function setPlayhead(beat: number) {
   const b = Number.isFinite(beat) ? Math.max(0, beat) : 0;
@@ -52,6 +69,7 @@ export function setPlayhead(beat: number) {
   if (engineState.playing) {
     audio.locate(b);
     engineState.beat = b;
+    beatAt = performance.now();
   }
 }
 
@@ -87,6 +105,7 @@ export const audio = new AudioEngine(
       engineState.processed = s.processed;
       engineState.sleeping = s.sleeping;
       engineState.beat = s.beat;
+      beatAt = performance.now();
       engineState.statsTick++;
       if (cpuHistory.add(performance.now() / 1000, s.cpu, engineState.playing)) cpuHistoryState.version++;
       let i = 0;
@@ -288,5 +307,6 @@ export async function togglePlay(): Promise<void> {
   }
   audio.setRunning(true, transportState.start);
   engineState.beat = transportState.start;
+  beatAt = performance.now();
   engineState.playing = true;
 }

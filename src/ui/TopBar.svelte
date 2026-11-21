@@ -12,6 +12,7 @@
   import { interaction, closeBrowser, openBrowser } from './workspace/interaction.svelte';
   import { dialogs } from './dialogs.svelte';
   import { view } from './view.svelte';
+  import { automationRecording, toggleAutomationRecording } from './recordAutomation.svelte';
 
   // ---------- New project (with confirmation when there is something to lose) ----------
 
@@ -175,6 +176,19 @@
         {/if}
       </svg>
       {playLabel}
+    </button>
+    <button
+      class="pill auto-rec"
+      class:armed={automationRecording.armed}
+      type="button"
+      title={automationRecording.armed
+        ? 'Recording automation: turn a knob while the song plays to record its movement. Click to stop recording.'
+        : 'Record automation: when on, turning a knob while the song plays records its movement on the timeline.'}
+      aria-pressed={automationRecording.armed}
+      onclick={toggleAutomationRecording}
+    >
+      <span class="rec-dot" aria-hidden="true"></span>
+      Automation
     </button>
     <TempoField value={project.tempo} onchange={(bpm) => (project.tempo = bpm)} />
     <span class="pill readout position" title="Position (bar.beat.sixteenth)">{position}</span>
@@ -431,6 +445,23 @@
   .play.playing {
     background: var(--signal-audio-bg);
     color: var(--signal-audio-soft);
+  }
+  .auto-rec {
+    gap: 6px;
+  }
+  .rec-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1.5px solid var(--danger);
+  }
+  .auto-rec.armed {
+    border-color: var(--danger);
+    color: var(--text-strong);
+    background: var(--danger-bg);
+  }
+  .auto-rec.armed .rec-dot {
+    background: var(--danger);
   }
   .play:disabled {
     cursor: progress;
