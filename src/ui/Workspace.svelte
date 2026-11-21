@@ -13,6 +13,7 @@
   import CableLayer from './workspace/CableLayer.svelte';
   import ModuleBrowser from './workspace/ModuleBrowser.svelte';
   import ZoomControls from './workspace/ZoomControls.svelte';
+  import SyncSwitch from './workspace/SyncSwitch.svelte';
   import Minimap from './workspace/Minimap.svelte';
   import { prefs } from './prefs.svelte';
   import { addModule, canvasState, deleteSelection, fitAll, isPatchEmpty, patch } from '../patch/patch.svelte';
@@ -269,6 +270,8 @@
   {#if prefs.minimap && patch.modules.length > 0}
     <Minimap />
   {/if}
+
+  <SyncSwitch />
 
   <ZoomControls
     zoom={view.zoom}
