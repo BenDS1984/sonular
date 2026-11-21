@@ -25,6 +25,10 @@ import {
   RECORD_GUARD,
   thinPoints,
   holdsSteps,
+  moveGroup,
+  removePoints,
+  copyPoints,
+  pastePoints,
 } from './timeline';
 import type { Patch } from './types';
 
@@ -267,5 +271,66 @@ describe('stepped knobs in automation', () => {
     const thin = thinPoints(tune, samples);
     expect(thin.length).toBeLessThanOrEqual(4);
     for (const p of samples) expect(Math.abs(laneValueAt(tune, thin, p.time)! - p.value)).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('several points at once', () => {
+  const lin = { id: 'level', label: 'Level', min: 0, max: 1, default: 0 };
+  const tune = { id: 'tune', label: 'Tune', min: -24, max: 24, default: 0, step: 1, format: 'semitones' as const };
+  const lane = () => ({
+    module: 'm',
+    param: 'level',
+    points: [
+      { time: 0, value: 0 },
+      { time: 2, value: 0.2 },
+      { time: 3, value: 0.4 },
+      { time: 6, value: 0.6 },
+    ],
+  });
+
+  it('moves selected points together, in time and height', () => {
+    const l = lane();
+    moveGroup(lin, l, lane().points, [1, 2], 1, 0.1);
+    expect(l.points.map((p) => p.time)).toEqual([0, 3, 4, 6]);
+    expect(l.points.map((p) => +p.value.toFixed(6))).toEqual([0, 0.3, 0.5, 0.6]);
+  });
+
+  it('keeps moved points between the ones not selected and inside the range', () => {
+    const l = lane();
+    moveGroup(lin, l, lane().points, [1, 2], 10, 0.7);
+    // Stopped by the point at beat 6; heights clamp at the top one by one.
+    expect(l.points.map((p) => p.time)).toEqual([0, 5, 6, 6]);
+    expect(l.points.map((p) => +p.value.toFixed(6))).toEqual([0, 0.9, 1, 0.6]);
+    moveGroup(lin, l, lane().points, [0, 1], -5, 0);
+    expect(l.points.map((p) => p.time)).toEqual([0, 2, 3, 6]); // not before the start
+  });
+
+  it('snaps moved points of a stepped knob to its steps', () => {
+    const l = { module: 'm', param: 'tune', points: [{ time: 0, value: 0 }, { time: 4, value: 12 }] };
+    moveGroup(tune, l, l.points.map((p) => ({ ...p })), [0, 1], 0, 0.051);
+    expect(l.points.map((p) => p.value)).toEqual([2, 14]);
+  });
+
+  it('removes several points at once', () => {
+    const l = lane();
+    removePoints(l, [0, 2]);
+    expect(l.points.map((p) => p.time)).toEqual([2, 6]);
+  });
+
+  it('copies points as a shape and pastes it at another time, replacing what was there', () => {
+    const copied = copyPoints(lin, lane().points, [2, 1]);
+    expect(copied).toEqual([{ time: 0, position: 0.2 }, { time: 1, position: 0.4 }]);
+    const l = lane();
+    const pasted = pastePoints(lin, l, copied, 5.5);
+    // The point at beat 6 lies inside the pasted stretch (5.5–6.5), so it is replaced.
+    expect(l.points.map((p) => p.time)).toEqual([0, 2, 3, 5.5, 6.5]);
+    expect(pasted).toEqual([3, 4]);
+  });
+
+  it('pastes the same shape in the range of another control', () => {
+    const copied = copyPoints(lin, lane().points, [0, 3]); // bottom to 60 %
+    const l = { module: 'm', param: 'tune', points: [] as { time: number; value: number }[] };
+    pastePoints(tune, l, copied, 8);
+    expect(l.points).toEqual([{ time: 8, value: -24 }, { time: 14, value: 5 }]);
   });
 });

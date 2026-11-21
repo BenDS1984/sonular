@@ -3,18 +3,24 @@
   Height is the knob's position (bottom = minimum, top = maximum), so a straight line is the knob
   turning evenly. Choices and switches hold each point until the next; knobs that turn in steps
   (Tune) glide between points, which snap to the steps.
-  - click on the lane to add a point (keep the button down to drag it into place)
-  - drag a point to move it; it snaps to the grid, hold Alt for sixteenths; it stays between its
-    neighbours
-  - double-click a point, or select it and press Delete, to remove it
+  - double-click an empty spot to add a point; double-click a point to remove it
+  - click a point to select it, Shift+click to add it to the selection or take it out
+  - drag on an empty spot to select the points in a box (Shift adds to the selection); a click on
+    an empty spot clears the selection
+  - drag a selected point to move all selected points; the grabbed point snaps to the grid (Alt
+    for sixteenths); they keep their order and stay between the points not selected
+  - Ctrl+A selects all points, Delete removes the selection, Escape clears it
+  - Ctrl+C copies the selection, Ctrl+V pastes it at the playhead, replacing the points there
   - pointing at a point, or dragging it, shows its value and position next to it
 -->
 <script lang="ts">
+  import { currentBeat, engineState, transportState } from '../../engine/engine.svelte';
   import { paramFormatter } from '../../modules/paramFormat';
   import type { ParamSpec } from '../../modules/types';
-  import { addPoint, holdsSteps, movePoint, removePoint } from '../../patch/timeline';
-  import type { AutomationLane } from '../../patch/types';
+  import { addPoint, copyPoints, holdsSteps, moveGroup, pastePoints, removePoint, removePoints } from '../../patch/timeline';
+  import type { AutomationLane, AutomationPoint } from '../../patch/types';
   import { fromNormalized, quantize, toNormalized } from '../scale';
+  import { laneClipboard } from './laneClipboard';
   import { formatPosition, snap, snapUnit } from './timelineGeometry';
 
   interface Props {
@@ -33,6 +39,8 @@
 
   const PAD = 6;
   const R = 4;
+  /** A press that moves less than this (px) is a click, not a box. */
+  const CLICK_SLOP = 3;
 
   const scale = $derived(spec.scale ?? 'linear');
   const step = $derived(spec.step ?? 0);
@@ -46,7 +54,7 @@
     return step > 0 ? quantize(v, step, spec.min) : v;
   };
 
-  /** The line: flat before the first point and after the last, steps for stepped controls. */
+  /** The line: flat before the first point and after the last, steps for choices and switches. */
   const path = $derived.by(() => {
     const pts = lane.points;
     if (pts.length === 0) return '';
@@ -60,15 +68,22 @@
     return `${d} H${width}`;
   });
 
+  type Drag =
+    | { kind: 'move'; grab: number; from: AutomationPoint[]; x0: number; y0: number }
+    | { kind: 'box'; x0: number; y0: number; x1: number; y1: number; base: number[] };
+
   let svg: SVGSVGElement | undefined = $state();
-  let selected = $state(-1);
-  let dragging = $state(-1);
+  /** Indices of the selected points. */
+  let selection: number[] = $state([]);
+  let drag = $state<Drag | null>(null);
   let hovered = $state(-1);
+  /** The point the last press was on (-1: an empty spot), for the double-click. */
+  let lastDown = -1;
 
   const LABEL_H = 16;
   /** The value label: for the point being dragged, else the one pointed at. */
   const label = $derived.by(() => {
-    const i = dragging >= 0 ? dragging : hovered;
+    const i = drag?.kind === 'move' ? drag.grab : drag ? -1 : hovered;
     const pt = lane.points[i];
     if (!pt) return null;
     const text = `${format(pt.value)} · ${formatPosition(pt.time)}`;
@@ -79,15 +94,29 @@
     return { text, x: x + 8, y: top, w: text.length * 6.7 + 10 };
   });
 
-  function local(e: PointerEvent | MouseEvent) {
+  const box = $derived(
+    drag?.kind === 'box'
+      ? {
+          x: Math.min(drag.x0, drag.x1),
+          y: Math.min(drag.y0, drag.y1),
+          w: Math.abs(drag.x1 - drag.x0),
+          h: Math.abs(drag.y1 - drag.y0),
+        }
+      : null,
+  );
+
+  function raw(e: MouseEvent) {
     const r = svg!.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: Math.min(height - PAD, Math.max(PAD, e.clientY - r.top)) };
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
 
-  const timeAt = (e: PointerEvent, x: number) => {
-    const unit = e.altKey ? 0.25 : snapUnit(ppb);
-    return Math.max(0, snap(x / ppb, unit));
-  };
+  function local(e: MouseEvent) {
+    const { x, y } = raw(e);
+    return { x, y: Math.min(height - PAD, Math.max(PAD, y)) };
+  }
+
+  const unitOf = (e: MouseEvent) => (e.altKey ? 0.25 : snapUnit(ppb));
+  const timeAt = (e: MouseEvent, x: number) => Math.max(0, snap(x / ppb, unitOf(e)));
 
   function onpointerdown(e: PointerEvent) {
     if (e.button !== 0) return;
@@ -95,47 +124,102 @@
     e.stopPropagation();
     svg?.focus({ preventScroll: true });
     const target = (e.target as Element).closest<SVGElement>('[data-point]');
-    const { x, y } = local(e);
-    let index: number;
+    const { x, y } = raw(e);
     if (target) {
-      index = Number(target.dataset['point']);
+      const i = Number(target.dataset['point']);
+      lastDown = i;
+      if (e.shiftKey) {
+        selection = selection.includes(i) ? selection.filter((k) => k !== i) : [...selection, i];
+        return;
+      }
+      if (!selection.includes(i)) selection = [i];
+      drag = { kind: 'move', grab: i, from: lane.points.map((p) => ({ ...p })), x0: x, y0: y };
     } else {
-      index = addPoint(lane, timeAt(e, x), valueAtY(y));
+      lastDown = -1;
+      drag = { kind: 'box', x0: x, y0: y, x1: x, y1: y, base: e.shiftKey ? [...selection] : [] };
     }
-    selected = index;
-    dragging = index;
     svg!.setPointerCapture(e.pointerId);
   }
 
   function onpointermove(e: PointerEvent) {
-    if (dragging < 0) {
+    if (!drag) {
       const target = (e.target as Element).closest<SVGElement>('[data-point]');
       hovered = target ? Number(target.dataset['point']) : -1;
       return;
     }
-    const { x, y } = local(e);
-    movePoint(lane, dragging, timeAt(e, x), valueAtY(y));
+    const { x, y } = raw(e);
+    if (drag.kind === 'move') {
+      // The grabbed point lands on the grid; the others move by the same amount.
+      const t0 = drag.from[drag.grab]!.time;
+      const dt = Math.max(0, snap(t0 + (x - drag.x0) / ppb, unitOf(e))) - t0;
+      const dpos = -(y - drag.y0) / (height - 2 * PAD);
+      moveGroup(spec, lane, drag.from, selection, dt, dpos);
+      return;
+    }
+    drag.x1 = x;
+    drag.y1 = y;
+    const x0 = Math.min(drag.x0, x);
+    const x1 = Math.max(drag.x0, x);
+    const y0 = Math.min(drag.y0, y);
+    const y1 = Math.max(drag.y0, y);
+    const inside: number[] = [];
+    lane.points.forEach((p, i) => {
+      const px = p.time * ppb;
+      const py = yOf(p.value);
+      if (px >= x0 && px <= x1 && py >= y0 && py <= y1) inside.push(i);
+    });
+    selection = [...new Set([...drag.base, ...inside])];
   }
 
   function onpointerup() {
-    dragging = -1;
+    if (drag?.kind === 'box') {
+      const click = Math.abs(drag.x1 - drag.x0) < CLICK_SLOP && Math.abs(drag.y1 - drag.y0) < CLICK_SLOP;
+      if (click) selection = [...drag.base];
+    }
+    drag = null;
   }
 
-  // The lane captures the pointer on pointerdown (for dragging), so the browser sends the
-  // double-click to the lane, not to the point: remove the point the first click selected.
+  // The lane captures the pointer on pointerdown, so the browser sends the double-click to the
+  // lane, not to the point: use the point the press was on.
   function ondblclick(e: MouseEvent) {
     e.stopPropagation();
-    if (selected < 0) return;
-    removePoint(lane, selected);
-    selected = -1;
+    if (lastDown >= 0) {
+      removePoint(lane, lastDown);
+      selection = [];
+      lastDown = -1;
+      return;
+    }
+    const { x, y } = local(e);
+    selection = [addPoint(lane, timeAt(e, x), valueAtY(y))];
+  }
+
+  /** Where Ctrl+V pastes: the playhead (where the song is while playing), on the grid. */
+  function pasteAt() {
+    const beat = engineState.playing ? currentBeat() : transportState.start;
+    return Math.max(0, snap(beat, snapUnit(ppb)));
   }
 
   function onkeydown(e: KeyboardEvent) {
-    if ((e.key === 'Delete' || e.key === 'Backspace') && selected >= 0) {
+    const mod = e.ctrlKey || e.metaKey;
+    const key = e.key.toLowerCase();
+    let handled = true;
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selection.length > 0) {
+      removePoints(lane, selection);
+      selection = [];
+    } else if (e.key === 'Escape' && selection.length > 0) {
+      selection = [];
+    } else if (mod && key === 'a') {
+      selection = lane.points.map((_, i) => i);
+    } else if (mod && key === 'c' && selection.length > 0) {
+      laneClipboard.points = copyPoints(spec, lane.points, selection);
+    } else if (mod && key === 'v' && laneClipboard.points.length > 0) {
+      selection = pastePoints(spec, lane, laneClipboard.points, pasteAt());
+    } else {
+      handled = false;
+    }
+    if (handled) {
       e.preventDefault();
       e.stopPropagation();
-      removePoint(lane, selected);
-      selected = -1;
     }
   }
 </script>
@@ -157,19 +241,22 @@
   onpointerleave={() => (hovered = -1)}
   {ondblclick}
   {onkeydown}
-  onblur={() => (selected = -1)}
+  onblur={() => (selection = [])}
 >
   <path class="line" d={path} />
   {#each lane.points as pt, i (i)}
     <circle
       class="point"
-      class:selected={i === selected}
+      class:selected={selection.includes(i)}
       data-point={i}
       cx={pt.time * ppb}
       cy={yOf(pt.value)}
       r={R}
     />
   {/each}
+  {#if box}
+    <rect class="box" x={box.x} y={box.y} width={box.w} height={box.h} />
+  {/if}
   {#if label}
     <g class="value-label" transform={`translate(${label.x} ${label.y})`} aria-hidden="true">
       <rect width={label.w} height={LABEL_H} rx="3" />
@@ -198,6 +285,13 @@
   .point:hover,
   .point.selected {
     fill: var(--lane-color);
+  }
+  .box {
+    fill: color-mix(in srgb, var(--lane-color) 15%, transparent);
+    stroke: var(--lane-color);
+    stroke-width: 1;
+    stroke-dasharray: 3 2;
+    pointer-events: none;
   }
   .value-label {
     pointer-events: none;

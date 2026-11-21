@@ -115,7 +115,10 @@ All tests render offline; never play sound unless the user asks.
      the user's downloads. Test the file contents in unit tests instead, and ask the user to try
      the button.
 4. Stop, restore: `localStorage.setItem('sonular.autosave', sessionStorage.getItem('backup'))`,
-   reload, confirm the original modules and cables are back. Clear test data that would make the
+   reload, confirm the original modules and cables are back. The app may autosave the live
+   project while unloading and overwrite the restored copy: if test modules are still there after
+   the reload, remove them from `__sonular.project` directly and compare the autosave with the
+   backup. Clear test data that would make the
    page ask before leaving (e.g. an unsaved recording) before reloading.
 5. Check console errors and `preview_logs` (errors from before a file existed are stale).
 

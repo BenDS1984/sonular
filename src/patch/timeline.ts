@@ -337,3 +337,86 @@ export function punchIn(
   }
   return out;
 }
+
+// ---------- Several points at once ----------
+
+/**
+ * Move selected points of a lane together, from where they were when the drag started (`from`,
+ * the lane's points then): `dt` beats later and `dpos` of the knob's travel higher. The move in
+ * time is limited so the points keep their order and stay between the points not selected; each
+ * point's height is limited to the knob's range, and snaps to its steps.
+ */
+export function moveGroup(
+  spec: ParamSpec,
+  lane: AutomationLane,
+  from: readonly AutomationPoint[],
+  selected: readonly number[],
+  dt: number,
+  dpos: number,
+): void {
+  const sel = new Set(selected.filter((i) => i >= 0 && i < from.length));
+  if (sel.size === 0) return;
+  let lo = -Infinity;
+  let hi = Infinity;
+  for (const i of sel) {
+    const t = from[i]!.time;
+    lo = Math.max(lo, sel.has(i - 1) ? -Infinity : i > 0 ? from[i - 1]!.time - t : -t);
+    hi = Math.min(hi, sel.has(i + 1) ? Infinity : i < from.length - 1 ? from[i + 1]!.time - t : MAX_BEATS - t);
+  }
+  const shift = Math.min(hi, Math.max(lo, dt));
+  const scale = spec.scale ?? 'linear';
+  const step = spec.step ?? 0;
+  lane.points = from.map((p, i) => {
+    if (!sel.has(i)) return { ...p };
+    const pos = Math.min(1, Math.max(0, toNormalized(p.value, spec.min, spec.max, scale) + dpos));
+    const v = fromNormalized(pos, spec.min, spec.max, scale);
+    return { time: p.time + shift, value: step > 0 ? quantize(v, step, spec.min) : v };
+  });
+}
+
+/** Remove several points of a lane at once. */
+export function removePoints(lane: AutomationLane, indices: readonly number[]): void {
+  const drop = new Set(indices);
+  lane.points = lane.points.filter((_, i) => !drop.has(i));
+}
+
+/**
+ * Copied points: times from the first copied point, heights as knob positions, so they can be
+ * pasted onto any control (the same shape, in that control's range).
+ */
+export interface CopiedPoint {
+  time: number;
+  position: number;
+}
+
+export function copyPoints(spec: ParamSpec, points: readonly AutomationPoint[], indices: readonly number[]): CopiedPoint[] {
+  const scale = spec.scale ?? 'linear';
+  const picked = [...new Set(indices)]
+    .filter((i) => i >= 0 && i < points.length)
+    .sort((a, b) => a - b)
+    .map((i) => points[i]!);
+  if (picked.length === 0) return [];
+  const t0 = picked[0]!.time;
+  return picked.map((p) => ({ time: p.time - t0, position: toNormalized(p.value, spec.min, spec.max, scale) }));
+}
+
+/**
+ * Paste copied points into a lane from beat `at`: they replace the lane's points in the stretch
+ * they cover. Returns the indices of the pasted points (to select them).
+ */
+export function pastePoints(spec: ParamSpec, lane: AutomationLane, copied: readonly CopiedPoint[], at: number): number[] {
+  if (copied.length === 0) return [];
+  const scale = spec.scale ?? 'linear';
+  const step = spec.step ?? 0;
+  const start = Math.max(0, at);
+  const end = start + copied[copied.length - 1]!.time;
+  const pasted = copied
+    .map((c) => {
+      const v = fromNormalized(Math.min(1, Math.max(0, c.position)), spec.min, spec.max, scale);
+      return { time: Math.min(MAX_BEATS, start + c.time), value: step > 0 ? quantize(v, step, spec.min) : v };
+    });
+  const before = lane.points.filter((p) => p.time < start);
+  const after = lane.points.filter((p) => p.time > end);
+  lane.points = [...before.map((p) => ({ ...p })), ...pasted, ...after.map((p) => ({ ...p }))];
+  return pasted.map((_, k) => before.length + k);
+}
