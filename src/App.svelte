@@ -7,6 +7,7 @@
   import { view } from './ui/view.svelte';
   import Gallery from './ui/gallery/Gallery.svelte';
   import Toasts from './ui/Toasts.svelte';
+  import ControlMenu from './ui/ControlMenu.svelte';
   import SaveDialog from './ui/SaveDialog.svelte';
   import WelcomeDialog from './ui/WelcomeDialog.svelte';
   import { dialogs } from './ui/dialogs.svelte';
@@ -42,6 +43,7 @@
   <SaveDialog />
   <WelcomeDialog />
   <Toasts />
+  <ControlMenu />
   <UpdateBanner />
 {/if}
 

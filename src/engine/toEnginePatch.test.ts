@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ModuleDefinition } from '../modules/types';
 import { emptyTimeline } from '../patch/timeline';
 import type { Patch, Project } from '../patch/types';
-import { audiblePatches, engineClips, toEnginePatch } from './toEnginePatch';
+import { audiblePatches, engineClips, engineLanes, toEnginePatch } from './toEnginePatch';
 
 const def = (type: string, inputs: string[], outputs: string[]): ModuleDefinition => ({
   type,
@@ -41,6 +41,33 @@ const project = (...patches: Patch[]): Project => ({
   patches,
   activePatch: patches[0]!.id,
   timeline: emptyTimeline(),
+});
+
+describe('automation lanes for the engine', () => {
+  const lvl = { ...def('osc', [], ['out']), params: [{ id: 'level', label: 'Level', min: 0, max: 2, default: 1 }] };
+  const getLvl = (t: string) => (t === 'osc' ? lvl : getDef(t));
+  const withLane = (id: string) => {
+    const p = patch(id);
+    p.lanes = [
+      { module: 'osc1', param: 'level', points: [{ time: 4, value: 2 }, { time: 0, value: 1 }] },
+      { module: 'osc1', param: 'gone', points: [{ time: 0, value: 1 }] },
+    ];
+    return p;
+  };
+
+  it('sends points sorted, as knob positions, and skips controls that do not exist', () => {
+    const lanes = engineLanes(project(withLane('p1')), getLvl);
+    expect(lanes).toEqual([
+      { node: 'p1/osc1', param: 'level', times: [0, 4], positions: [0.5, 1], min: 0, max: 2, scale: 'linear', step: 0 },
+    ]);
+  });
+
+  it('leaves out Free patches and controls the user took over', () => {
+    const free = withLane('p2');
+    free.free = true;
+    expect(engineLanes(project(withLane('p1'), free), getLvl).map((l) => l.node)).toEqual(['p1/osc1']);
+    expect(engineLanes(project(withLane('p1')), getLvl, { 'p1/osc1:level': true })).toEqual([]);
+  });
 });
 
 describe('project to engine graph', () => {

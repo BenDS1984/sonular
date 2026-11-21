@@ -9,4 +9,6 @@ export const timelineView = $state({
   ppb: DEFAULT_PPB,
   scrollLeft: 0,
   scrollTop: 0,
+  /** Patches whose automation lanes are folded away, by patch id. */
+  folded: {} as Record<string, boolean>,
 });

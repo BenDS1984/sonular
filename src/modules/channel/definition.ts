@@ -21,8 +21,9 @@ export const channel: ModuleDefinition = {
   params: [
     { id: 'level', label: 'Level', min: 0, max: 2, default: CHANNEL_DEFAULT_LEVEL, format: 'gain-db' },
     { id: 'pan', label: 'Pan', min: -1, max: 1, default: 0, bipolar: true, format: 'pan' },
-    { id: 'mute', label: 'Mute', min: 0, max: 1, default: 0, step: 1, format: 'toggle' },
-    { id: 'solo', label: 'Solo', min: 0, max: 1, default: 0, step: 1, format: 'toggle' },
+    // Mute and solo decide which patches are heard on the main thread, not in the engine.
+    { id: 'mute', label: 'Mute', min: 0, max: 1, default: 0, step: 1, format: 'toggle', automatable: false },
+    { id: 'solo', label: 'Solo', min: 0, max: 1, default: 0, step: 1, format: 'toggle', automatable: false },
     // Sends do nothing yet: they will feed the effect channels.
     { id: 'send1', label: 'Send 1', min: 0, max: 1, default: 0, format: 'gain-db' },
     { id: 'send2', label: 'Send 2', min: 0, max: 1, default: 0, format: 'gain-db' },

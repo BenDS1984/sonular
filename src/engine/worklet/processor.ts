@@ -109,6 +109,9 @@ class SonularProcessor extends AudioWorkletProcessor {
       case 'clips':
         this.engine?.setClips(msg.node, msg.clips);
         break;
+      case 'automation':
+        this.engine?.setAutomation(msg.lanes);
+        break;
       case 'tempo':
         this.engine?.setTempo(msg.bpm);
         break;

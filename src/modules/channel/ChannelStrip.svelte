@@ -9,6 +9,7 @@
   import Meter from '../../ui/components/Meter.svelte';
   import Toggle from '../../ui/components/Toggle.svelte';
   import ParamKnob from '../ParamKnob.svelte';
+  import { isAutomated, isOverridden, openControlMenu, setControl, shownValue } from '../../ui/automation.svelte';
   import type { ModuleInstance, Patch } from '../../patch/types';
   import { CHANNEL_COLORS, channelColor } from '../../ui/channelColors';
   import type { ModuleDefinition } from '../types';
@@ -126,7 +127,21 @@
       <Meter level={meterR} height={METER_HEIGHT} width={8} label="Channel right" faderScale bind:clipped={clipR} onresetclip={resetClip} />
     </div>
     <div class="fader">
-      <Fader bind:value={module.params['level']!} defaultValue={levelSpec.default} max={levelSpec.max} height={METER_HEIGHT} />
+      <!-- svelte-ignore a11y_no_static_element_interactions (right-click menu; keyboard users reach automation from the timeline) -->
+      <div
+        class="fader-wrap"
+        class:automated={isAutomated(module, 'level')}
+        class:overridden={isAutomated(module, 'level') && isOverridden(module, 'level')}
+        oncontextmenu={(e) => openControlMenu(e, module, 'level', `${target.name} · ${levelSpec.label}`)}
+      >
+        <Fader
+          value={shownValue(module, 'level')}
+          onchange={(v) => setControl(module, 'level', v)}
+          defaultValue={levelSpec.default}
+          max={levelSpec.max}
+          height={METER_HEIGHT}
+        />
+      </div>
     </div>
   </div>
 
@@ -257,5 +272,16 @@
   .sends {
     padding-top: var(--space-2);
     border-top: 1px solid var(--border-subtle);
+  }
+  .fader-wrap {
+    display: contents;
+  }
+  .fader-wrap.automated :global(.fader) {
+    border-radius: var(--radius-sm);
+    box-shadow: 0 0 0 2px var(--automation);
+  }
+  .fader-wrap.overridden :global(.fader) {
+    box-shadow: none;
+    outline: 2px dashed var(--automation);
   }
 </style>

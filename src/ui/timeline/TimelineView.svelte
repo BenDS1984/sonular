@@ -34,8 +34,13 @@
     renameModule,
     MIN_CLIP_LENGTH,
     removeClip,
+    removeLane,
+    addAutomation,
+    laneOf,
   } from '../../patch/timeline';
-  import type { Clip, Patch } from '../../patch/types';
+  import { overrideKey, overrides } from '../../engine/overrides.svelte';
+  import type { AutomationLane, Clip, Patch } from '../../patch/types';
+  import AutomationLaneRow from './AutomationLaneRow.svelte';
   import { clearClipSelection, clipSelection, isClipSelected, selectClip } from './clipSelection.svelte';
   import { bankColor } from '../../modules/sequencer/bankClipboard.svelte';
   import { bankLetter } from '../../modules/sequencer/banks';
@@ -59,6 +64,7 @@
   const EMPTY_H = 28;
   const LOOP_H = 14;
   const EDGE_PX = 6;
+  const LANE_H = 52;
 
   // ---------- Tracks ----------
   const tracks = $derived(
@@ -71,9 +77,46 @@
         })
         // In order of their numbers, so a renamed sequencer keeps its place.
         .sort((a, b) => a.numbered.localeCompare(b.numbered, undefined, { numeric: true }));
-      return { patch, rows };
+      // Automation lanes, in module order, then in the order of the module's controls.
+      const lanes = patch.lanes
+        .map((lane) => {
+          const mi = patch.modules.findIndex((m) => m.id === lane.module);
+          const module = patch.modules[mi];
+          const def = module && getDefinition(module.type);
+          const pi = def ? def.params.findIndex((s) => s.id === lane.param) : -1;
+          if (!module || !def || pi < 0) return null;
+          return { lane, module, spec: def.params[pi]!, label: moduleLabel(def, module), order: mi * 1000 + pi };
+        })
+        .filter((l) => l !== null)
+        .sort((a, b) => a.order - b.order);
+      return { patch, rows, lanes };
     }),
   );
+
+  // Right-click menu on a lane's name.
+  let laneMenu: { x: number; y: number; patch: Patch; lane: AutomationLane } | null = $state(null);
+
+  // "+ Automation" menu of a track: every control of the patch that can be automated, by module.
+  // Sequencers are left out (their 128 step controls would bury the rest; right-click a step
+  // knob to automate it).
+  let addMenu: { x: number; y: number; patch: Patch } | null = $state(null);
+
+  function automatableControls(patch: Patch) {
+    return patch.modules
+      .map((module) => {
+        const def = getDefinition(module.type);
+        if (!def || hasBanks(def)) return null;
+        const params = def.params.filter((s) => s.automatable !== false);
+        return params.length ? { module, label: moduleLabel(def, module), params } : null;
+      })
+      .filter((g) => g !== null);
+  }
+
+  function addLane(patch: Patch, moduleId: string, param: string, value: number) {
+    addAutomation(patch, moduleId, param, value);
+    delete timelineView.folded[patch.id];
+    addMenu = null;
+  }
 
   // ---------- Size, scroll and zoom ----------
   let body: HTMLDivElement | undefined = $state();
@@ -464,6 +507,8 @@
     if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
     if (e.key === 'Escape') {
       menu = null;
+      laneMenu = null;
+      addMenu = null;
       clearClipSelection();
       return;
     }
@@ -573,7 +618,19 @@
       {#each tracks as t (t.patch.id)}
         <div class="track-head" style:--track-color={channelColor(t.patch.color)}>
           <div class="track-name" style:height={`${TRACK_H}px`} title={t.patch.name}>
-            <span class="dot" aria-hidden="true"></span>
+            {#if t.lanes.length > 0}
+              <button
+                type="button"
+                class="fold"
+                class:folded={timelineView.folded[t.patch.id]}
+                aria-expanded={!timelineView.folded[t.patch.id]}
+                aria-label={timelineView.folded[t.patch.id] ? 'Show automation' : 'Hide automation'}
+                title={timelineView.folded[t.patch.id] ? `Show automation (${t.lanes.length})` : 'Hide automation'}
+                onclick={() => (timelineView.folded[t.patch.id] = !timelineView.folded[t.patch.id])}>▾</button
+              >
+            {:else}
+              <span class="dot" aria-hidden="true"></span>
+            {/if}
             <span class="name">{t.patch.name}</span>
             <button
               type="button"
@@ -587,6 +644,17 @@
                 if (t.patch.free) delete t.patch.free;
                 else t.patch.free = true;
               }}>Free</button
+            >
+            <button
+              type="button"
+              class="add-lane"
+              aria-label={`Add automation to ${t.patch.name}`}
+              title="Add automation: choose a control of this patch"
+              aria-haspopup="menu"
+              onclick={(e) => {
+                const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                addMenu = { x: r.left, y: r.bottom + 4, patch: t.patch };
+              }}>+</button
             >
           </div>
           {#each t.rows as r (r.module.id)}
@@ -615,6 +683,38 @@
           {:else}
             <div class="row-name empty" style:height={`${EMPTY_H}px`}>No sequencer</div>
           {/each}
+          {#if !timelineView.folded[t.patch.id]}
+            {#each t.lanes as l (`${l.lane.module}:${l.lane.param}`)}
+              {@const paused = !!overrides.keys[overrideKey(t.patch.id, l.lane.module, l.lane.param)]}
+              <!-- svelte-ignore a11y_no_static_element_interactions (right-click menu; the × button is the accessible way) -->
+
+              <div
+                class="lane-name"
+                class:paused
+                class:flash={flash.row === `${t.patch.id}:${l.lane.module}`}
+                data-row={`${t.patch.id}:${l.lane.module}`}
+                style:height={`${LANE_H}px`}
+                title={`Automation: ${l.label} · ${l.spec.label}. Right-click for options.`}
+                oncontextmenu={(e) => {
+                  e.preventDefault();
+                  laneMenu = { x: e.clientX, y: e.clientY, patch: t.patch, lane: l.lane };
+                }}
+              >
+                <span class="lane-module">{l.label}</span>
+                <span class="lane-param">{l.spec.label}</span>
+                {#if paused}
+                  <span class="lane-paused" title="You turned this control: its automation pauses until the next Play">paused</span>
+                {/if}
+                <button
+                  type="button"
+                  class="lane-remove"
+                  aria-label={`Remove automation of ${l.label} ${l.spec.label}`}
+                  title="Remove automation"
+                  onclick={() => removeLane(t.patch, l.lane.module, l.lane.param)}>×</button
+                >
+              </div>
+            {/each}
+          {/if}
         </div>
       {/each}
     </div>
@@ -669,6 +769,17 @@
           {:else}
             <div class="row empty" style:height={`${EMPTY_H}px`}></div>
           {/each}
+          {#if !timelineView.folded[t.patch.id]}
+            {#each t.lanes as l (`${l.lane.module}:${l.lane.param}`)}
+              <div
+                class="lane-row"
+                class:paused={!!overrides.keys[overrideKey(t.patch.id, l.lane.module, l.lane.param)]}
+                style:height={`${LANE_H}px`}
+              >
+                <AutomationLaneRow lane={l.lane} spec={l.spec} {ppb} width={contentW} height={LANE_H - 1} color="var(--automation)" />
+              </div>
+            {/each}
+          {/if}
         </div>
       {/each}
       {#if loop.on}
@@ -703,6 +814,49 @@
     <div class="menu-sep" role="separator"></div>
     <button type="button" role="menuitem" onclick={() => copyBlock(m.patch, m.clip)}>Duplicate <kbd>Ctrl+D</kbd></button>
     <button type="button" role="menuitem" class="danger" onclick={() => deleteBlock(m.patch, m.clip)}>Delete <kbd>Del</kbd></button>
+  </div>
+{/if}
+
+{#if addMenu}
+  {@const m = addMenu}
+  {@const groups = automatableControls(m.patch)}
+  <div class="backdrop" role="presentation" onpointerdown={() => (addMenu = null)} oncontextmenu={(e) => e.preventDefault()}></div>
+  <div class="menu add-menu" role="menu" style:left={`${Math.min(m.x, innerWidth - 220)}px`} style:top={`${m.y}px`}>
+    <div class="menu-caption">Automate a control of {m.patch.name}</div>
+    {#each groups as g (g.module.id)}
+      <div class="menu-group">{g.label}</div>
+      {#each g.params as s (s.id)}
+        {@const has = !!laneOf(m.patch, g.module.id, s.id)}
+        <button
+          type="button"
+          role="menuitemcheckbox"
+          aria-checked={has}
+          class:has
+          title={has ? 'Already automated' : `Automate ${g.label} · ${s.label}`}
+          onclick={() => (has ? (addMenu = null) : addLane(m.patch, g.module.id, s.id, g.module.params[s.id] ?? s.default))}
+        >
+          <span class="check" aria-hidden="true">{has ? '✓' : ''}</span>{s.label}
+        </button>
+      {/each}
+    {:else}
+      <div class="menu-empty">This patch has no controls to automate yet.</div>
+    {/each}
+  </div>
+{/if}
+
+{#if laneMenu}
+  {@const m = laneMenu}
+  <div class="backdrop" role="presentation" onpointerdown={() => (laneMenu = null)} oncontextmenu={(e) => e.preventDefault()}></div>
+  <div class="menu" role="menu" style:left={`${Math.min(m.x, innerWidth - 180)}px`} style:top={`${Math.min(m.y, innerHeight - 60)}px`}>
+    <button
+      type="button"
+      role="menuitem"
+      class="danger"
+      onclick={() => {
+        removeLane(m.patch, m.lane.module, m.lane.param);
+        laneMenu = null;
+      }}>Remove automation</button
+    >
   </div>
 {/if}
 
@@ -918,7 +1072,8 @@
     background: rgb(255 255 255 / 0.12);
   }
   /* Lights up briefly after a jump from the module. */
-  .row-name.flash {
+  .row-name.flash,
+  .lane-name.flash {
     animation: row-flash 1.4s ease-out;
   }
   @keyframes row-flash {
@@ -958,6 +1113,123 @@
     position: relative;
     border-top: 1px solid var(--border-subtle);
     cursor: crosshair;
+  }
+  .lane-row {
+    position: relative;
+    border-top: 1px dashed var(--border-subtle);
+    background: rgb(0 0 0 / 0.12);
+  }
+  /* A Free patch ignores its automation too: the lines stay, faded. */
+  .track.free .lane-row :global(svg) {
+    opacity: 0.35;
+  }
+  .lane-name {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    padding: 0 6px 0 22px;
+    border-top: 1px dashed var(--border-subtle);
+    background: rgb(0 0 0 / 0.12);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+  .lane-module {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lane-param {
+    flex: none;
+    color: var(--text-default);
+    font-weight: var(--weight-bold);
+  }
+  .lane-paused {
+    flex: none;
+    padding: 0 4px;
+    border: 1px dashed var(--automation);
+    border-radius: var(--radius-sm);
+    color: var(--automation);
+    font-size: 9px;
+  }
+  .lane-row.paused :global(svg) {
+    opacity: 0.4;
+  }
+  .add-lane {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface-control);
+    color: var(--text-default);
+    font-size: var(--text-sm);
+    line-height: 1;
+    cursor: pointer;
+  }
+  .add-lane:hover {
+    background: var(--surface-control-hover);
+  }
+  .add-menu {
+    max-height: min(420px, 70vh);
+    overflow-y: auto;
+    min-width: 200px;
+  }
+  .menu-group {
+    padding: 6px 8px 2px;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+  }
+  .menu-empty {
+    padding: 6px 8px;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+  }
+  .menu.add-menu button {
+    justify-content: flex-start;
+  }
+  .add-menu .check {
+    display: inline-block;
+    width: 16px;
+    color: var(--automation);
+  }
+  .add-menu button.has {
+    color: var(--text-muted);
+  }
+  .lane-remove {
+    flex: none;
+    margin-left: auto;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: inherit;
+    font-size: var(--text-sm);
+    opacity: 0.6;
+    cursor: pointer;
+  }
+  .lane-remove:hover {
+    opacity: 1;
+    background: rgb(255 255 255 / 0.12);
+  }
+  .fold {
+    flex: none;
+    width: 14px;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-default);
+    font-size: 11px;
+    cursor: pointer;
+    transition: transform 0.12s;
+  }
+  .fold.folded {
+    transform: rotate(-90deg);
   }
 
   /* ---------- Blocks ---------- */

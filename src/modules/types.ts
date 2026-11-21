@@ -46,6 +46,8 @@ export interface ParamSpec {
   format?: ParamFormat;
   /** Labels for 'choice' parameters, indexed by value. */
   choices?: string[];
+  /** False for controls that cannot follow automation (handled outside the engine, e.g. mute). */
+  automatable?: boolean;
 }
 
 export interface ModulePanelProps {

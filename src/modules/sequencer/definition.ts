@@ -45,7 +45,8 @@ export const sequencer: ModuleDefinition = {
         }),
       ),
     ]),
-    { id: 'bank', label: 'Pattern', min: 0, max: SEQUENCER_BANKS - 1, default: 0, step: 1 },
+    // The timeline's blocks choose the pattern.
+    { id: 'bank', label: 'Pattern', min: 0, max: SEQUENCER_BANKS - 1, default: 0, step: 1, automatable: false },
   ],
   banks: SEQUENCER_BANKS,
   panel: SequencerPanel,

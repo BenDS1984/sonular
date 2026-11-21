@@ -12,6 +12,18 @@ import {
   type SinkModule,
 } from './types';
 import { Transport } from './Transport';
+import { positionAt, segmentAt, type EngineLane } from './automation';
+import { fromNormalized, quantize } from '../../ui/scale';
+
+/** An automation lane bound to its node. */
+interface AutoLane {
+  lane: EngineLane;
+  node: Node | undefined;
+  /** Segment found in the previous block (search start). */
+  hint: number;
+  /** Value last applied (NaN: apply in the next block whatever it is). */
+  last: number;
+}
 
 export interface MasterMeters {
   peakL: number;
@@ -114,6 +126,7 @@ export class Engine {
   private displayLayoutCache: DisplayLayoutEntry[] = [];
   private displayCount = 0;
   private recorderNodes: Node[] = [];
+  private lanes: AutoLane[] = [];
   private readonly zero = new Float32Array(BLOCK_SIZE);
 
   private readonly masterL = new Float32Array(BLOCK_SIZE);
@@ -208,6 +221,39 @@ export class Engine {
     this.displayLayoutCache = this.displayNodes.map((n) => ({ node: n.id, length: n.module.displayLength! }));
     this.displayCount = this.displayLayoutCache.reduce((sum, e) => sum + e.length, 0);
     this.recorderNodes = [...next.values()].filter((n) => typeof n.module.takeRecorded === 'function');
+    // The patch's own values were just applied: every lane applies its value again.
+    for (const a of this.lanes) {
+      a.node = next.get(a.lane.node);
+      a.last = NaN;
+    }
+  }
+
+  /**
+   * Replace every automation lane. While rendering, each automated control is set to its lane's
+   * value at the start of every block (about 3 ms); the modules smooth the steps.
+   */
+  setAutomation(lanes: readonly EngineLane[]): void {
+    this.lanes = lanes
+      .filter((l) => l.times.length > 0 && l.times.length === l.positions.length)
+      .map((lane) => ({ lane, node: this.nodes.get(lane.node), hint: 0, last: NaN }));
+  }
+
+  private applyAutomation(): void {
+    const beat = this.transport.beat;
+    const lanes = this.lanes;
+    for (let i = 0; i < lanes.length; i++) {
+      const a = lanes[i]!;
+      if (!a.node) continue;
+      const l = a.lane;
+      const hold = l.step > 0;
+      a.hint = segmentAt(l.times, beat, a.hint);
+      let v = fromNormalized(positionAt(l.times, l.positions, beat, a.hint, hold), l.min, l.max, l.scale);
+      if (hold) v = quantize(v, l.step, l.min);
+      if (v !== a.last) {
+        a.node.module.setParam(l.param, v);
+        a.last = v;
+      }
+    }
   }
 
   /** Hand every recorder's new audio to `use` (nothing happens when nobody is recording). */
@@ -422,6 +468,7 @@ export class Engine {
     let sleeping = 0;
     if (this.orderDirty) this.rebuildOrder();
     this.transport.beginBlock();
+    if (this.lanes.length > 0) this.applyAutomation();
 
     // Hot path: indexed loops only. for-of creates iterator objects, and any garbage on the
     // audio thread eventually triggers a collection that stalls rendering (audible clicks).

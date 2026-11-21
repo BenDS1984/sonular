@@ -9,7 +9,8 @@ import type { DisplayLayoutEntry, MeterLayoutEntry } from './core/types';
 import { getDefinition } from '../modules/registry';
 import { CHANNEL_TYPE } from '../patch/operations';
 import { patch, project } from '../patch/patch.svelte';
-import { audiblePatches, engineClips, nodeIdOf, structureKey, toEnginePatch } from './toEnginePatch';
+import { audiblePatches, engineClips, engineLanes, nodeIdOf, structureKey, toEnginePatch } from './toEnginePatch';
+import { clearOverrides, overrides } from './overrides.svelte';
 
 export const engineState = $state({
   status: 'off' as EngineStatus,
@@ -150,6 +151,16 @@ let sentParams: Record<string, Record<string, number>> = {};
 let sentActive: Record<string, boolean> = {};
 /** Timeline blocks last sent to each sequencer node, as JSON. */
 let sentClips: Record<string, string> = {};
+/** Automation lanes last sent, as JSON. */
+let sentLanes = '';
+
+function sendLanes() {
+  const lanes = engineLanes(project, getDefinition, overrides.keys);
+  const key = JSON.stringify(lanes);
+  if (key === sentLanes) return;
+  audio.setAutomation(lanes);
+  sentLanes = key;
+}
 
 /**
  * Keep the engine in step with the project while it runs. Every patch plays, each into its
@@ -158,6 +169,7 @@ let sentClips: Record<string, string> = {};
  *   their state);
  * - a parameter changes -> send just that value;
  * - a sequencer's timeline blocks change -> send that sequencer's blocks;
+ * - automation lanes change (or a patch goes Free) -> send all lanes;
  * - mute/solo change which patches are heard -> switch their Channels on or off (they fade, and
  *   a silent patch stops using CPU apart from its clock and sequencer);
  * - the master level changes -> send it.
@@ -173,6 +185,9 @@ export function startPatchSync(): () => void {
         sentParams = Object.fromEntries(graph.nodes.map((n) => [n.id, { ...n.params }]));
         sentActive = Object.fromEntries(graph.nodes.filter((n) => n.active !== undefined).map((n) => [n.id, n.active!]));
         sentClips = Object.fromEntries(graph.nodes.filter((n) => n.clips).map((n) => [n.id, JSON.stringify(n.clips)]));
+        // The engine may be new (started, or restarted after an error): send the lanes again.
+        sentLanes = '';
+        sendLanes();
         pruneRecorders(new Set(graph.nodes.map((n) => n.id)));
         resendArmed();
       });
@@ -226,6 +241,11 @@ export function startPatchSync(): () => void {
 
     $effect(() => {
       if (engineState.status !== 'ready') return;
+      sendLanes();
+    });
+
+    $effect(() => {
+      if (engineState.status !== 'ready') return;
       const heard = audiblePatches(project);
       for (const p of project.patches) {
         const ch = p.modules.find((m) => m.type === CHANNEL_TYPE);
@@ -259,6 +279,8 @@ export async function togglePlay(): Promise<void> {
     transportStopped();
     return;
   }
+  // Every control taken over follows its automation again.
+  clearOverrides();
   try {
     await audio.start();
   } catch {

@@ -2,7 +2,9 @@
  * Timeline data operations: sequencer blocks (clips), automation lanes and the song settings.
  * Plain functions that mutate in place, like ./operations. Times are in beats (4 beats = 1 bar).
  */
-import type { ModuleDefinition } from '../modules/types';
+import type { ModuleDefinition, ParamSpec } from '../modules/types';
+import { positionAt } from '../engine/core/automation';
+import { fromNormalized, quantize, toNormalized } from '../ui/scale';
 import type { AutomationLane, AutomationPoint, Clip, Patch, Timeline } from './types';
 
 export const BEATS_PER_BAR = 4;
@@ -182,6 +184,55 @@ export function valueAt(points: readonly AutomationPoint[], time: number): numbe
   const a = points[lo]!;
   const b = points[hi]!;
   return b.time === a.time ? b.value : a.value + ((b.value - a.value) * (time - a.time)) / (b.time - a.time);
+}
+
+/**
+ * Value of a control's lane at a time, exactly as the engine plays it: straight lines along the
+ * knob's travel (so also even on logarithmic knobs), stepped controls holding each point.
+ */
+export function laneValueAt(spec: ParamSpec, points: readonly AutomationPoint[], time: number): number | undefined {
+  if (points.length === 0) return undefined;
+  const scale = spec.scale ?? 'linear';
+  const step = spec.step ?? 0;
+  const times = points.map((p) => p.time);
+  const positions = points.map((p) => toNormalized(p.value, spec.min, spec.max, scale));
+  let i = 0;
+  while (i < times.length - 2 && times[i + 1]! <= time) i++;
+  const v = fromNormalized(positionAt(times, positions, time, i, step > 0), spec.min, spec.max, scale);
+  return step > 0 ? quantize(v, step, spec.min) : v;
+}
+
+/**
+ * Start automating a control: its lane, with one point at the start holding the control's
+ * current value (so nothing changes until more points are drawn). An existing lane is kept.
+ */
+export function addAutomation(patch: Patch, module: string, param: string, value: number): AutomationLane {
+  const lane = ensureLane(patch, module, param);
+  if (lane.points.length === 0) lane.points.push({ time: 0, value });
+  return lane;
+}
+
+/** Add a point, keeping the points sorted by time; returns its index. */
+export function addPoint(lane: AutomationLane, time: number, value: number): number {
+  const t = Math.min(MAX_BEATS, Math.max(0, time));
+  let i = 0;
+  while (i < lane.points.length && lane.points[i]!.time <= t) i++;
+  lane.points.splice(i, 0, { time: t, value });
+  return i;
+}
+
+/** Move a point; it stays between its neighbours, so the order of points never changes. */
+export function movePoint(lane: AutomationLane, index: number, time: number, value: number): void {
+  const pt = lane.points[index];
+  if (!pt) return;
+  const lo = lane.points[index - 1]?.time ?? 0;
+  const hi = lane.points[index + 1]?.time ?? MAX_BEATS;
+  pt.time = Math.min(hi, Math.max(lo, time));
+  pt.value = value;
+}
+
+export function removePoint(lane: AutomationLane, index: number): void {
+  if (index >= 0 && index < lane.points.length) lane.points.splice(index, 1);
 }
 
 /** Forget the blocks and lanes of a module that is being removed. */

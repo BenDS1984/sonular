@@ -61,7 +61,9 @@ Each patch is one timeline track. Times are in beats (quarter notes) from the st
   `b2on1`, ... The pattern buttons A–H choose which bank is edited; a lamp shows the bank playing
   (meter `bank`). On the timeline the keys A–H set a selected block's pattern. Copy/Paste copies a bank through a clipboard shared by all sequencers (not saved).
 - **Automation lanes** (`patch.lanes`): one per control (module + parameter), points of time and
-  value in the parameter's own range, straight lines between them (`valueAt`).
+  value in the parameter's own range. Lines are straight along the knob's travel (so even on
+  logarithmic knobs); stepped controls hold each point until the next (`laneValueAt`). Started
+  from a knob's right-click menu ("Automate"), drawn on the timeline under the patch's track.
 - **Song settings** (`project.timeline`): song end and the loop (on/off, start, end).
 - Removing a module removes its blocks and lanes; duplicating a patch copies them. All of it is
   saved in the file, autosaved and undoable.
@@ -70,6 +72,13 @@ Each patch is one timeline track. Times are in beats (quarter notes) from the st
   by sample: inside a block it plays that block's bank and starts at step 1 when the block
   begins (also after a loop jump or when Play starts inside it); outside blocks its gate stays
   low and its pitch holds.
+- **Automation in the engine:** all lanes of the project go to the engine in one `automation`
+  message (`engineLanes`, none for Free patches), with points as knob positions. At the start of
+  every block (128 samples, about 3 ms) the engine sets each automated control to its lane's value
+  at the transport position (`src/engine/core/automation.ts`); modules smooth the steps as they do
+  for a turned knob. Knobs show the lane's value at the playhead. Turning an automated control
+  takes it over: its lane is left out of the `automation` message (`src/engine/overrides.svelte.ts`)
+  until the next Play, and the knob shows a dashed ring.
 - **Playing:** Play starts at the playhead (`transportState.start`, screen state); while playing,
   moving the playhead jumps the transport there (`locate`, modules keep their state). The loop is
   sent to the engine, where the transport jumps back on the exact sample (`Transport.wrapAt`,

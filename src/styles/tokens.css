@@ -84,6 +84,8 @@
   --signal-pitch: var(--violet-500);
   --signal-pitch-soft: var(--violet-300);
   --signal-pitch-bg: var(--violet-900);
+  /* Automation: lanes on the timeline and the ring on automated knobs */
+  --automation: var(--green-500);
 
   /* Module families: the header colour of every module, by category. Muted on purpose so
      cables and jacks (the signal colours) stay the brightest things on the canvas. */

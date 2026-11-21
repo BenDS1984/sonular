@@ -7,6 +7,8 @@ import type { ModuleDefinition } from '../modules/types';
 import { CHANNEL_TYPE } from '../patch/operations';
 import type { Patch, Project } from '../patch/types';
 import type { EngineClip, EnginePatch } from './core/types';
+import type { EngineLane } from './core/automation';
+import { toNormalized } from '../ui/scale';
 
 type DefinitionLookup = (type: string) => ModuleDefinition | undefined;
 
@@ -76,6 +78,36 @@ export function engineClips(patch: Patch, moduleId: string): EngineClip[] {
     .filter((c) => c.module === moduleId)
     .map((c) => ({ start: c.start, end: c.start + c.length, bank: c.bank }))
     .sort((a, b) => a.start - b.start);
+}
+
+/**
+ * Every automation lane of the project as the engine takes it: points as knob positions, sorted
+ * by time. None for Free patches, lanes without points, controls that no longer exist, or controls
+ * the user took over (`paused`: keys "<patch id>/<module id>:<param>").
+ */
+export function engineLanes(project: Project, getDef: DefinitionLookup, paused: Record<string, true> = {}): EngineLane[] {
+  const lanes: EngineLane[] = [];
+  for (const patch of project.patches) {
+    if (patch.free) continue;
+    for (const l of patch.lanes) {
+      const m = patch.modules.find((x) => x.id === l.module);
+      const spec = m && getDef(m.type)?.params.find((s) => s.id === l.param);
+      if (!spec || l.points.length === 0 || paused[`${patch.id}/${l.module}:${l.param}`]) continue;
+      const scale = spec.scale ?? 'linear';
+      const points = [...l.points].sort((a, b) => a.time - b.time);
+      lanes.push({
+        node: nodeIdOf(patch.id, l.module),
+        param: l.param,
+        times: points.map((pt) => pt.time),
+        positions: points.map((pt) => toNormalized(pt.value, spec.min, spec.max, scale)),
+        min: spec.min,
+        max: spec.max,
+        scale,
+        step: spec.step ?? 0,
+      });
+    }
+  }
+  return lanes;
 }
 
 /** A string that changes only when modules or cables change (not when parameters move). */

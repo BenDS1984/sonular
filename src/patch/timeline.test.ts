@@ -16,6 +16,11 @@ import {
   removeClip,
   removeLane,
   valueAt,
+  laneValueAt,
+  addAutomation,
+  addPoint,
+  movePoint,
+  removePoint,
 } from './timeline';
 import type { Patch } from './types';
 
@@ -143,6 +148,31 @@ describe('automation lanes', () => {
     expect(valueAt(points, 6)).toBe(0.5);
     expect(valueAt(points, 10)).toBeCloseTo(0.4);
     expect(valueAt(points, 20)).toBe(0.6);
+  });
+
+  it('plays lanes along the knob travel, holding stepped controls', () => {
+    const log = { id: 'f', label: 'F', min: 20, max: 20000, default: 20, scale: 'log' as const };
+    const pts = [
+      { time: 0, value: 20 },
+      { time: 4, value: 20000 },
+    ];
+    expect(laneValueAt(log, pts, 2)).toBeCloseTo(632.5, 0);
+    const sw = { id: 's', label: 'S', min: 0, max: 3, default: 0, step: 1 };
+    expect(laneValueAt(sw, [{ time: 0, value: 0 }, { time: 4, value: 3 }], 3.9)).toBe(0);
+    expect(laneValueAt(sw, [], 1)).toBeUndefined();
+  });
+
+  it('starts a lane with one point at the current value and keeps points in order', () => {
+    const p = patchWithSeq();
+    const lane = addAutomation(p, 'seq1', 'rate', 0.7);
+    expect(lane.points).toEqual([{ time: 0, value: 0.7 }]);
+    expect(addAutomation(p, 'seq1', 'rate', 0.1)).toBe(lane);
+    expect(addPoint(lane, 8, 1)).toBe(1);
+    expect(addPoint(lane, 4, 0.5)).toBe(1);
+    movePoint(lane, 1, 20, 0.2); // cannot pass the point at 8
+    expect(lane.points[1]).toEqual({ time: 8, value: 0.2 });
+    removePoint(lane, 0);
+    expect(lane.points.map((pt) => pt.time)).toEqual([8, 8]);
   });
 });
 

@@ -5,6 +5,7 @@
 import workletUrl from './worklet/processor.ts?worker&url';
 import type { DisplayLayoutEntry, EngineClip, EnginePatch, MeterLayoutEntry, RecordedAudio } from './core/types';
 import { DEFAULT_TEMPO } from './core/Transport';
+import type { EngineLane } from './core/automation';
 import { compileFaustPrograms } from './faustPrograms';
 import { PROCESSOR_NAME, type EngineStats, type FromEngine, type LoopSetting, type ToEngine } from './protocol';
 
@@ -157,6 +158,10 @@ export class AudioEngine {
 
   setClips(node: string, clips: EngineClip[]): void {
     this.send({ type: 'clips', node, clips });
+  }
+
+  setAutomation(lanes: EngineLane[]): void {
+    this.send({ type: 'automation', lanes });
   }
 
   setTempo(bpm: number): void {
