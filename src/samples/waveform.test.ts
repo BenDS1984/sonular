@@ -14,7 +14,7 @@ describe('waveforms', () => {
     const { ch, rate } = burst();
     const w = computeWaveform([ch], rate);
     expect(w.frames).toBe(8000);
-    expect(w.levels.map((l) => l.size)).toEqual([64, 512, 4096]);
+    expect(w.levels.map((l) => l.size)).toEqual([1, 8, 64, 512, 4096]);
     for (const l of w.levels) {
       expect(Math.max(...l.max)).toBeCloseTo(0.8);
       expect(Math.min(...l.min)).toBeCloseTo(-0.6);
@@ -39,6 +39,14 @@ describe('waveforms', () => {
     expect(Math.max(...out.max)).toBe(0);
   });
 
+  it('keeps every frame of a short sample, but not of a long one', () => {
+    const short = computeWaveform([new Float32Array([0.1, -0.2, 0.3])], 8000);
+    expect(short.levels[0]!.size).toBe(1);
+    expect(Array.from(short.levels[0]!.max)).toEqual([expect.closeTo(0.1), expect.closeTo(-0.2), expect.closeTo(0.3)]);
+    const long = computeWaveform([new Float32Array(1_600_000)], 8000);
+    expect(long.levels[0]!.size).toBe(8);
+  });
+
   it('combines the channels', () => {
     const left = new Float32Array(1000).fill(0.2);
     const right = new Float32Array(1000).fill(-0.9);
@@ -50,7 +58,7 @@ describe('waveforms', () => {
 
   it('makes a polygon with a thin line for silence', () => {
     const shape = waveShape({ min: new Float32Array(2), max: new Float32Array(2) });
-    expect(shape.split(' ')).toHaveLength(8);
-    expect(shape).toContain('0,-0.015');
+    expect(shape.split(' ')).toHaveLength(8); // edge, 2 columns, edge: top and bottom
+    expect(shape).toContain('0.5,-0.015');
   });
 });

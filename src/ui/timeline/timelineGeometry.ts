@@ -5,10 +5,13 @@
 import { BEATS_PER_BAR } from '../../patch/timeline';
 
 export const MIN_PPB = 2;
-export const MAX_PPB = 192;
+export const MAX_PPB = 2400;
 export const DEFAULT_PPB = 24;
 
 export const clampPpb = (ppb: number) => Math.min(MAX_PPB, Math.max(MIN_PPB, ppb));
+
+/** Whether sixteenth lines are drawn (only when a beat is wide enough to show them). */
+export const showsSixteenths = (ppb: number) => ppb >= 96;
 
 /** Whether beat lines are drawn (they would be a blur when zoomed far out). */
 export const showsBeats = (ppb: number) => ppb >= 8;

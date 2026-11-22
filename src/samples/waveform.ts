@@ -1,11 +1,16 @@
 /**
  * Detailed waveforms for drawing audio clips: the lowest and highest value of each short stretch
- * of a sample, kept at three levels of detail so any zoom can be drawn without going through all
+ * of a sample, kept at four levels of detail so any zoom can be drawn without going through all
  * the audio again.
  */
 
-/** Frames per stretch at each level: fine, medium and coarse. */
-const LEVEL_SIZES = [64, 512, 4096] as const;
+/** Frames per stretch at each level, from very fine to coarse. */
+const LEVEL_SIZES = [8, 64, 512, 4096];
+/**
+ * Short samples (up to about 30 seconds) also keep every single frame, so a drum hit can be zoomed
+ * in until its actual shape shows. Longer ones start at a stretch of 8 frames, to save memory.
+ */
+const RAW_MAX_FRAMES = 1_500_000;
 
 export interface WaveLevel {
   /** Frames covered by each entry. */
@@ -25,7 +30,8 @@ export interface Waveform {
 /** The waveform of a sample (the channels are drawn together: lowest and highest of all). */
 export function computeWaveform(channels: readonly Float32Array[], rate: number): Waveform {
   const frames = channels[0]?.length ?? 0;
-  const size = LEVEL_SIZES[0];
+  const sizes = frames <= RAW_MAX_FRAMES ? [1, ...LEVEL_SIZES] : LEVEL_SIZES;
+  const size = sizes[0]!;
   const count = Math.ceil(frames / size);
   const min = new Float32Array(count);
   const max = new Float32Array(count);
@@ -45,9 +51,9 @@ export function computeWaveform(channels: readonly Float32Array[], rate: number)
     max[b] = hi === -Infinity ? 0 : hi;
   }
   const levels: WaveLevel[] = [{ size, min, max }];
-  for (let l = 1; l < LEVEL_SIZES.length; l++) {
+  for (let l = 1; l < sizes.length; l++) {
     const prev = levels[l - 1]!;
-    const ratio = LEVEL_SIZES[l]! / prev.size;
+    const ratio = sizes[l]! / prev.size;
     const n = Math.ceil(prev.min.length / ratio);
     const lo = new Float32Array(n);
     const hi = new Float32Array(n);
@@ -62,7 +68,7 @@ export function computeWaveform(channels: readonly Float32Array[], rate: number)
       lo[b] = a === Infinity ? 0 : a;
       hi[b] = z === -Infinity ? 0 : z;
     }
-    levels.push({ size: LEVEL_SIZES[l]!, min: lo, max: hi });
+    levels.push({ size: sizes[l]!, min: lo, max: hi });
   }
   return { rate, frames, levels };
 }
@@ -108,6 +114,10 @@ export function waveShape(cols: { min: Float32Array; max: Float32Array }, gain =
   const n = cols.min.length;
   const top: string[] = [];
   const bottom: string[] = [];
+  const add = (x: number, hi: number, lo: number) => {
+    top.push(`${x},${(-hi).toFixed(3)}`);
+    bottom.push(`${x},${(-lo).toFixed(3)}`);
+  };
   for (let c = 0; c < n; c++) {
     let hi = Math.min(1, cols.max[c]! * gain);
     let lo = Math.max(-1, cols.min[c]! * gain);
@@ -116,10 +126,10 @@ export function waveShape(cols: { min: Float32Array; max: Float32Array }, gain =
       hi = mid + 0.015;
       lo = mid - 0.015;
     }
-    top.push(`${c},${(-hi).toFixed(3)}`);
-    top.push(`${c + 1},${(-hi).toFixed(3)}`);
-    bottom.push(`${c},${(-lo).toFixed(3)}`);
-    bottom.push(`${c + 1},${(-lo).toFixed(3)}`);
+    // Joined through the middle of each column (not in steps), so a zoomed-in wave is smooth.
+    if (c === 0) add(0, hi, lo);
+    add(c + 0.5, hi, lo);
+    if (c === n - 1) add(n, hi, lo);
   }
   return [...top, ...bottom.reverse()].join(' ');
 }

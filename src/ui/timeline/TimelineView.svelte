@@ -94,6 +94,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     formatPosition,
     labelEvery,
     showsBeats,
+    showsSixteenths,
     snap,
     snapUnit,
     zoomAround,
@@ -1218,7 +1219,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
 
   <!-- The tracks -->
   <div class="body" bind:this={body} bind:clientWidth={viewW} {onscroll} onwheel={(e) => onwheel(e, 'body')}>
-    <div class="content" bind:this={content} class:beats={showsBeats(ppb)} style:width={`${contentW}px`}>
+    <div class="content" bind:this={content} class:beats={showsBeats(ppb)} class:sixteenths={showsSixteenths(ppb)} style:width={`${contentW}px`}>
       {#each tracks as t (t.patch.id)}
         <div class="track" class:free={t.patch.free} style:--track-color={channelColor(t.patch.color)}>
           <div class="track-top" style:height={`${TRACK_H}px`}></div>
@@ -1336,7 +1337,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                     <polygon points={wave.points} />
                   </svg>
                 {/if}
-                <span class="bank-label">{missing ? `${c.name} (missing)` : c.name}</span>
+                <span class="clip-name">{missing ? `${c.name} (missing)` : c.name}</span>
                 <span class="edge start" data-edge="start"></span>
                 <span class="edge end" data-edge="end"></span>
               </div>
@@ -1463,6 +1464,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     --ruler-h: 36px;
     --grid-bar: rgb(255 255 255 / 0.1);
     --grid-beat: rgb(255 255 255 / 0.04);
+    --grid-sixteenth: rgb(255 255 255 / 0.025);
     --loop-color: var(--signal-cv);
     flex: 1;
     min-height: 0;
@@ -1697,6 +1699,12 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     background-image:
       repeating-linear-gradient(to right, var(--grid-bar) 0 1px, transparent 1px var(--bar)),
       repeating-linear-gradient(to right, var(--grid-beat) 0 1px, transparent 1px var(--ppb));
+  }
+  .content.beats.sixteenths {
+    background-image:
+      repeating-linear-gradient(to right, var(--grid-bar) 0 1px, transparent 1px var(--bar)),
+      repeating-linear-gradient(to right, var(--grid-beat) 0 1px, transparent 1px var(--ppb)),
+      repeating-linear-gradient(to right, var(--grid-sixteenth) 0 1px, transparent 1px calc(var(--ppb) / 4));
   }
   .track {
     border-bottom: 1px solid var(--border-default);
@@ -1982,7 +1990,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     opacity: 0.4;
   }
   .block.audio {
-    padding: 3px 6px;
+    padding: 0;
     background: color-mix(in srgb, var(--track-color) 34%, var(--surface-module));
     border-color: color-mix(in srgb, var(--track-color) 80%, black);
   }
@@ -2000,18 +2008,43 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   }
   .block.audio .wave {
     position: absolute;
-    top: 2px;
+    top: 17px;
     bottom: 2px;
-    height: calc(100% - 4px);
+    height: calc(100% - 19px);
+    pointer-events: none;
+  }
+  /* The zero line, behind the waveform. */
+  .block.audio::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(50% + 7px);
+    height: 1px;
+    background: rgb(255 255 255 / 0.2);
     pointer-events: none;
   }
   .block.audio .wave polygon {
     fill: color-mix(in srgb, var(--track-color) 85%, white);
     opacity: 0.8;
   }
-  .block.audio .bank-label {
-    position: relative;
-    text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
+  /* The name sits in a strip above the waveform, so the two do not run into each other. */
+  .block.audio .clip-name {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 15px;
+    padding: 0 6px;
+    overflow: hidden;
+    background: rgb(0 0 0 / 0.3);
+    color: var(--text-strong);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    line-height: 15px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
   }
 
   /* ---------- Block menu ---------- */
