@@ -70,6 +70,7 @@ import TrackLevel from '../components/TrackLevel.svelte';
   import { SAMPLE_DRAG_TYPE, sampleDrag } from '../browser/browserPanel.svelte';
   import { showToast } from '../toast.svelte';
   import { clipWavePoints } from './clipWave';
+  import TrackOverview from './TrackOverview.svelte';
 import { waveColumns, waveShape } from '../../samples/waveform';
 import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   import AutomationLaneRow from './AutomationLaneRow.svelte';
@@ -262,6 +263,16 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       e.preventDefault();
       body.scrollLeft += e.deltaY || e.deltaX;
     }
+  }
+
+  /** Show a zoom and scroll position, as chosen in the overview at the bottom. */
+  function setView(next: number, scrollLeft: number) {
+    timelineView.ppb = clampPpb(next);
+    requestAnimationFrame(() => {
+      if (!body) return;
+      body.scrollLeft = Math.max(0, scrollLeft);
+      onscroll();
+    });
   }
 
   /** Zoom so the whole song fits the window. */
@@ -1396,6 +1407,10 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       {/if}
     </div>
   </div>
+
+  <!-- The overview of the whole song: drag its window to move through the timeline -->
+  <div class="overview-label">Overview</div>
+  <TrackOverview {viewW} {shownBeat} onview={setView} onfit={fitSong} />
 </main>
 
 {#if menu}
@@ -1547,10 +1562,27 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     min-height: 0;
     display: grid;
     grid-template-columns: var(--header-w) 1fr;
-    grid-template-rows: var(--ruler-h) 1fr;
+    grid-template-rows: var(--ruler-h) 1fr auto;
     background: var(--bg-canvas);
     overflow: hidden;
     user-select: none;
+  }
+
+  /* ---------- Overview at the bottom ---------- */
+  .overview-label {
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    background: var(--surface-bar);
+    border-top: 1px solid var(--border-default);
+    border-right: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .timeline > :global(.overview) {
+    border-top: 1px solid var(--border-default);
   }
 
   /* ---------- Corner toolbar ---------- */
