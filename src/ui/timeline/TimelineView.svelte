@@ -68,6 +68,8 @@
   import { SAMPLE_DRAG_TYPE, sampleDrag } from '../browser/browserPanel.svelte';
   import { showToast } from '../toast.svelte';
   import { clipWavePoints } from './clipWave';
+import { waveColumns, waveShape } from '../../samples/waveform';
+import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   import AutomationLaneRow from './AutomationLaneRow.svelte';
   import { placeMenu } from '../placeMenu';
   import { endDragLook, startDragLook } from '../dragLook';
@@ -615,13 +617,38 @@
   // Right-click menu on an audio clip.
   let audioMenu: { x: number; y: number; track: AudioTrack; clip: AudioClip } | null = $state(null);
 
-  /** The waveform of the part of the sample a clip plays, or '' when the sample is not in the library. */
-  function clipWave(clip: AudioClip): string {
+  // Work out the detailed waveform of every sample in use (once the library knows it).
+  $effect(() => {
+    void library.samples.length;
+    for (const t of project.audioTracks) for (const c of t.clips) loadWaveform(c.sample);
+  });
+
+  /** Width of a waveform column in pixels. */
+  const WAVE_COLUMN_PX = 1.5;
+
+  /**
+   * The waveform of the part of the sample a clip plays, drawn only for the stretch of the clip that
+   * is on screen (so a zoomed-in clip stays sharp however long it is): the shape, its viewBox and
+   * where it sits in the clip. The library's coarse overview stands in until the detailed one is
+   * ready; null when there is nothing to draw (the sample is not in the library).
+   */
+  function clipWave(clip: AudioClip): { points: string; viewBox: string; x: number; w: number } | null {
+    const widthPx = clip.length * ppb;
+    const left = clip.start * ppb;
+    const x0 = Math.max(0, timelineView.scrollLeft - left - 40);
+    const x1 = Math.min(widthPx, timelineView.scrollLeft + viewW - left + 40);
+    if (!(x1 > x0)) return null;
+    const secondsPerPx = 60 / project.tempo / ppb;
+    const from = clip.offset + x0 * secondsPerPx;
+    const to = clip.offset + x1 * secondsPerPx;
+    const wave = waveformOf(clip.sample);
+    if (wave) {
+      const columns = Math.max(1, Math.round((x1 - x0) / WAVE_COLUMN_PX));
+      return { points: waveShape(waveColumns(wave, from, to, columns)), viewBox: `0 -1 ${columns} 2`, x: x0, w: x1 - x0 };
+    }
     const s = sampleOf(clip.sample);
-    if (!s || !(s.duration > 0)) return '';
-    const from = clip.offset / s.duration;
-    const to = (clip.offset + (clip.length * 60) / project.tempo) / s.duration;
-    return clipWavePoints(s.peaks, from, to);
+    if (!s || !(s.duration > 0)) return null;
+    return { points: clipWavePoints(s.peaks, from / s.duration, to / s.duration), viewBox: '0 0 100 20', x: x0, w: x1 - x0 };
   }
 
   function onrowdblclick(e: MouseEvent, patch: Patch, moduleId: string) {
@@ -1298,8 +1325,15 @@
                 }}
               >
                 {#if wave}
-                  <svg class="wave" viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
-                    <polygon points={wave} />
+                  <svg
+                    class="wave"
+                    viewBox={wave.viewBox}
+                    preserveAspectRatio="none"
+                    style:left={`${wave.x - 1}px`}
+                    style:width={`${wave.w}px`}
+                    aria-hidden="true"
+                  >
+                    <polygon points={wave.points} />
                   </svg>
                 {/if}
                 <span class="bank-label">{missing ? `${c.name} (missing)` : c.name}</span>
@@ -1966,9 +2000,9 @@
   }
   .block.audio .wave {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    top: 2px;
+    bottom: 2px;
+    height: calc(100% - 4px);
     pointer-events: none;
   }
   .block.audio .wave polygon {
