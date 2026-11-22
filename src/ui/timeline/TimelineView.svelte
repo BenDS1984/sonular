@@ -12,6 +12,8 @@
   - keys: Ctrl+A selects all blocks, Escape clears; on the selection, A–H choose the pattern,
     Delete removes, Ctrl+D copies right after it, Ctrl+C copies and Ctrl+V pastes at the playhead
     (on the same sequencers, at the first place from there where all fit)
+  - audio clips: S cuts the selected ones at the playhead (also in the right-click menu, which can
+    cut where you clicked); a clip dropped or moved onto other clips replaces the part under it
   - ruler: click or drag to place the playhead (Play starts there; while playing it jumps)
   - the strip above the numbers holds the loop: drag it to move, drag its edges to resize, drag
     on an empty part to draw a new one, double-click it to switch it on or off
@@ -54,17 +56,18 @@ import TrackLevel from '../components/TrackLevel.svelte';
   } from '../../patch/timeline';
   import { overrideKey, overrides } from '../../engine/overrides.svelte';
   import {
-    addAudioClip,
     addAudioTrack,
     audioFreeRange,
     duplicateAudioClip,
     maxAudioLength,
-    nearestFreeAudioStart,
     removeAudioClip,
     removeAudioTrack,
     renameAudioTrack,
     audioTrackHeight,
     AUDIO_TRACK_HEIGHT,
+    carveAudio,
+    placeAudioClip,
+    splitAudioClip,
     secondsToBeats,
     setAudioTrackHeight,
     trimAudioStart,
@@ -492,6 +495,8 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     clip: { start: number; length: number };
     start0: number;
     others: { start: number; length: number }[];
+    /** Audio clips: the track, so the clip can replace what it ends up on. */
+    audio?: AudioTrack;
   }
   type BlockDrag =
     | { kind: 'box'; x0: number; y0: number; x1: number; y1: number; base: string[] }
@@ -581,7 +586,8 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       others: patch.clips.filter((c) => c.module === clip.module && !isClipSelected(patch.id, c.id)),
     }));
     for (const { track, clip } of selectedAudio()) {
-      blocks.push({ clip, start0: clip.start, others: track.clips.filter((c) => !isClipSelected(track.id, c.id)) });
+      // Audio clips are not stopped by the clips next to them: they replace what they land on.
+      blocks.push({ clip, start0: clip.start, others: [], audio: track });
     }
     return blocks;
   }
@@ -633,7 +639,8 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     }
     const length = secondsToBeats(sample.duration, project.tempo);
     const at = snap(bodyBeat(e), unitOf(e));
-    dropOn = { track: track.id, start: nearestFreeAudioStart(track, at, length), length };
+    // Exactly where the pointer is: whatever is there gets replaced.
+    dropOn = { track: track.id, start: Math.max(0, at), length };
   }
 
   function onaudiodragleave(e: DragEvent) {
@@ -647,7 +654,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     sampleDrag.id = null;
     const sample = sampleOf(e.dataTransfer!.getData(SAMPLE_DRAG_TYPE));
     if (!sample) return;
-    const clip = addAudioClip(track, sample, snap(bodyBeat(e), unitOf(e)), project.tempo);
+    const clip = placeAudioClip(track, sample, snap(bodyBeat(e), unitOf(e)), project.tempo);
     if (clip) selectClip(track.id, clip.id);
     else showToast('This sample is too long to fit on the timeline here.', 'warning');
   }
@@ -674,6 +681,21 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     startBlockDrag();
   }
 
+  /** Cut an audio clip in two at a beat; the right part gets selected. */
+  function splitAudio(track: AudioTrack, clip: AudioClip, at: number) {
+    const second = splitAudioClip(track, clip.id, at, project.tempo);
+    if (second) selectClip(track.id, second.id);
+  }
+
+  /** The S key: cut every selected audio clip that the playhead is in, at the playhead. */
+  function splitSelectedAtPlayhead(): boolean {
+    let any = false;
+    for (const { track, clip } of selectedAudio()) {
+      if (splitAudioClip(track, clip.id, shownBeat, project.tempo)) any = true;
+    }
+    return any;
+  }
+
   /** Ctrl+D on audio clips: each copy goes right after its clip. Returns the copies' keys. */
   function duplicateAudioSelected(): string[] {
     const keys: string[] = [];
@@ -694,7 +716,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   }
 
   // Right-click menu on an audio clip.
-  let audioMenu: { x: number; y: number; track: AudioTrack; clip: AudioClip } | null = $state(null);
+  let audioMenu: { x: number; y: number; track: AudioTrack; clip: AudioClip; at: number } | null = $state(null);
 
   // Work out the detailed waveform of every sample in use (once the library knows it).
   $effect(() => {
@@ -861,6 +883,15 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     window.removeEventListener('pointermove', onblockdragmove);
     window.removeEventListener('pointerup', onblockdragend);
     window.removeEventListener('pointercancel', onblockdragend);
+    if (d?.kind === 'move') {
+      // Audio clips that were moved replace what they landed on.
+      for (const it of d.items) {
+        if (!it.audio) continue;
+        const track = it.audio;
+        const moved = d.items.filter((o) => o.audio === track).map((o) => (o.clip as AudioClip).id);
+        carveAudio(track, it.clip.start, it.clip.start + it.clip.length, moved, project.tempo);
+      }
+    }
     if (d?.kind === 'box') {
       const click = Math.abs(d.x1 - d.x0) < CLICK_SLOP && Math.abs(d.y1 - d.y0) < CLICK_SLOP;
       if (click) setClipSelection([...d.base]);
@@ -1011,6 +1042,9 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     } else if (mod && key === 'c') {
       e.preventDefault();
       copySelected();
+    } else if (!mod && !e.altKey && key === 's') {
+      // S: cut the selected audio clips at the playhead.
+      if (splitSelectedAtPlayhead()) e.preventDefault();
     } else if (!mod && !e.altKey && /^[a-z]$/i.test(e.key)) {
       // A–H: the pattern the blocks play.
       if (setSelectedBank(e.key.toUpperCase().charCodeAt(0) - 65)) e.preventDefault();
@@ -1435,7 +1469,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                 oncontextmenu={(e) => {
                   e.preventDefault();
                   selectClip(t.id, c.id);
-                  audioMenu = { x: e.clientX, y: e.clientY, track: t, clip: c };
+                  audioMenu = { x: e.clientX, y: e.clientY, track: t, clip: c, at: snap(bodyBeat(e), unitOf(e)) };
                 }}
               >
                 {#if wave}
@@ -1552,6 +1586,25 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   {@const m = audioMenu}
   <div class="backdrop" role="presentation" onpointerdown={() => (audioMenu = null)} oncontextmenu={(e) => e.preventDefault()}></div>
   <div class="menu" role="menu" use:placeMenu={{ x: m.x, y: m.y }}>
+    <button
+      type="button"
+      role="menuitem"
+      title="Cut the clip in two where you right-clicked"
+      onclick={() => {
+        splitAudio(m.track, m.clip, m.at);
+        audioMenu = null;
+      }}>Split here</button
+    >
+    <button
+      type="button"
+      role="menuitem"
+      title="Cut the clip in two at the playhead"
+      onclick={() => {
+        splitAudio(m.track, m.clip, shownBeat);
+        audioMenu = null;
+      }}>Split at playhead <kbd>S</kbd></button
+    >
+    <div class="menu-sep" role="separator"></div>
     <button
       type="button"
       role="menuitem"

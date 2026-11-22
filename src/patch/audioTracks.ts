@@ -200,3 +200,91 @@ export function usedSamples(project: Pick<Project, 'audioTracks'>): Set<string> 
   for (const t of project.audioTracks) for (const c of t.clips) ids.add(c.sample);
   return ids;
 }
+
+// ---------- Splitting and replacing ----------
+
+/**
+ * Cut a clip in two at beat `at`: the first part keeps the clip, the second is a new clip that plays
+ * on from the same place in the sample. Returns the new clip, or null when `at` is not inside the
+ * clip or would leave a part shorter than the shortest clip.
+ */
+export function splitAudioClip(track: AudioTrack, id: string, at: number, tempo: number): AudioClip | null {
+  const clip = track.clips.find((c) => c.id === id);
+  if (!clip) return null;
+  const end = clip.start + clip.length;
+  if (!(at - clip.start >= MIN_CLIP_LENGTH) || !(end - at >= MIN_CLIP_LENGTH)) return null;
+  const second: AudioClip = {
+    id: nextAudioClipId(track),
+    sample: clip.sample,
+    name: clip.name,
+    start: at,
+    length: end - at,
+    offset: clip.offset + beatsToSeconds(at - clip.start, tempo),
+  };
+  clip.length = at - clip.start;
+  track.clips.push(second);
+  return second;
+}
+
+/**
+ * Make room on a track for something placed from `start` to `end`: clips under it are removed, cut
+ * short at the start or the end (the sound stays where it was), or, when it lies inside a clip, the
+ * clip is split in two around it. Clips in `keep` (the ones just placed) are left alone. Leftovers
+ * shorter than the shortest clip are dropped.
+ */
+export function carveAudio(track: AudioTrack, start: number, end: number, keep: readonly string[], tempo: number): void {
+  const eps = 1e-9;
+  for (const c of [...track.clips]) {
+    if (keep.includes(c.id)) continue;
+    const cEnd = c.start + c.length;
+    if (cEnd <= start + eps || c.start >= end - eps) continue; // not under it
+    const before = start - c.start; // what stays in front of the new piece
+    const after = cEnd - end; // what stays behind it
+    if (before > eps && after > eps) {
+      // Inside: keep both sides.
+      const right: AudioClip = {
+        id: nextAudioClipId(track),
+        sample: c.sample,
+        name: c.name,
+        start: end,
+        length: after,
+        offset: c.offset + beatsToSeconds(end - c.start, tempo),
+      };
+      c.length = before;
+      track.clips.push(right);
+    } else if (before > eps) {
+      c.length = before;
+    } else if (after > eps) {
+      c.offset += beatsToSeconds(end - c.start, tempo);
+      c.start = end;
+      c.length = after;
+    } else {
+      removeAudioClip(track, c.id);
+      continue;
+    }
+  }
+  // Leftovers that are too short to be a clip go.
+  for (const c of [...track.clips]) {
+    if (!keep.includes(c.id) && c.length < MIN_CLIP_LENGTH - 1e-9) removeAudioClip(track, c.id);
+  }
+}
+
+/**
+ * Put a whole sample on a track exactly at `start` (not moved to a free place): whatever was there
+ * is replaced. Returns the clip, or null when it would run past the end of the timeline.
+ */
+export function placeAudioClip(
+  track: AudioTrack,
+  sample: Pick<SampleInfo, 'id' | 'name' | 'duration'>,
+  start: number,
+  tempo: number,
+): AudioClip | null {
+  const length = secondsToBeats(sample.duration, tempo);
+  const s = Math.max(0, start);
+  if (!(length >= MIN_CLIP_LENGTH) || s + length > MAX_BEATS) return null;
+  // Make room first: carving may add a clip (the part behind), which takes an id of its own.
+  carveAudio(track, s, s + length, [], tempo);
+  const clip: AudioClip = { id: nextAudioClipId(track), sample: sample.id, name: sample.name, start: s, length, offset: 0 };
+  track.clips.push(clip);
+  return clip;
+}

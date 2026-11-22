@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   addAudioClip,
   addAudioTrack,
+  carveAudio,
+  placeAudioClip,
+  splitAudioClip,
   AUDIO_TRACK_HEIGHT,
   audioTrackHeight,
   setAudioTrackHeight,
@@ -83,5 +86,62 @@ describe('audio tracks', () => {
     expect(copy).toMatchObject({ start: 4, sample: 's1' });
     expect(copy.id).not.toBe(c.id);
     expect([...usedSamples(p)]).toEqual(['s1']);
+  });
+});
+
+describe('splitting and replacing', () => {
+  /** A track with one clip of a 4 s sample from beat 0 to 8 at 120 BPM. */
+  function setup() {
+    const t = addAudioTrack(emptyProject('x', 120));
+    const clip = addAudioClip(t, sample('s1', 4), 0, 120)!;
+    return { t, clip };
+  }
+  const spans = (t: { clips: { start: number; length: number; offset: number }[] }) =>
+    [...t.clips].sort((a, b) => a.start - b.start).map((c) => [c.start, c.start + c.length, c.offset]);
+
+  it('splits a clip in two that play on seamlessly', () => {
+    const { t, clip } = setup();
+    const second = splitAudioClip(t, clip.id, 3, 120)!;
+    expect(spans(t)).toEqual([[0, 3, 0], [3, 8, 1.5]]); // 3 beats = 1.5 s into the sample
+    expect(second.id).not.toBe(clip.id);
+    expect(splitAudioClip(t, clip.id, 0, 120)).toBeNull(); // not inside
+    expect(splitAudioClip(t, clip.id, 2.5, 120)).not.toBeNull();
+    expect(splitAudioClip(t, 'nope', 3, 120)).toBeNull();
+  });
+
+  it('does not leave a piece shorter than the shortest clip', () => {
+    const { t, clip } = setup();
+    expect(splitAudioClip(t, clip.id, 0.1, 120)).toBeNull();
+    expect(splitAudioClip(t, clip.id, 7.9, 120)).toBeNull();
+  });
+
+  it('replaces the part under a new clip: cut at the end, cut at the start, split, removed', () => {
+    const { t } = setup(); // 0–8
+    carveAudio(t, 6, 10, [], 120); // overlaps the end
+    expect(spans(t)).toEqual([[0, 6, 0]]);
+    carveAudio(t, -2, 2, [], 120); // overlaps the start: the sound stays where it was
+    expect(spans(t)).toEqual([[2, 6, 1]]);
+    carveAudio(t, 3, 4, [], 120); // inside: two pieces
+    expect(spans(t)).toEqual([[2, 3, 1], [4, 6, 2]]);
+    carveAudio(t, 0, 20, [], 120); // covers everything
+    expect(t.clips).toEqual([]);
+  });
+
+  it('keeps the clips it is told to keep, and drops leftovers that are too short', () => {
+    const { t, clip } = setup();
+    carveAudio(t, 2, 4, [clip.id], 120);
+    expect(spans(t)).toEqual([[0, 8, 0]]); // kept as it is
+    carveAudio(t, 0.1, 9, [], 120);
+    expect(t.clips).toEqual([]); // a 0.1 beat leftover is not a clip
+  });
+
+  it('places a sample exactly where it is put and replaces what is there', () => {
+    const { t } = setup(); // 0–8
+    const placed = placeAudioClip(t, sample('s2', 1), 3, 120)!; // 2 beats at 3–5
+    expect(placed.start).toBe(3);
+    expect(spans(t)).toEqual([[0, 3, 0], [3, 5, 0], [5, 8, 2.5]]);
+    expect(t.clips.find((c) => c.sample === 's2')).toBe(placed);
+    expect(new Set(t.clips.map((c) => c.id)).size).toBe(t.clips.length); // every clip has an id of its own
+    expect(placeAudioClip(t, sample('s3', 1e6), 0, 120)).toBeNull();
   });
 });
