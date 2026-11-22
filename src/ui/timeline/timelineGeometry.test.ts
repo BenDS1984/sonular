@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_PPB, clampPpb, formatLength, formatPosition, labelEvery, snap, snapUnit, zoomAround } from './timelineGeometry';
+import { MAX_PPB, clampPpb, formatLength, formatTime, timeStep, formatPosition, labelEvery, snap, snapUnit, zoomAround } from './timelineGeometry';
 
 describe('timeline geometry', () => {
   it('snaps to bars, beats or sixteenths depending on the zoom', () => {
@@ -29,6 +29,19 @@ describe('timeline geometry', () => {
     expect(MAX_PPB / 4).toBeGreaterThanOrEqual(600); // a sixteenth is hundreds of pixels wide
     expect(clampPpb(1e9)).toBe(MAX_PPB);
     expect(clampPpb(0)).toBeGreaterThan(0);
+  });
+
+  it('chooses a spacing for the time labels and writes times as m:ss', () => {
+    // 120 BPM = 2 beats per second: at 24 px per beat that is 48 px per second.
+    expect(timeStep(48)).toBe(2);
+    expect(timeStep(4800)).toBe(0.02); // zoomed far in: hundredths
+    expect(timeStep(0.5)).toBe(300); // zoomed far out: wide spacing
+    expect(timeStep(0.01)).toBe(600); // and never wider than ten minutes
+    expect(formatTime(0, 1)).toBe('0:00');
+    expect(formatTime(65, 1)).toBe('1:05');
+    expect(formatTime(1.5, 0.5)).toBe('0:01.5');
+    expect(formatTime(61.04, 0.02)).toBe('1:01.04');
+    expect(formatTime(599.9999, 1)).toBe('10:00');
   });
 
   it('zooms around the pointer', () => {

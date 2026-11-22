@@ -64,3 +64,21 @@ export function zoomAround(ppb: number, scrollLeft: number, x: number, factor: n
   const beat = (scrollLeft + x) / ppb;
   return { ppb: next, scrollLeft: Math.max(0, beat * next - x) };
 }
+
+/** Spacings (seconds) the time ruler can use, from very fine to ten minutes. */
+const TIME_STEPS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
+
+/** The smallest spacing in seconds that keeps time labels at least `minPx` apart. */
+export function timeStep(pxPerSecond: number, minPx = 64): number {
+  return TIME_STEPS.find((s) => s * pxPerSecond >= minPx) ?? TIME_STEPS[TIME_STEPS.length - 1]!;
+}
+
+/** A time as m:ss, with decimals when the spacing is finer than a second ("0:01.5"). */
+export function formatTime(seconds: number, step: number): string {
+  const t = Math.max(0, seconds);
+  const decimals = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
+  const rounded = Math.round(t * 10 ** decimals) / 10 ** decimals;
+  const m = Math.floor(rounded / 60);
+  const s = rounded - m * 60;
+  return `${m}:${s.toFixed(decimals).padStart(decimals ? decimals + 3 : 2, '0')}`;
+}

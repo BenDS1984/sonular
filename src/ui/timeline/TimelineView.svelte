@@ -100,6 +100,8 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     clampPpb,
     formatLength,
     formatPosition,
+    formatTime,
+    timeStep,
     labelEvery,
     showsBeats,
     showsSixteenths,
@@ -319,6 +321,21 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     const bars: number[] = [];
     for (let b = first; b <= last; b += every) bars.push(b);
     return bars;
+  });
+
+  /** The time labels at the bottom of the ruler (in seconds, spaced by zoom), for the part in view. */
+  const visibleTimes = $derived.by(() => {
+    const pxPerSecond = (ppb * project.tempo) / 60;
+    const step = timeStep(pxPerSecond);
+    const first = Math.floor(timelineView.scrollLeft / pxPerSecond / step);
+    const last = Math.ceil((timelineView.scrollLeft + viewW) / pxPerSecond / step);
+    const labels: { x: number; text: string }[] = [];
+    for (let i = first; i <= last; i++) {
+      const seconds = i * step;
+      if (seconds * pxPerSecond > contentW) break;
+      labels.push({ x: seconds * pxPerSecond, text: formatTime(seconds, step) });
+    }
+    return labels;
   });
 
   // ---------- Playhead ----------
@@ -1114,6 +1131,9 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       {#each visibleBars as bar (bar)}
         <span class="bar-label" style:left={`${bar * BEATS_PER_BAR * ppb}px`}>{bar + 1}</span>
       {/each}
+      {#each visibleTimes as tm (tm.x)}
+        <span class="time-label" style:left={`${tm.x}px`}>{tm.text}</span>
+      {/each}
       <div class="end-shade" style:left={`${timeline.end * ppb}px`}></div>
       <div class="end-flag" style:left={`${timeline.end * ppb}px`} title={`End of the song: ${formatLength(timeline.end)}`}>End</div>
       <div class="playhead-mark" style:left={`${shownBeat * ppb}px`}></div>
@@ -1602,7 +1622,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
 <style>
   .timeline {
     --header-w: 280px;
-    --ruler-h: 36px;
+    --ruler-h: 50px;
     --grid-bar: rgb(255 255 255 / 0.1);
     --grid-beat: rgb(255 255 255 / 0.04);
     --grid-sixteenth: rgb(255 255 255 / 0.025);
@@ -1711,6 +1731,20 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--text-secondary);
+    pointer-events: none;
+  }
+  /* Time in seconds, under the bar numbers. */
+  .time-label {
+    position: absolute;
+    top: 31px;
+    height: 14px;
+    padding-left: 4px;
+    border-left: 1px solid var(--border-default);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 14px;
+    color: var(--text-muted);
+    white-space: nowrap;
     pointer-events: none;
   }
   .end-flag {
