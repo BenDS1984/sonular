@@ -49,6 +49,8 @@ const FADE_SECONDS = 0.02;
  * ramp per message stops abruptly at each value; dragged, those corners crackle on pure tones.)
  */
 const MASTER_SMOOTH_HZ = 44.1;
+/** How fast the master meter falls back after a peak (the channel meters' follower: tau2pole(0.15)). */
+export const METER_FALL_SECONDS = 0.15;
 /** Closer than this to the target, the master level jumps there and smoothing stops. */
 const MASTER_SNAP = 1e-5;
 
@@ -141,9 +143,14 @@ export class Engine {
   /** A sink went dormant or woke up: rebuild the processing order before the next block. */
   private orderDirty = false;
 
-  /** Peak magnitude of the master bus since the last `takeMeters()`. */
+  /**
+   * Level of the master bus as the meters show it: a peak follower that jumps up at once and falls
+   * back with a time constant of METER_FALL_SECONDS, the same as the channel meters, so the master
+   * meter moves like the others. (Not the raw peak of each reading: that flickers.)
+   */
   private peakL = 0;
   private peakR = 0;
+  private readonly meterFall: number;
   private clipped = false;
   /** Set when a module produced NaN/Infinity; the block was muted and state was reset. */
   private faulted = false;
@@ -156,6 +163,7 @@ export class Engine {
     this.factories = factories;
     this.fadeStep = 1 / (FADE_SECONDS * sampleRate);
     this.masterCoef = MASTER_SMOOTH_HZ / sampleRate;
+    this.meterFall = Math.exp(-1 / (METER_FALL_SECONDS * sampleRate));
   }
 
   // ---------- Patch management ----------
@@ -367,6 +375,8 @@ export class Engine {
   restart(beat = 0): void {
     this.transport.rewind(beat);
     this.resetAll();
+    this.peakL = 0;
+    this.peakR = 0;
   }
 
   /** Move the position while playing (the playhead was moved); modules keep their state. */
@@ -609,13 +619,14 @@ export class Engine {
 
     let pl = this.peakL;
     let pr = this.peakR;
+    const fall = this.meterFall;
     for (let i = 0; i < n; i++) {
       let l = L[i]!;
       let r = R[i]!;
       const al = l < 0 ? -l : l;
       const ar = r < 0 ? -r : r;
-      if (al > pl) pl = al;
-      if (ar > pr) pr = ar;
+      pl = al > pl * fall ? al : pl * fall;
+      pr = ar > pr * fall ? ar : pr * fall;
       if (al > MASTER_CEILING) {
         l = l < 0 ? -MASTER_CEILING : MASTER_CEILING;
         this.clipped = true;
@@ -647,7 +658,8 @@ export class Engine {
   }
 
   /**
-   * Read and reset the master meters (peaks are pre-ceiling, so overs are visible).
+   * Read the master meters (levels are pre-ceiling, so overs are visible) and clear the clip and
+   * fault flags.
    * Writes into `into` when given, so the audio thread can reuse one object (no garbage).
    */
   takeMeters(into: MasterMeters = { peakL: 0, peakR: 0, clipped: false, faulted: false }): MasterMeters {
@@ -655,8 +667,6 @@ export class Engine {
     into.peakR = this.peakR;
     into.clipped = this.clipped;
     into.faulted = this.faulted;
-    this.peakL = 0;
-    this.peakR = 0;
     this.clipped = false;
     this.faulted = false;
     return into;

@@ -8,7 +8,7 @@ const EDGE_FADE_SECONDS = 0.003;
 const LEVEL_SMOOTH_HZ = 44.1;
 const HALF_PI = Math.PI / 2;
 /** How fast the meter falls back after a peak. */
-const METER_FALL_SECONDS = 0.25;
+const METER_FALL_SECONDS = 0.15;
 
 interface ClipState {
   clip: EngineAudioClip;

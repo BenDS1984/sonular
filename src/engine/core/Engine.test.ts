@@ -227,6 +227,23 @@ describe('Engine', () => {
     expect(m.peakL).toBeCloseTo(2);
   });
 
+  it('lets the master meter fall back gradually, like the channel meters', () => {
+    const { render, engine } = setup({
+      nodes: [
+        { id: 'c', kind: 'const', params: { value: 0.8 } },
+        { id: 'master', kind: 'master' },
+      ],
+      connections: [wire('c', 'master')],
+    });
+    render();
+    expect(engine.takeMeters().peakL).toBeCloseTo(0.8);
+    engine.setParam('c', 'value', 0);
+    for (let i = 0; i < Math.round((0.15 * SR) / BLOCK_SIZE); i++) render(); // one time constant
+    const after = engine.takeMeters().peakL;
+    expect(after).toBeGreaterThan(0.8 * 0.3); // still falling, not zero at once
+    expect(after).toBeLessThan(0.8 * 0.45); // about 1/e of the peak after 150 ms
+  });
+
   it('reports zero meters for modules that have not rendered yet', () => {
     class Metered extends Const {
       readonly meterNames = ['m'];
