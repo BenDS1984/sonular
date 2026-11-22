@@ -308,9 +308,11 @@ export function startPatchSync(): () => void {
       for (const t of project.audioTracks) {
         const id = audioNodeId(t.id);
         if (!(id in sentParams)) continue; // the graph with this track is not sent yet
-        if (sentParams[id]!['level'] !== t.level) {
-          audio.setParam(id, 'level', t.level);
-          sentParams[id]!['level'] = t.level;
+        for (const [name, value] of [['level', t.level], ['pan', t.pan]] as const) {
+          if (sentParams[id]![name] !== value) {
+            audio.setParam(id, name, value);
+            sentParams[id]![name] = value;
+          }
         }
         const clips = engineAudioClips(t);
         const key = JSON.stringify(clips);

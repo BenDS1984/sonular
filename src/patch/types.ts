@@ -140,6 +140,11 @@ export interface AudioTrack {
   color: number;
   /** Channel level (linear gain, 1 = 0 dB, up to 2 = +6 dB). */
   level: number;
+  /** Balance, -1 (left) to 1 (right), like the patch channels. */
+  pan: number;
+  /** Send levels (0..1). They feed the effect channels once those exist; they do nothing yet. */
+  send1: number;
+  send2: number;
   mute: boolean;
   solo: boolean;
   clips: AudioClip[];

@@ -93,3 +93,19 @@ describe('AudioTrack', () => {
     expect(meters[0]).toBeGreaterThan(0);
   });
 });
+
+describe('AudioTrack pan', () => {
+  it('turns the far side down and keeps the near side', () => {
+    const t = setup(0.5);
+    t.track.setParam('pan', 1);
+    t.track.setAudioClips([{ sample: 's', start: 0, end: 8, offset: 0 }]);
+    for (let b = 0; b < 400; b++) {
+      t.transport.beginBlock();
+      t.track.process([], [], [], BLOCK_SIZE);
+      t.transport.endBlock(BLOCK_SIZE);
+    }
+    const last = BLOCK_SIZE - 1;
+    expect(t.track.outL[last]!).toBeCloseTo(0, 3); // hard right: left side silent
+    expect(t.track.outR[last]!).toBeCloseTo(0.5, 3);
+  });
+});

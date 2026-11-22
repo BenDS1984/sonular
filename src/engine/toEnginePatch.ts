@@ -97,7 +97,7 @@ export function toEnginePatch(project: Project, getDef: DefinitionLookup): Engin
     nodes.push({
       id: audioNodeId(track.id),
       kind: 'native:audiotrack',
-      params: { level: track.level },
+      params: { level: track.level, pan: track.pan },
       audioClips: engineAudioClips(track),
       active: audioHeard.has(track.id),
     });

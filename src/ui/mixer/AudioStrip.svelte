@@ -1,6 +1,6 @@
 <!--
-  The mixer strip of an audio track: its name and colour, a stereo meter with a fader, and mute and
-  solo. The same settings as on the track's name on the timeline. Click the name to rename it.
+  The mixer strip of an audio track, the same as a patch's: name and colour, a stereo meter with a
+  fader, pan with mute and solo, and two sends (not active yet). The same settings as on the track's name on the timeline. Click the name to rename it.
 -->
 <script lang="ts">
   import { engineState, meterValueIn } from '../../engine/engine.svelte';
@@ -8,7 +8,9 @@
   import type { AudioTrack } from '../../patch/types';
   import { channelColor } from '../channelColors';
   import Fader from '../components/Fader.svelte';
+  import Knob from '../components/Knob.svelte';
   import Meter from '../components/Meter.svelte';
+  import { formatGainDb, formatPan } from '../format';
   import Toggle from '../components/Toggle.svelte';
 
   let { track }: { track: AudioTrack } = $props();
@@ -78,9 +80,17 @@
     </div>
   </div>
 
-  <div class="buttons">
-    <Toggle pressed={track.mute} label="M" title="Mute" tone="danger" onchange={(p) => (track.mute = p)} />
-    <Toggle pressed={track.solo} label="S" title="Solo" tone="accent" onchange={(p) => (track.solo = p)} />
+  <div class="row">
+    <Knob value={track.pan} onchange={(v) => (track.pan = v)} min={-1} max={1} defaultValue={0} bipolar label="Pan" format={formatPan} signal="audio" />
+    <div class="buttons">
+      <Toggle pressed={track.mute} label="M" title="Mute" tone="danger" onchange={(p) => (track.mute = p)} />
+      <Toggle pressed={track.solo} label="S" title="Solo" tone="accent" onchange={(p) => (track.solo = p)} />
+    </div>
+  </div>
+
+  <div class="row sends" title="Sends: active once there are effect channels">
+    <Knob value={track.send1} onchange={(v) => (track.send1 = v)} min={0} max={1} defaultValue={0} size="sm" label="Send 1" format={formatGainDb} signal="audio" />
+    <Knob value={track.send2} onchange={(v) => (track.send2 = v)} min={0} max={1} defaultValue={0} size="sm" label="Send 2" format={formatGainDb} signal="audio" />
   </div>
 </div>
 
@@ -146,7 +156,15 @@
   }
   .buttons {
     display: flex;
-    justify-content: center;
     gap: 4px;
+  }
+  .row {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+  }
+  .sends {
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--border-subtle);
   }
 </style>

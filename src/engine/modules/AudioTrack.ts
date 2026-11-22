@@ -6,6 +6,7 @@ import type { Transport } from '../core/Transport';
 const EDGE_FADE_SECONDS = 0.003;
 /** Level changes glide, like the patch channels' faders (same smoothing). */
 const LEVEL_SMOOTH_HZ = 44.1;
+const HALF_PI = Math.PI / 2;
 /** How fast the meter falls back after a peak. */
 const METER_FALL_SECONDS = 0.25;
 
@@ -47,6 +48,9 @@ export class AudioTrack implements SinkModule {
   private lastBeat = NaN;
   private level = 1;
   private levelTarget = 1;
+  /** Balance like the patch channels: the far side gets quieter (cosine law), the near side stays. */
+  private pan = 0;
+  private panTarget = 0;
   private readonly levelCoef: number;
   private readonly fadeFrames: number;
   private peakL = 0;
@@ -63,7 +67,9 @@ export class AudioTrack implements SinkModule {
   }
 
   setParam(name: string, value: number): void {
-    if (name === 'level' && Number.isFinite(value)) this.levelTarget = Math.max(0, value);
+    if (!Number.isFinite(value)) return;
+    if (name === 'level') this.levelTarget = Math.max(0, value);
+    else if (name === 'pan') this.panTarget = Math.min(1, Math.max(-1, value));
   }
 
   /** Replace the clips (sorted by start). Clips that stay the same keep playing. */
@@ -108,6 +114,8 @@ export class AudioTrack implements SinkModule {
     const secondsPerBeat = 60 / t.tempo;
     let lastBeat = this.lastBeat;
     let gain = this.level;
+    let pan = this.pan;
+    const panTarget = this.panTarget;
     const target = this.levelTarget;
     const fade = this.fadeFrames;
     const outRate = this.sampleRate;
@@ -154,11 +162,22 @@ export class AudioTrack implements SinkModule {
         s.cursor = pos + data.rate / outRate;
         s.age++;
       }
-      outL[i] = l * gain;
-      outR[i] = r * gain;
+      let gl = gain;
+      let gr = gain;
+      if (pan !== panTarget) {
+        pan += (panTarget - pan) * this.levelCoef;
+        if (Math.abs(panTarget - pan) < 1e-5) pan = panTarget;
+      }
+      if (pan !== 0) {
+        gl *= Math.cos(Math.max(pan, 0) * HALF_PI);
+        gr *= Math.cos(Math.max(-pan, 0) * HALF_PI);
+      }
+      outL[i] = l * gl;
+      outR[i] = r * gr;
     }
     this.lastBeat = lastBeat;
     this.level = gain;
+    this.pan = pan;
 
     let pl = this.peakL * this.meterFall;
     let pr = this.peakR * this.meterFall;
