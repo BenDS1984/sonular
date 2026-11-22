@@ -9,7 +9,19 @@ import type { DisplayLayoutEntry, MeterLayoutEntry } from './core/types';
 import { getDefinition } from '../modules/registry';
 import { CHANNEL_TYPE } from '../patch/operations';
 import { patch, project } from '../patch/patch.svelte';
-import { audiblePatches, engineClips, engineLanes, nodeIdOf, structureKey, toEnginePatch } from './toEnginePatch';
+import { usedSamples } from '../patch/audioTracks';
+import { decodeLibrarySample } from '../samples/sampleBuffers';
+import {
+  audibleAudioTracks,
+  audioNodeId,
+  audiblePatches,
+  engineAudioClips,
+  engineClips,
+  engineLanes,
+  nodeIdOf,
+  structureKey,
+  toEnginePatch,
+} from './toEnginePatch';
 import { clearOverrides, overrides } from './overrides.svelte';
 
 export const engineState = $state({
@@ -170,8 +182,33 @@ let sentParams: Record<string, Record<string, number>> = {};
 let sentActive: Record<string, boolean> = {};
 /** Timeline blocks last sent to each sequencer node, as JSON. */
 let sentClips: Record<string, string> = {};
+/** Sample clips last sent to each audio track node, as JSON. */
+let sentAudioClips: Record<string, string> = {};
 /** Automation lanes last sent, as JSON. */
 let sentLanes = '';
+
+/** Samples in the engine (or being decoded for it). */
+const sentSamples = new Set<string>();
+
+function syncSamples(used: ReadonlySet<string>) {
+  const gone = [...sentSamples].filter((id) => !used.has(id));
+  if (gone.length > 0) {
+    for (const id of gone) sentSamples.delete(id);
+    audio.dropSamples(gone);
+  }
+  const rate = audio.sampleRate;
+  if (!rate) return;
+  for (const id of used) {
+    if (sentSamples.has(id)) continue;
+    sentSamples.add(id);
+    void decodeLibrarySample(id, rate).then((decoded) => {
+      // Unused again or the engine restarted while decoding: nothing to send.
+      // (A sample that cannot be read stays in the set, so it is not tried again on every change.)
+      if (!decoded || !sentSamples.has(id) || engineState.status !== 'ready' || audio.sampleRate !== rate) return;
+      audio.sendSample(id, decoded.rate, decoded.channels);
+    });
+  }
+}
 
 function sendLanes() {
   const lanes = engineLanes(project, getDefinition, overrides.keys);
@@ -205,6 +242,7 @@ export function startPatchSync(): () => void {
         sentActive = Object.fromEntries(graph.nodes.filter((n) => n.active !== undefined).map((n) => [n.id, n.active!]));
         sentClips = Object.fromEntries(graph.nodes.filter((n) => n.clips).map((n) => [n.id, JSON.stringify(n.clips)]));
         // The engine may be new (started, or restarted after an error): send the lanes again.
+        sentAudioClips = Object.fromEntries(graph.nodes.filter((n) => n.audioClips).map((n) => [n.id, JSON.stringify(n.audioClips)]));
         sentLanes = '';
         sendLanes();
         pruneRecorders(new Set(graph.nodes.map((n) => n.id)));
@@ -261,6 +299,41 @@ export function startPatchSync(): () => void {
     $effect(() => {
       if (engineState.status !== 'ready') return;
       sendLanes();
+    });
+
+    // Audio tracks: level, sample clips, and heard or not (mute/solo, together with the patches).
+    $effect(() => {
+      if (engineState.status !== 'ready') return;
+      const heard = audibleAudioTracks(project);
+      for (const t of project.audioTracks) {
+        const id = audioNodeId(t.id);
+        if (!(id in sentParams)) continue; // the graph with this track is not sent yet
+        if (sentParams[id]!['level'] !== t.level) {
+          audio.setParam(id, 'level', t.level);
+          sentParams[id]!['level'] = t.level;
+        }
+        const clips = engineAudioClips(t);
+        const key = JSON.stringify(clips);
+        if (sentAudioClips[id] !== key) {
+          audio.setAudioClips(id, clips);
+          sentAudioClips[id] = key;
+        }
+        const active = heard.has(t.id);
+        if (id in sentActive && sentActive[id] !== active) {
+          audio.setSinkActive(id, active);
+          sentActive[id] = active;
+        }
+      }
+    });
+
+    // Samples the audio tracks use: decoded once and handed to the engine; dropped when unused.
+    $effect(() => {
+      if (engineState.status !== 'ready') {
+        sentSamples.clear();
+        return;
+      }
+      const used = usedSamples(project);
+      untrack(() => syncSamples(used));
     });
 
     $effect(() => {

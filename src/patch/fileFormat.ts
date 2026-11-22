@@ -8,13 +8,14 @@
 import { clampTempo, DEFAULT_TEMPO } from '../engine/core/Transport';
 import type { ModuleDefinition } from '../modules/types';
 import { ensureChannel } from './operations';
+import { AUDIO_MAX_LEVEL } from './audioTracks';
 import { BEATS_PER_BAR, clampBank, clampLaneHeight, emptyTimeline, hasBanks, LANE_HEIGHT, MAX_BEATS, MIN_CLIP_LENGTH } from './timeline';
-import type { AutomationLane, Cable, Clip, ModuleInstance, Patch, Project, Timeline } from './types';
+import type { AudioClip, AudioTrack, AutomationLane, Cable, Clip, ModuleInstance, Patch, Project, Timeline } from './types';
 
 export const FILE_FORMAT = 'sonular-project';
 /** Format name of version 1 files, which held a single patch. */
 const LEGACY_FORMAT = 'sonular-patch';
-export const FILE_VERSION = 4;
+export const FILE_VERSION = 5;
 export const FILE_EXTENSION = '.sonular';
 
 export interface ProjectFile {
@@ -78,6 +79,9 @@ const MIGRATIONS: Record<number, (data: Record<string, unknown>) => Record<strin
   // files get an empty timeline when read. The version went up so an older Sonular refuses these
   // files instead of opening them and silently dropping the timeline.
   3: (data) => data,
+  // 4 → 5: audio tracks were added. Older files get none when read; the version went up so an older
+  // Sonular refuses these files instead of silently dropping the tracks.
+  4: (data) => data,
 };
 
 export function serializeProject(project: Project, now = new Date()): string {
@@ -91,6 +95,15 @@ export function serializeProject(project: Project, now = new Date()): string {
       masterLevel: project.masterLevel,
       activePatch: project.activePatch,
       timeline: { end: project.timeline.end, loop: { ...project.timeline.loop } },
+      audioTracks: project.audioTracks.map((t) => ({
+        id: t.id,
+        name: t.name,
+        color: t.color,
+        level: t.level,
+        mute: t.mute,
+        solo: t.solo,
+        clips: t.clips.map((c) => ({ id: c.id, sample: c.sample, name: c.name, start: c.start, length: c.length, offset: c.offset })),
+      })),
       patches: project.patches.map((p) => ({
         id: p.id,
         name: p.name,
@@ -202,7 +215,15 @@ export function validateProject(raw: unknown, getDef: DefinitionLookup, fallback
   const timeline = validateTimeline(src['timeline']);
 
   return {
-    project: { name: asString(src['name'], fallbackName), tempo, masterLevel, patches, activePatch, timeline },
+    project: {
+      name: asString(src['name'], fallbackName),
+      tempo,
+      masterLevel,
+      patches,
+      activePatch,
+      timeline,
+      audioTracks: validateAudioTracks(src['audioTracks'], warnings),
+    },
     warnings,
   };
 }
@@ -404,4 +425,71 @@ function validatePatchContent(
 export function fileNameFor(name: string): string {
   const safe = name.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim() || 'Untitled project';
   return `${safe}${FILE_EXTENSION}`;
+}
+
+/**
+ * Audio tracks: ids "a<n>" that are unique, levels within the channel range, and clips inside the
+ * song range that never overlap another clip of their track.
+ */
+function validateAudioTracks(raw: unknown, warnings: string[]): AudioTrack[] {
+  const tracks: AudioTrack[] = [];
+  const used = new Set<string>();
+  const list = (Array.isArray(raw) ? raw : []).filter(isObject);
+  let dropped = 0;
+  for (const [i, rt] of list.entries()) {
+    let id = typeof rt['id'] === 'string' && /^a\d+$/.test(rt['id']) ? rt['id'] : '';
+    if (!id || used.has(id)) {
+      let n = 1;
+      while (used.has(`a${n}`) || list.some((o) => o['id'] === `a${n}`)) n++;
+      id = `a${n}`;
+    }
+    used.add(id);
+    const candidates: AudioClip[] = [];
+    for (const c of Array.isArray(rt['clips']) ? rt['clips'] : []) {
+      if (!isObject(c) || typeof c['sample'] !== 'string' || !isFiniteNumber(c['start']) || !isFiniteNumber(c['length'])) {
+        dropped++;
+        continue;
+      }
+      const start = clampBeats(c['start']);
+      const length = Math.min(MAX_BEATS - start, c['length']);
+      if (length < MIN_CLIP_LENGTH) {
+        dropped++;
+        continue;
+      }
+      candidates.push({
+        id: typeof c['id'] === 'string' ? c['id'] : '',
+        sample: c['sample'],
+        name: asString(c['name'], 'Sample').slice(0, MAX_NAME_LENGTH * 3),
+        start,
+        length,
+        offset: isFiniteNumber(c['offset']) ? Math.max(0, c['offset']) : 0,
+      });
+    }
+    candidates.sort((a, b) => a.start - b.start);
+    const clips: AudioClip[] = [];
+    let end = 0;
+    for (const c of candidates) {
+      if (c.start < end - 1e-9) {
+        dropped++;
+        continue;
+      }
+      end = c.start + c.length;
+      clips.push(c);
+    }
+    let next = 0;
+    for (const c of clips) if (/^c\d+$/.test(c.id)) next = Math.max(next, Number(c.id.slice(1)));
+    for (const c of clips) if (!/^c\d+$/.test(c.id) || clips.filter((o) => o.id === c.id).length > 1) c.id = `c${++next}`;
+    const level = isFiniteNumber(rt['level']) ? Math.min(AUDIO_MAX_LEVEL, Math.max(0, rt['level'])) : 1;
+    tracks.push({
+      id,
+      name: asString(rt['name'], `Audio ${i + 1}`).slice(0, MAX_NAME_LENGTH),
+      color: isFiniteNumber(rt['color']) && rt['color'] >= 0 ? Math.floor(rt['color']) : 6,
+      level,
+      mute: rt['mute'] === true,
+      solo: rt['solo'] === true,
+      clips,
+    });
+  }
+  if (dropped) warnings.push(`Removed ${dropped} audio clip${dropped > 1 ? 's' : ''} that could not be placed.`);
+  return tracks;
 }

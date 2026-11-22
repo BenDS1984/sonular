@@ -1,6 +1,6 @@
 <!--
-  The mixer: the Channel of every patch side by side, in tab order, with the master channel fixed
-  on the right. The strips are the same settings as the Channel modules in the patches.
+  The mixer: the Channel of every patch side by side, in tab order, then the channel of every
+  audio track (added on the timeline), with the master channel fixed on the right. The strips are the same settings as the Channel modules in the patches.
   - click a name: rename; the grip above a strip: drag sideways to change the order (the tabs
     follow). The dragged strip follows the pointer and the others slide aside.
   - the master has a fader and a stereo meter of everything together
@@ -9,6 +9,7 @@
   import { tick } from 'svelte';
   import { flip } from 'svelte/animate';
   import ChannelStrip from '../../modules/channel/ChannelStrip.svelte';
+  import AudioStrip from './AudioStrip.svelte';
   import { engineState, meterValueIn } from '../../engine/engine.svelte';
   import { getDefinition } from '../../modules/registry';
   import { CHANNEL_TYPE } from '../../patch/operations';
@@ -153,6 +154,12 @@
         </section>
       {/each}
     {/if}
+    {#each project.audioTracks as t (t.id)}
+      <section class="strip" style:width={`${def?.width ?? 152}px`} aria-label={`Audio channel ${t.name}`}>
+        <div class="grip-space" aria-hidden="true"></div>
+        <AudioStrip track={t} />
+      </section>
+    {/each}
   </div>
 
   <section

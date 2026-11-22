@@ -72,6 +72,8 @@ export interface DspModule {
    * Called from the message handler, so it may allocate.
    */
   setClips?(clips: readonly EngineClip[]): void;
+  /** Audio tracks: the sample clips to play, replacing earlier ones. Called from the message handler. */
+  setAudioClips?(clips: readonly EngineAudioClip[]): void;
   /** Clear internal state (delay lines, filter memory, phases). */
   reset(): void;
   /** Release resources when removed from the patch. */
@@ -105,12 +107,22 @@ export interface EngineClip {
   bank: number;
 }
 
+/** A piece of a sample on an audio track: from `start` up to `end` in beats, from `offset` seconds in. */
+export interface EngineAudioClip {
+  sample: string;
+  start: number;
+  end: number;
+  offset: number;
+}
+
 export interface PatchNode {
   id: string;
   kind: string;
   params?: Record<string, number>;
   /** Modules with banks: their timeline blocks (none: they play the bank chosen on the module). */
   clips?: EngineClip[];
+  /** Audio tracks: the sample clips to play, sorted by start. */
+  audioClips?: EngineAudioClip[];
   /**
    * Sinks only: whether it is heard (default true). A silent sink fades out and then everything
    * that only feeds it stops rendering (a muted or un-soloed mixer channel).

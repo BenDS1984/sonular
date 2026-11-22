@@ -2,6 +2,7 @@ import {
   BLOCK_SIZE,
   isSink,
   type DspModule,
+  type EngineAudioClip,
   type EngineClip,
   type EngineBlockStats,
   type DisplayLayoutEntry,
@@ -183,6 +184,7 @@ export class Engine {
         for (const [name, value] of Object.entries(desc.params)) node.module.setParam(name, value);
       }
       if (desc.clips) node.module.setClips?.(desc.clips);
+      if (desc.audioClips) node.module.setAudioClips?.(desc.audioClips);
       next.set(desc.id, node);
     }
 
@@ -318,6 +320,11 @@ export class Engine {
   /** Replace a module's timeline blocks (sequencers). */
   setClips(nodeId: string, clips: readonly EngineClip[]): void {
     this.nodes.get(nodeId)?.module.setClips?.(clips);
+  }
+
+  /** Replace an audio track's sample clips. */
+  setAudioClips(nodeId: string, clips: readonly EngineAudioClip[]): void {
+    this.nodes.get(nodeId)?.module.setAudioClips?.(clips);
   }
 
   /** Switch a sink on or off (mute/solo of a mixer channel), with a short fade. */

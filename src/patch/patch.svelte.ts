@@ -119,6 +119,7 @@ export function replaceProject(next: Project) {
   project.patches = next.patches;
   project.activePatch = next.activePatch;
   project.timeline = next.timeline;
+  project.audioTracks = next.audioTracks;
 }
 
 // ---------- Patches (tabs) ----------

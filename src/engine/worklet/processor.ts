@@ -3,6 +3,8 @@
  * Bundled separately by Vite (imported with `?worker&url`) and loaded via audioWorklet.addModule.
  */
 import { Engine, type MasterMeters } from '../core/Engine';
+import { SampleBank } from '../core/SampleBank';
+import { AudioTrack } from '../modules/AudioTrack';
 import type { ModuleFactory, RecordedAudio } from '../core/types';
 import { FaustDsp, declaredSink } from '../faust/FaustDsp';
 import { FaustSink } from '../faust/FaustSink';
@@ -24,6 +26,8 @@ const CPU_SMOOTHING = HIRES_TIMER ? 0.3 : 0.05;
 
 class SonularProcessor extends AudioWorkletProcessor {
   private engine: Engine | null = null;
+  /** The samples of the audio tracks. */
+  private readonly samples = new SampleBank();
   private running = false;
   private gain = 0;
   private readonly fadeStep = 1 / Math.max(1, FADE_SECONDS * sampleRate);
@@ -75,6 +79,7 @@ class SonularProcessor extends AudioWorkletProcessor {
         const factories: Record<string, ModuleFactory> = {
           master: () => new Master(),
           ...NATIVE_MODULES,
+          'native:audiotrack': (sr, transport) => new AudioTrack(sr, transport, this.samples),
         };
         for (const prog of msg.faust) {
           const sink = declaredSink(prog.meta);
@@ -108,6 +113,15 @@ class SonularProcessor extends AudioWorkletProcessor {
         break;
       case 'clips':
         this.engine?.setClips(msg.node, msg.clips);
+        break;
+      case 'audioClips':
+        this.engine?.setAudioClips(msg.node, msg.clips);
+        break;
+      case 'sample':
+        this.samples.set(msg.id, msg.rate, msg.channels);
+        break;
+      case 'dropSamples':
+        for (const id of msg.ids) this.samples.delete(id);
         break;
       case 'automation':
         this.engine?.setAutomation(msg.lanes);

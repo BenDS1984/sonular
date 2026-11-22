@@ -1,5 +1,5 @@
 /** Messages between the main thread and the engine running in the AudioWorklet. */
-import type { DisplayLayoutEntry, EngineClip, EnginePatch, MeterLayoutEntry, RecordedAudio } from './core/types';
+import type { DisplayLayoutEntry, EngineAudioClip, EngineClip, EnginePatch, MeterLayoutEntry, RecordedAudio } from './core/types';
 import type { EngineLane } from './core/automation';
 import type { FaustMeta } from './faust/FaustDsp';
 
@@ -17,6 +17,12 @@ export type ToEngine =
   | { type: 'param'; node: string; name: string; value: number }
   /** A sequencer's timeline blocks changed. */
   | { type: 'clips'; node: string; clips: EngineClip[] }
+  /** An audio track's sample clips changed. */
+  | { type: 'audioClips'; node: string; clips: EngineAudioClip[] }
+  /** A decoded sample for the audio tracks (channels are moved, not copied). */
+  | { type: 'sample'; id: string; rate: number; channels: Float32Array[] }
+  /** Samples no longer used. */
+  | { type: 'dropSamples'; ids: string[] }
   /** Every automation lane of the project (replaces the previous ones). */
   | { type: 'automation'; lanes: EngineLane[] }
   | { type: 'tempo'; bpm: number }

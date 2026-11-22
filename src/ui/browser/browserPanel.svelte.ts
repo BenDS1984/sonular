@@ -12,6 +12,12 @@ export const BROWSER_DEFAULT_WIDTH = 240;
 /** Drag-and-drop data type for a module dragged from the browser onto the canvas. */
 export const MODULE_DRAG_TYPE = 'application/x-sonular-module';
 
+/** Drag-and-drop data type for a sample dragged from the browser onto an audio track. */
+export const SAMPLE_DRAG_TYPE = 'application/x-sonular-sample';
+
+/** The sample being dragged from the browser (null when none), so a track can show where it would land. */
+export const sampleDrag = $state({ id: null as string | null });
+
 export const sideBrowser = $state({
   /** Where the next module picked in the browser goes (canvas px), set by a double-click on the canvas. */
   place: null as Point | null,

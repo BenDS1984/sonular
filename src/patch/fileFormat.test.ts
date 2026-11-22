@@ -32,6 +32,17 @@ const DEFS = [def('src', [], ['out']), def('sink', ['L', 'R'], []), seq];
 const getDef = (t: string) => DEFS.find((d) => d.type === t);
 
 const sample = (): Project => ({
+  audioTracks: [
+    {
+      id: 'a2',
+      name: 'Vocals',
+      color: 7,
+      level: 1.4,
+      mute: false,
+      solo: true,
+      clips: [{ id: 'c1', sample: 's1', name: 'Verse', start: 4, length: 8, offset: 1.5 }],
+    },
+  ],
   name: 'My drone',
   tempo: 96,
   masterLevel: 0.8,
@@ -110,7 +121,41 @@ describe('project files', () => {
         },
       ],
       timeline: emptyTimeline(),
+      audioTracks: [],
     });
+  });
+
+  it('repairs audio tracks: ids, levels and clips that overlap or have no sample', () => {
+    const file = JSON.parse(serializeProject(sample()));
+    file.project.audioTracks = [
+      {
+        id: 'a2',
+        name: 'Loops',
+        level: 9,
+        clips: [
+          { id: 'c1', sample: 's1', name: 'A', start: 0, length: 8, offset: 0 },
+          { id: 'c2', sample: 's1', name: 'A', start: 4, length: 8, offset: 0 },
+          { id: 'c3', sample: 's2', name: 'B', start: 8, length: 4, offset: -3 },
+          { id: 'c4', start: 20, length: 4 },
+        ],
+      },
+      { id: 'a2', name: '', clips: 'nope' },
+    ];
+    const { project, warnings } = parseProjectFile(JSON.stringify(file), getDef);
+    const [first, second] = project.audioTracks;
+    expect(first!.level).toBe(2);
+    expect(first!.clips.map((c) => [c.id, c.start])).toEqual([['c1', 0], ['c3', 8]]);
+    expect(first!.clips[1]!.offset).toBe(0);
+    expect(second!.id).toBe('a1');
+    expect(second!.clips).toEqual([]);
+    expect(warnings.join(' ')).toMatch(/2 audio clips/);
+  });
+
+  it('opens a version 4 file without audio tracks', () => {
+    const file = JSON.parse(serializeProject(sample()));
+    delete file.project.audioTracks;
+    file.version = 4;
+    expect(parseProjectFile(JSON.stringify(file), getDef).project.audioTracks).toEqual([]);
   });
 
   it('keeps valid bends of automation lines and repairs broken ones', () => {

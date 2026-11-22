@@ -135,6 +135,7 @@ export function emptyProject(name: string, tempo: number): Project {
     patches: [emptyPatch('p1', 'Patch 1')],
     activePatch: 'p1',
     timeline: emptyTimeline(),
+    audioTracks: [],
   };
 }
 

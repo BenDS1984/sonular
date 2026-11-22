@@ -4,6 +4,7 @@
   - click a sample to listen to it (click again to stop); one sample plays at a time, and its
     waveform shows how far it has played
   - right-click a sample to rename or delete it
+  - drag a sample onto an audio track on the timeline
   The library stays when the app is closed; it is not part of a project.
 -->
 <script lang="ts">
@@ -22,6 +23,7 @@
   import { formatBytes, formatSampleLength, PEAK_COUNT } from '../../samples/sampleFiles';
   import type { SampleInfo } from '../../platform/sampleStore';
   import { prefs } from '../prefs.svelte';
+  import { SAMPLE_DRAG_TYPE, sampleDrag } from './browserPanel.svelte';
 
   void loadLibrary();
   onDestroy(stopPreview);
@@ -63,6 +65,15 @@
     const files = Array.from(input.files ?? []);
     input.value = '';
     if (files.length) void addSampleFiles(files);
+  }
+
+  // ---------- Dragging onto an audio track ----------
+
+  function ondragstart(e: DragEvent, s: SampleInfo) {
+    if (!e.dataTransfer) return;
+    e.dataTransfer.setData(SAMPLE_DRAG_TYPE, s.id);
+    e.dataTransfer.effectAllowed = 'copy';
+    sampleDrag.id = s.id;
   }
 
   // ---------- Renaming ----------
@@ -121,7 +132,15 @@
   <div class="list" role="list" aria-label="Samples">
     {#each shown as s (s.id)}
       {@const playing = library.playing === s.id}
-      <div class="sample" class:playing role="listitem" oncontextmenu={(e) => openMenu(e, s)}>
+      <div
+        class="sample"
+        class:playing
+        role="listitem"
+        draggable={renaming !== s.id}
+        ondragstart={(e) => ondragstart(e, s)}
+        ondragend={() => (sampleDrag.id = null)}
+        oncontextmenu={(e) => openMenu(e, s)}
+      >
         {#if renaming === s.id}
           <input
             class="rename"

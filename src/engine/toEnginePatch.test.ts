@@ -41,6 +41,7 @@ const project = (...patches: Patch[]): Project => ({
   patches,
   activePatch: patches[0]!.id,
   timeline: emptyTimeline(),
+  audioTracks: [],
 });
 
 describe('automation lanes for the engine', () => {

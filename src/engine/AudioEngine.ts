@@ -3,7 +3,7 @@
  * Faust programs, and forwards patch/parameter changes. All DSP happens in the worklet.
  */
 import workletUrl from './worklet/processor.ts?worker&url';
-import type { DisplayLayoutEntry, EngineClip, EnginePatch, MeterLayoutEntry, RecordedAudio } from './core/types';
+import type { DisplayLayoutEntry, EngineAudioClip, EngineClip, EnginePatch, MeterLayoutEntry, RecordedAudio } from './core/types';
 import { DEFAULT_TEMPO } from './core/Transport';
 import type { EngineLane } from './core/automation';
 import { compileFaustPrograms } from './faustPrograms';
@@ -158,6 +158,19 @@ export class AudioEngine {
 
   setClips(node: string, clips: EngineClip[]): void {
     this.send({ type: 'clips', node, clips });
+  }
+
+  setAudioClips(node: string, clips: EngineAudioClip[]): void {
+    this.send({ type: 'audioClips', node, clips });
+  }
+
+  /** Hand the engine a decoded sample (the arrays are moved to it). */
+  sendSample(id: string, rate: number, channels: Float32Array[]): void {
+    this.node?.port.postMessage({ type: 'sample', id, rate, channels } satisfies ToEngine, channels.map((c) => c.buffer));
+  }
+
+  dropSamples(ids: string[]): void {
+    this.send({ type: 'dropSamples', ids });
   }
 
   setAutomation(lanes: EngineLane[]): void {

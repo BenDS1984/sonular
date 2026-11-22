@@ -6,8 +6,8 @@
 import type { ModuleDefinition } from '../modules/types';
 import { CHANNEL_TYPE } from '../patch/operations';
 import { holdsSteps } from '../patch/timeline';
-import type { Patch, Project } from '../patch/types';
-import type { EngineClip, EnginePatch } from './core/types';
+import type { AudioTrack, Patch, Project } from '../patch/types';
+import type { EngineAudioClip, EngineClip, EnginePatch } from './core/types';
 import type { EngineLane } from './core/automation';
 import { toNormalized } from '../ui/scale';
 
@@ -27,7 +27,7 @@ function channelOf(patch: Patch) {
  * Several solos can be on at once; mute wins over solo.
  */
 export function audiblePatches(project: Project): Set<string> {
-  const anySolo = project.patches.some((p) => isOn(channelOf(p)?.params['solo']));
+  const anySolo = anySoloed(project);
   const heard = new Set<string>();
   for (const p of project.patches) {
     const ch = channelOf(p);
@@ -36,6 +36,32 @@ export function audiblePatches(project: Project): Set<string> {
     heard.add(p.id);
   }
   return heard;
+}
+
+/** Whether any channel, of a patch or an audio track, is soloed. */
+function anySoloed(project: Project): boolean {
+  return project.patches.some((p) => isOn(channelOf(p)?.params['solo'])) || project.audioTracks.some((t) => t.solo);
+}
+
+/** Which audio tracks are heard: the same rules as for the patches' channels. */
+export function audibleAudioTracks(project: Project): Set<string> {
+  const anySolo = anySoloed(project);
+  const heard = new Set<string>();
+  for (const t of project.audioTracks) {
+    if (t.mute || (anySolo && !t.solo)) continue;
+    heard.add(t.id);
+  }
+  return heard;
+}
+
+/** Engine node id of an audio track (its channel on the master bus). */
+export const audioNodeId = (trackId: string) => nodeIdOf('audio', trackId);
+
+/** An audio track's sample clips as the engine takes them, sorted by start. */
+export function engineAudioClips(track: AudioTrack): EngineAudioClip[] {
+  return track.clips
+    .map((c) => ({ sample: c.sample, start: c.start, end: c.start + c.length, offset: c.offset }))
+    .sort((a, b) => a.start - b.start);
 }
 
 export function toEnginePatch(project: Project, getDef: DefinitionLookup): EnginePatch {
@@ -65,6 +91,16 @@ export function toEnginePatch(project: Project, getDef: DefinitionLookup): Engin
         to: { node: nodeIdOf(patch.id, c.to.module), port: toPort },
       });
     }
+  }
+  const audioHeard = audibleAudioTracks(project);
+  for (const track of project.audioTracks) {
+    nodes.push({
+      id: audioNodeId(track.id),
+      kind: 'native:audiotrack',
+      params: { level: track.level },
+      audioClips: engineAudioClips(track),
+      active: audioHeard.has(track.id),
+    });
   }
   return { nodes, connections };
 }
@@ -121,5 +157,6 @@ export function structureKey(project: Project): string {
       const cables = patch.cables.map((c) => `${c.from.module}.${c.from.port}>${c.to.module}.${c.to.port}`).join(',');
       return `${patch.id}:${mods}|${cables}`;
     })
+    .concat(project.audioTracks.map((t) => `audio:${t.id}`))
     .join(';');
 }

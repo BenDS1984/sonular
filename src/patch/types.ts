@@ -112,6 +112,39 @@ export interface Timeline {
   loop: { on: boolean; start: number; end: number };
 }
 
+// ---------- Audio tracks ----------
+
+/**
+ * A piece of a sample on an audio track: plays the sample from `offset` seconds in, from beat
+ * `start` for `length` beats. Clips on one track never overlap.
+ */
+export interface AudioClip {
+  /** Unique within its track ("c1", "c2", ...), never reused there. */
+  id: string;
+  /** Id of the sample in the sample library on this computer. */
+  sample: string;
+  /** The sample's name when it was placed (shown when the sample is not in the library). */
+  name: string;
+  start: number;
+  length: number;
+  /** Where in the sample the clip starts, in seconds. */
+  offset: number;
+}
+
+/** A timeline track that plays samples, with its own channel in the mixer. */
+export interface AudioTrack {
+  /** Stable id within the project ("a1", "a2", ...), never reused there. */
+  id: string;
+  name: string;
+  /** Index into the channel colour palette. */
+  color: number;
+  /** Channel level (linear gain, 1 = 0 dB, up to 2 = +6 dB). */
+  level: number;
+  mute: boolean;
+  solo: boolean;
+  clips: AudioClip[];
+}
+
 export interface Project {
   /** Shown in the top bar and used as the file name. */
   name: string;
@@ -124,4 +157,6 @@ export interface Project {
   /** Id of the patch shown in the workspace. */
   activePatch: string;
   timeline: Timeline;
+  /** Timeline tracks that play samples, listed after the patch tracks. */
+  audioTracks: AudioTrack[];
 }

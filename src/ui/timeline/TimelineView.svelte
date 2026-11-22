@@ -49,7 +49,24 @@
     setLaneHeight,
   } from '../../patch/timeline';
   import { overrideKey, overrides } from '../../engine/overrides.svelte';
-  import type { AutomationLane, Clip, Patch } from '../../patch/types';
+  import {
+    addAudioClip,
+    addAudioTrack,
+    audioFreeRange,
+    duplicateAudioClip,
+    maxAudioLength,
+    nearestFreeAudioStart,
+    removeAudioClip,
+    removeAudioTrack,
+    renameAudioTrack,
+    secondsToBeats,
+    trimAudioStart,
+  } from '../../patch/audioTracks';
+  import type { AudioClip, AudioTrack, AutomationLane, Clip, Patch } from '../../patch/types';
+  import { library, loadLibrary } from '../../samples/library.svelte';
+  import { SAMPLE_DRAG_TYPE, sampleDrag } from '../browser/browserPanel.svelte';
+  import { showToast } from '../toast.svelte';
+  import { clipWavePoints } from './clipWave';
   import AutomationLaneRow from './AutomationLaneRow.svelte';
   import { placeMenu } from '../placeMenu';
   import { endDragLook, startDragLook } from '../dragLook';
@@ -85,6 +102,12 @@
   const EMPTY_H = 28;
   const LOOP_H = 14;
   const EDGE_PX = 6;
+  /** Height of an audio track's row, and of the strip with the "+ Audio track" button. */
+  const AUDIO_H = 56;
+  const ADD_H = 36;
+
+  // The library tells which samples exist (waveforms, missing samples).
+  void loadLibrary();
 
   // ---------- Lane heights: drag a lane's bottom edge, double-click it for the standard height ----------
   let laneResize: { patch: Patch; lane: AutomationLane; y0: number; h0: number } | null = $state(null);
@@ -396,15 +419,15 @@
   // ---------- Blocks ----------
   /** A selected block being moved, where it started and the blocks it must not overlap. */
   interface MovingBlock {
-    patch: Patch;
-    clip: Clip;
+    clip: { start: number; length: number };
     start0: number;
-    others: Clip[];
+    others: { start: number; length: number }[];
   }
   type BlockDrag =
     | { kind: 'box'; x0: number; y0: number; x1: number; y1: number; base: string[] }
-    | { kind: 'move'; clip: Clip; grab: number; items: MovingBlock[] }
-    | { kind: 'resize-start' | 'resize-end'; patch: Patch; clip: Clip; lo: number; hi: number };
+    | { kind: 'move'; clip: { start: number; length: number }; grab: number; items: MovingBlock[] }
+    | { kind: 'resize-start' | 'resize-end'; patch: Patch; clip: Clip; lo: number; hi: number }
+    | { kind: 'audio-start' | 'audio-end'; clip: AudioClip; lo: number; hi: number; duration: number | undefined };
   let blockDrag = $state<BlockDrag | null>(null);
   let content: HTMLDivElement | undefined = $state();
   /** A press that moves less than this (px) is a click, not a box. */
@@ -482,13 +505,114 @@
 
   /** The selected blocks ready to move together, with the blocks on their rows that stay put. */
   function movingBlocks(): MovingBlock[] {
-    const sel = selectedBlocks();
-    return sel.map(({ patch, clip }) => ({
-      patch,
+    const blocks: MovingBlock[] = selectedBlocks().map(({ patch, clip }) => ({
       clip,
       start0: clip.start,
       others: patch.clips.filter((c) => c.module === clip.module && !isClipSelected(patch.id, c.id)),
     }));
+    for (const { track, clip } of selectedAudio()) {
+      blocks.push({ clip, start0: clip.start, others: track.clips.filter((c) => !isClipSelected(track.id, c.id)) });
+    }
+    return blocks;
+  }
+
+  /** The selected audio clips and their tracks. */
+  function selectedAudio(): { track: AudioTrack; clip: AudioClip }[] {
+    const out: { track: AudioTrack; clip: AudioClip }[] = [];
+    for (const track of project.audioTracks) {
+      for (const clip of track.clips) if (isClipSelected(track.id, clip.id)) out.push({ track, clip });
+    }
+    return out;
+  }
+
+  // ---------- Audio tracks ----------
+  const sampleOf = (id: string) => library.samples.find((s) => s.id === id);
+
+  function newAudioTrack() {
+    addAudioTrack(project);
+    // Show it: the strip with the button is at the bottom.
+    requestAnimationFrame(() => {
+      if (body) body.scrollTop = body.scrollHeight;
+    });
+  }
+
+  /** The place a sample dragged over an audio track would land, for the outline. */
+  let dropOn: { track: string; start: number; length: number } | null = $state(null);
+
+  const hasSample = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types).includes(SAMPLE_DRAG_TYPE);
+
+  function onaudiodragover(e: DragEvent, track: AudioTrack) {
+    if (!hasSample(e)) return;
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = 'copy';
+    const sample = sampleDrag.id ? sampleOf(sampleDrag.id) : undefined;
+    if (!sample) {
+      dropOn = null;
+      return;
+    }
+    const length = secondsToBeats(sample.duration, project.tempo);
+    const at = snap(bodyBeat(e), unitOf(e));
+    dropOn = { track: track.id, start: nearestFreeAudioStart(track, at, length), length };
+  }
+
+  function onaudiodragleave(e: DragEvent) {
+    if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) dropOn = null;
+  }
+
+  function onaudiodrop(e: DragEvent, track: AudioTrack) {
+    if (!hasSample(e)) return;
+    e.preventDefault();
+    dropOn = null;
+    sampleDrag.id = null;
+    const sample = sampleOf(e.dataTransfer!.getData(SAMPLE_DRAG_TYPE));
+    if (!sample) return;
+    const clip = addAudioClip(track, sample, snap(bodyBeat(e), unitOf(e)), project.tempo);
+    if (clip) selectClip(track.id, clip.id);
+    else showToast('This sample is too long to fit on the timeline here.', 'warning');
+  }
+
+  function onaudiopointerdown(e: PointerEvent, track: AudioTrack, clip: AudioClip) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    menu = null;
+    audioMenu = null;
+    if (e.shiftKey) {
+      toggleClip(track.id, clip.id);
+      return;
+    }
+    const edge = (e.target as HTMLElement).dataset['edge'];
+    if (edge === 'start' || edge === 'end') {
+      selectClip(track.id, clip.id);
+      const { lo, hi } = audioFreeRange(track, clip.start, clip.id);
+      blockDrag = { kind: edge === 'start' ? 'audio-start' : 'audio-end', clip, lo, hi, duration: sampleOf(clip.sample)?.duration };
+    } else {
+      if (!isClipSelected(track.id, clip.id)) selectClip(track.id, clip.id);
+      blockDrag = { kind: 'move', clip, grab: bodyBeat(e) - clip.start, items: movingBlocks() };
+    }
+    startBlockDrag();
+  }
+
+  /** Ctrl+D on audio clips: each copy goes right after its clip. Returns the copies' keys. */
+  function duplicateAudioSelected(): string[] {
+    const keys: string[] = [];
+    for (const { track, clip } of selectedAudio()) {
+      const copy = duplicateAudioClip(track, clip.id);
+      if (copy) keys.push(clipKey(track.id, copy.id));
+    }
+    return keys;
+  }
+
+  // Right-click menu on an audio clip.
+  let audioMenu: { x: number; y: number; track: AudioTrack; clip: AudioClip } | null = $state(null);
+
+  /** The waveform of the part of the sample a clip plays, or '' when the sample is not in the library. */
+  function clipWave(clip: AudioClip): string {
+    const s = sampleOf(clip.sample);
+    if (!s || !(s.duration > 0)) return '';
+    const from = clip.offset / s.duration;
+    const to = (clip.offset + (clip.length * 60) / project.tempo) / s.duration;
+    return clipWavePoints(s.peaks, from, to);
   }
 
   function onrowdblclick(e: MouseEvent, patch: Patch, moduleId: string) {
@@ -593,6 +717,16 @@
         if (end > d.clip.start) d.clip.length = end - d.clip.start;
         break;
       }
+      case 'audio-end': {
+        // Not past the free space, nor past the end of the sample.
+        const room = d.duration === undefined ? Infinity : maxAudioLength(d.clip, d.duration, project.tempo);
+        const end = clamp(snap(at, unit), d.clip.start + min, Math.min(d.hi, d.clip.start + room));
+        if (end > d.clip.start) d.clip.length = end - d.clip.start;
+        break;
+      }
+      case 'audio-start':
+        trimAudioStart(d.clip, snap(at, unit), project.tempo, d.lo);
+        break;
       case 'resize-start': {
         const end = d.clip.start + d.clip.length;
         const start = clamp(snap(at, unit), d.lo, end - min);
@@ -623,6 +757,7 @@
   /** Remove the selected blocks. */
   function deleteSelected() {
     for (const { patch, clip } of selectedBlocks()) removeClip(patch, clip.id);
+    for (const { track, clip } of selectedAudio()) removeAudioClip(track, clip.id);
     clearClipSelection();
   }
 
@@ -724,6 +859,7 @@
     if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
     if (e.key === 'Escape') {
       menu = null;
+      audioMenu = null;
       laneMenu = null;
       addMenu = null;
       clearClipSelection();
@@ -733,7 +869,10 @@
     const key = e.key.toLowerCase();
     if (mod && key === 'a') {
       e.preventDefault();
-      setClipSelection(project.patches.flatMap((p) => p.clips.map((c) => clipKey(p.id, c.id))));
+      setClipSelection([
+        ...project.patches.flatMap((p) => p.clips.map((c) => clipKey(p.id, c.id))),
+        ...project.audioTracks.flatMap((t) => t.clips.map((c) => clipKey(t.id, c.id))),
+      ]);
       return;
     }
     if (mod && key === 'v') {
@@ -749,7 +888,10 @@
       deleteSelected();
     } else if (mod && key === 'd') {
       e.preventDefault();
+      const audioCopies = duplicateAudioSelected();
+      const patchBlocks = selectedBlocks().length > 0;
       duplicateSelected();
+      if (audioCopies.length > 0) setClipSelection([...(patchBlocks ? clipSelection.keys : []), ...audioCopies]);
     } else if (mod && key === 'c') {
       e.preventDefault();
       copySelected();
@@ -966,6 +1108,59 @@
           {/if}
         </div>
       {/each}
+      {#each project.audioTracks as t (t.id)}
+        <div class="track-head" style:--track-color={channelColor(t.color)}>
+          <div class="track-name" style:height={`${TRACK_H}px`} title={t.name}>
+            <EditableName
+              text={t.name}
+              value={t.name}
+              label="Audio track name"
+              title="Audio track: drag samples from the browser onto it"
+              onrename={(name) => renameAudioTrack(t, name)}
+            />
+            <button
+              type="button"
+              class="mini mute"
+              class:on={t.mute}
+              aria-pressed={t.mute}
+              title={t.mute ? 'Muted' : 'Mute this track'}
+              onclick={() => (t.mute = !t.mute)}>M</button
+            >
+            <button
+              type="button"
+              class="mini solo"
+              class:on={t.solo}
+              aria-pressed={t.solo}
+              title={t.solo ? 'Soloed' : 'Solo this track'}
+              onclick={() => (t.solo = !t.solo)}>S</button
+            >
+          </div>
+          <div class="row-name audio-name" style:height={`${AUDIO_H}px`}>
+            <label class="level" title="Level (double-click for 0 dB)">
+              <span>Level</span>
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.01"
+                bind:value={t.level}
+                aria-label={`Level of ${t.name}`}
+                ondblclick={() => (t.level = 1)}
+              />
+            </label>
+            <button
+              type="button"
+              class="mini remove"
+              aria-label={`Remove ${t.name}`}
+              title="Remove this audio track (Ctrl+Z brings it back)"
+              onclick={() => removeAudioTrack(project, t.id)}>×</button
+            >
+          </div>
+        </div>
+      {/each}
+      <div class="add-audio" style:height={`${ADD_H}px`}>
+        <button type="button" onclick={newAudioTrack} title="Add a track that plays samples from the browser">+ Audio track</button>
+      </div>
     </div>
   </div>
 
@@ -1037,6 +1232,63 @@
           {/if}
         </div>
       {/each}
+      {#each project.audioTracks as t (t.id)}
+        <div class="track" class:silent={t.mute} style:--track-color={channelColor(t.color)}>
+          <div class="track-top" style:height={`${TRACK_H}px`}></div>
+          <!-- svelte-ignore a11y_no_static_element_interactions (drawing a selection and dropping samples are pointer gestures) -->
+          <div
+            class="row audio-row"
+            class:drop={dropOn?.track === t.id}
+            style:height={`${AUDIO_H}px`}
+            aria-label={`${t.name}: audio track`}
+            onpointerdown={onrowpointerdown}
+            ondragover={(e) => onaudiodragover(e, t)}
+            ondragleave={onaudiodragleave}
+            ondrop={(e) => onaudiodrop(e, t)}
+          >
+            {#each t.clips as c (c.id)}
+              {@const selected = isClipSelected(t.id, c.id)}
+              {@const wave = clipWave(c)}
+              {@const missing = library.loaded && !sampleOf(c.sample)}
+              <div
+                class="block audio"
+                class:selected
+                class:missing
+                class:moving={blockDrag?.kind === 'move' && blockDrag.items.some((it) => it.clip === c)}
+                data-key={clipKey(t.id, c.id)}
+                style:left={`${c.start * ppb}px`}
+                style:width={`${c.length * ppb}px`}
+                role="button"
+                tabindex="-1"
+                aria-pressed={selected}
+                aria-label={`${c.name}, ${formatPosition(c.start)}, ${formatLength(c.length)}`}
+                title={missing
+                  ? `${c.name}: this sample is not in the library on this computer, so it is silent. Add it again with the same name to hear it.`
+                  : `${c.name}: ${formatPosition(c.start)} – ${formatPosition(c.start + c.length)} (${formatLength(c.length)})`}
+                onpointerdown={(e) => onaudiopointerdown(e, t, c)}
+                oncontextmenu={(e) => {
+                  e.preventDefault();
+                  selectClip(t.id, c.id);
+                  audioMenu = { x: e.clientX, y: e.clientY, track: t, clip: c };
+                }}
+              >
+                {#if wave}
+                  <svg class="wave" viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
+                    <polygon points={wave} />
+                  </svg>
+                {/if}
+                <span class="bank-label">{missing ? `${c.name} (missing)` : c.name}</span>
+                <span class="edge start" data-edge="start"></span>
+                <span class="edge end" data-edge="end"></span>
+              </div>
+            {/each}
+            {#if dropOn?.track === t.id}
+              <div class="block audio ghost" style:left={`${dropOn.start * ppb}px`} style:width={`${dropOn.length * ppb}px`}></div>
+            {/if}
+          </div>
+        </div>
+      {/each}
+      <div class="add-audio-space" style:height={`${ADD_H}px`}></div>
       {#if loop.on}
         <div class="loop-shade" style:left={`${loop.start * ppb}px`} style:width={`${(loop.end - loop.start) * ppb}px`}></div>
       {/if}
@@ -1072,6 +1324,32 @@
     <div class="menu-sep" role="separator"></div>
     <button type="button" role="menuitem" onclick={() => copyBlock(m.patch, m.clip)}>Duplicate <kbd>Ctrl+D</kbd></button>
     <button type="button" role="menuitem" class="danger" onclick={() => deleteBlock(m.patch, m.clip)}>Delete <kbd>Del</kbd></button>
+  </div>
+{/if}
+
+{#if audioMenu}
+  {@const m = audioMenu}
+  <div class="backdrop" role="presentation" onpointerdown={() => (audioMenu = null)} oncontextmenu={(e) => e.preventDefault()}></div>
+  <div class="menu" role="menu" use:placeMenu={{ x: m.x, y: m.y }}>
+    <button
+      type="button"
+      role="menuitem"
+      onclick={() => {
+        const copy = duplicateAudioClip(m.track, m.clip.id);
+        if (copy) selectClip(m.track.id, copy.id);
+        audioMenu = null;
+      }}>Duplicate <kbd>Ctrl+D</kbd></button
+    >
+    <button
+      type="button"
+      role="menuitem"
+      class="danger"
+      onclick={() => {
+        removeAudioClip(m.track, m.clip.id);
+        clearClipSelection();
+        audioMenu = null;
+      }}>Delete <kbd>Del</kbd></button
+    >
   </div>
 {/if}
 
@@ -1557,6 +1835,124 @@
   }
   .edge.end {
     right: 0;
+  }
+
+  /* ---------- Audio tracks ---------- */
+  .mini {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface-control);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    line-height: 1;
+    cursor: pointer;
+  }
+  .mini:hover {
+    background: var(--surface-control-hover);
+    color: var(--text-default);
+  }
+  .mini.mute {
+    margin-left: auto;
+  }
+  .mini.mute.on {
+    border-color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 45%, transparent);
+    color: var(--text-strong);
+  }
+  .mini.solo.on {
+    border-color: var(--track-color);
+    background: color-mix(in srgb, var(--track-color) 55%, transparent);
+    color: var(--text-strong);
+  }
+  .mini.remove {
+    border-color: transparent;
+    background: transparent;
+    font-size: var(--text-sm);
+  }
+  .audio-name {
+    padding-left: 14px;
+  }
+  .audio-name .level {
+    flex: 1;
+    min-width: 0;
+  }
+  .level {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+  .level input {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--track-color);
+  }
+  .add-audio {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    border-left: 3px solid transparent;
+  }
+  .add-audio button {
+    flex: 1;
+    height: 24px;
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    cursor: pointer;
+  }
+  .add-audio button:hover {
+    background: var(--surface-control-hover);
+    color: var(--text-strong);
+  }
+  .audio-row {
+    cursor: default;
+  }
+  .audio-row.drop {
+    background: color-mix(in srgb, var(--track-color) 14%, transparent);
+  }
+  .track.silent .block.audio {
+    opacity: 0.4;
+  }
+  .block.audio {
+    padding: 3px 6px;
+    background: color-mix(in srgb, var(--track-color) 34%, var(--surface-module));
+    border-color: color-mix(in srgb, var(--track-color) 80%, black);
+  }
+  :global(html:not(.dragging)) .block.audio:hover {
+    background: color-mix(in srgb, var(--track-color) 46%, var(--surface-module));
+  }
+  .block.audio.ghost {
+    background: color-mix(in srgb, var(--track-color) 30%, transparent);
+    border-style: dashed;
+    pointer-events: none;
+  }
+  .block.audio.missing {
+    background: repeating-linear-gradient(135deg, rgb(0 0 0 / 0.25) 0 6px, transparent 6px 12px), var(--surface-module);
+    border-style: dashed;
+  }
+  .block.audio .wave {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .block.audio .wave polygon {
+    fill: color-mix(in srgb, var(--track-color) 85%, white);
+    opacity: 0.8;
+  }
+  .block.audio .bank-label {
+    position: relative;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
   }
 
   /* ---------- Block menu ---------- */
