@@ -189,6 +189,30 @@ export function duplicateAudioClip(track: AudioTrack, id: string): AudioClip | n
   return copy;
 }
 
+// ---------- Fades ----------
+
+/** Fades shorter than this (beats) count as none. */
+const MIN_FADE = 1e-4;
+
+/**
+ * The fades that apply to a clip, in beats: the fade in fits in the clip, the fade out in what is
+ * left after it. A clip made shorter keeps its fades, so making it longer again brings them back.
+ */
+export function audioFades(clip: Pick<AudioClip, 'length' | 'fadeIn' | 'fadeOut'>): { fadeIn: number; fadeOut: number } {
+  const fadeIn = Math.min(Math.max(0, clip.fadeIn ?? 0), clip.length);
+  const fadeOut = Math.min(Math.max(0, clip.fadeOut ?? 0), clip.length - fadeIn);
+  return { fadeIn, fadeOut };
+}
+
+/** Set a clip's fade in or fade out, in beats, as far as there is room next to the other fade. */
+export function setAudioFade(clip: AudioClip, which: 'in' | 'out', beats: number): void {
+  const other = which === 'in' ? audioFades(clip).fadeOut : audioFades(clip).fadeIn;
+  const v = Math.min(Math.max(0, Number.isFinite(beats) ? beats : 0), clip.length - other);
+  const key = which === 'in' ? 'fadeIn' : 'fadeOut';
+  if (v < MIN_FADE) delete clip[key];
+  else clip[key] = v;
+}
+
 export function removeAudioClip(track: AudioTrack, id: string): void {
   const i = track.clips.findIndex((c) => c.id === id);
   if (i >= 0) track.clips.splice(i, 1);
@@ -205,14 +229,16 @@ export function usedSamples(project: Pick<Project, 'audioTracks'>): Set<string> 
 
 /**
  * Cut a clip in two at beat `at`: the first part keeps the clip, the second is a new clip that plays
- * on from the same place in the sample. Returns the new clip, or null when `at` is not inside the
- * clip or would leave a part shorter than the shortest clip.
+ * on from the same place in the sample. The first part keeps the fade in, the second the fade out;
+ * the cut itself gets no fade (only the engine's few milliseconds against clicks). Returns the new
+ * clip, or null when `at` is not inside the clip or would leave a part shorter than the shortest clip.
  */
 export function splitAudioClip(track: AudioTrack, id: string, at: number, tempo: number): AudioClip | null {
   const clip = track.clips.find((c) => c.id === id);
   if (!clip) return null;
   const end = clip.start + clip.length;
   if (!(at - clip.start >= MIN_CLIP_LENGTH) || !(end - at >= MIN_CLIP_LENGTH)) return null;
+  const { fadeIn, fadeOut } = audioFades(clip);
   const second: AudioClip = {
     id: nextAudioClipId(track),
     sample: clip.sample,
@@ -222,6 +248,9 @@ export function splitAudioClip(track: AudioTrack, id: string, at: number, tempo:
     offset: clip.offset + beatsToSeconds(at - clip.start, tempo),
   };
   clip.length = at - clip.start;
+  delete clip.fadeOut;
+  setAudioFade(clip, 'in', fadeIn);
+  setAudioFade(second, 'out', fadeOut);
   track.clips.push(second);
   return second;
 }
@@ -240,6 +269,7 @@ export function carveAudio(track: AudioTrack, start: number, end: number, keep: 
     if (cEnd <= start + eps || c.start >= end - eps) continue; // not under it
     const before = start - c.start; // what stays in front of the new piece
     const after = cEnd - end; // what stays behind it
+    // Cut edges lose their fade, as when splitting; the outer edges keep theirs.
     if (before > eps && after > eps) {
       // Inside: keep both sides.
       const right: AudioClip = {
@@ -250,14 +280,18 @@ export function carveAudio(track: AudioTrack, start: number, end: number, keep: 
         length: after,
         offset: c.offset + beatsToSeconds(end - c.start, tempo),
       };
+      if (c.fadeOut !== undefined) setAudioFade(right, 'out', c.fadeOut);
       c.length = before;
+      delete c.fadeOut;
       track.clips.push(right);
     } else if (before > eps) {
       c.length = before;
+      delete c.fadeOut;
     } else if (after > eps) {
       c.offset += beatsToSeconds(end - c.start, tempo);
       c.start = end;
       c.length = after;
+      delete c.fadeIn;
     } else {
       removeAudioClip(track, c.id);
       continue;

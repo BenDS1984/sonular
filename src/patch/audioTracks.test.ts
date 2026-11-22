@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   addAudioClip,
   addAudioTrack,
+  audioFades,
   carveAudio,
+  setAudioFade,
   placeAudioClip,
   splitAudioClip,
   AUDIO_TRACK_HEIGHT,
@@ -143,5 +145,52 @@ describe('splitting and replacing', () => {
     expect(t.clips.find((c) => c.sample === 's2')).toBe(placed);
     expect(new Set(t.clips.map((c) => c.id)).size).toBe(t.clips.length); // every clip has an id of its own
     expect(placeAudioClip(t, sample('s3', 1e6), 0, 120)).toBeNull();
+  });
+});
+
+describe('fades', () => {
+  function setup() {
+    const t = addAudioTrack(emptyProject('x', 120));
+    const clip = addAudioClip(t, sample('s1', 4), 0, 120)!; // 0–8
+    return { t, clip };
+  }
+
+  it('fit in the clip next to each other, and a fade of zero is not stored', () => {
+    const { clip } = setup();
+    setAudioFade(clip, 'in', 3);
+    setAudioFade(clip, 'out', 99);
+    expect(audioFades(clip)).toEqual({ fadeIn: 3, fadeOut: 5 });
+    setAudioFade(clip, 'in', 0);
+    expect(clip.fadeIn).toBeUndefined();
+  });
+
+  it('come back when a shortened clip is made longer again', () => {
+    const { clip } = setup();
+    setAudioFade(clip, 'in', 6);
+    clip.length = 2;
+    expect(audioFades(clip).fadeIn).toBe(2);
+    clip.length = 8;
+    expect(audioFades(clip).fadeIn).toBe(6);
+  });
+
+  it('stay on the outer edges when a clip is split, not on the cut', () => {
+    const { t, clip } = setup();
+    setAudioFade(clip, 'in', 1);
+    setAudioFade(clip, 'out', 2);
+    const second = splitAudioClip(t, clip.id, 4, 120)!;
+    expect(audioFades(clip)).toEqual({ fadeIn: 1, fadeOut: 0 });
+    expect(audioFades(second)).toEqual({ fadeIn: 0, fadeOut: 2 });
+  });
+
+  it('are dropped on edges cut by a clip placed over them', () => {
+    const { t, clip } = setup();
+    setAudioFade(clip, 'in', 1);
+    setAudioFade(clip, 'out', 2);
+    placeAudioClip(t, sample('s2', 1), 3, 120); // 3–5, inside
+    const [left, , right] = [...t.clips].sort((a, b) => a.start - b.start);
+    expect(audioFades(left!)).toEqual({ fadeIn: 1, fadeOut: 0 });
+    expect(audioFades(right!)).toEqual({ fadeIn: 0, fadeOut: 2 });
+    carveAudio(t, 0, 1, [], 120); // cut the front off the left part
+    expect(t.clips.find((c) => c.start === 1)?.fadeIn).toBeUndefined();
   });
 });

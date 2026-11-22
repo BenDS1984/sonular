@@ -113,6 +113,9 @@ export interface EngineAudioClip {
   start: number;
   end: number;
   offset: number;
+  /** Fade in and fade out in beats, straight lines (none when left out). */
+  fadeIn?: number;
+  fadeOut?: number;
 }
 
 export interface PatchNode {

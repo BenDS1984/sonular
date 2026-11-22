@@ -129,6 +129,12 @@ export interface AudioClip {
   length: number;
   /** Where in the sample the clip starts, in seconds. */
   offset: number;
+  /**
+   * Fade in and fade out, in beats (straight lines; none when left out). They may be longer than a
+   * shortened clip has room for: `audioFades` gives the part that applies.
+   */
+  fadeIn?: number;
+  fadeOut?: number;
 }
 
 /** A timeline track that plays samples, with its own channel in the mixer. */

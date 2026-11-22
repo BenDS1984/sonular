@@ -166,7 +166,7 @@
   <div class="dim" style:left="0" style:width={`${winLeftPx}px`}></div>
   <div class="dim" style:left={`${winRightPx}px`} style:right="0"></div>
   <div class="window" style:left={`${winLeftPx}px`} style:width={`${Math.max(0, winRightPx - winLeftPx)}px`}></div>
-  <div class="playhead" style:left={`${px(shownBeat)}px`}></div>
+  <div class="playhead" style:transform={`translateX(${px(shownBeat)}px)`}></div>
 </div>
 
 <style>
@@ -224,6 +224,8 @@
     position: absolute;
     top: 0;
     bottom: 0;
+    left: 0;
+    will-change: transform;
     width: 2px;
     margin-left: -1px;
     background: var(--signal-audio);

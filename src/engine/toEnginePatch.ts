@@ -4,6 +4,7 @@
  * "<patch id>/<module id>", and each patch's Channel is a sink on the master bus.
  */
 import type { ModuleDefinition } from '../modules/types';
+import { audioFades } from '../patch/audioTracks';
 import { CHANNEL_TYPE } from '../patch/operations';
 import { holdsSteps } from '../patch/timeline';
 import type { AudioTrack, Patch, Project } from '../patch/types';
@@ -60,7 +61,13 @@ export const audioNodeId = (trackId: string) => nodeIdOf('audio', trackId);
 /** An audio track's sample clips as the engine takes them, sorted by start. */
 export function engineAudioClips(track: AudioTrack): EngineAudioClip[] {
   return track.clips
-    .map((c) => ({ sample: c.sample, start: c.start, end: c.start + c.length, offset: c.offset }))
+    .map((c) => {
+      const clip: EngineAudioClip = { sample: c.sample, start: c.start, end: c.start + c.length, offset: c.offset };
+      const { fadeIn, fadeOut } = audioFades(c);
+      if (fadeIn > 0) clip.fadeIn = fadeIn;
+      if (fadeOut > 0) clip.fadeOut = fadeOut;
+      return clip;
+    })
     .sort((a, b) => a.start - b.start);
 }
 

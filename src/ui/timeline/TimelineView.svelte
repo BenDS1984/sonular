@@ -13,7 +13,8 @@
     Delete removes, Ctrl+D copies right after it, Ctrl+C copies and Ctrl+V pastes at the playhead
     (on the same sequencers, at the first place from there where all fit)
   - audio clips: drag the name strip at the top to move them; over the waveform a dashed line shows
-    where a cut would go, and a click there places the playhead (and selects the clip). S cuts the
+    where a cut would go, and a click there places the playhead (and selects the clip); the small
+    handles in the top corners of the waveform drag a fade in or out (double-click: none). S cuts the
     selected ones at the playhead (also in the right-click menu, which can cut at the dashed line);
     a clip dropped or moved onto other clips replaces the part under it
   - ruler: click or drag to place the playhead (Play starts there; while playing it jumps)
@@ -70,6 +71,8 @@ import TrackLevel from '../components/TrackLevel.svelte';
     carveAudio,
     placeAudioClip,
     splitAudioClip,
+    audioFades,
+    setAudioFade,
     secondsToBeats,
     setAudioTrackHeight,
     trimAudioStart,
@@ -354,6 +357,11 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   // ---------- Playhead ----------
   /** Where the playhead is drawn: the start position when stopped, the live position when playing. */
   let shownBeat = $state(0);
+  /**
+   * The position read out to screen readers: whole beats while playing, so the text does not
+   * change with every frame (that costs time the audio needs).
+   */
+  const ariaBeat = $derived(engineState.playing ? Math.floor(shownBeat) : shownBeat);
   /** Latest position from the engine and when it arrived, to move smoothly between messages. */
   const anchor = { beat: 0, time: 0 };
 
@@ -512,7 +520,8 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     | { kind: 'box'; x0: number; y0: number; x1: number; y1: number; base: string[] }
     | { kind: 'move'; clip: { start: number; length: number }; grab: number; items: MovingBlock[] }
     | { kind: 'resize-start' | 'resize-end'; patch: Patch; clip: Clip; lo: number; hi: number }
-    | { kind: 'audio-start' | 'audio-end'; clip: AudioClip; lo: number; hi: number; duration: number | undefined };
+    | { kind: 'audio-start' | 'audio-end'; clip: AudioClip; lo: number; hi: number; duration: number | undefined }
+    | { kind: 'audio-fade'; clip: AudioClip; which: 'in' | 'out' };
   let blockDrag = $state<BlockDrag | null>(null);
   let content: HTMLDivElement | undefined = $state();
   /** A press that moves less than this (px) is a click, not a box. */
@@ -680,7 +689,10 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       return;
     }
     const part = (e.target as HTMLElement).dataset;
-    if (part['edge'] === 'start' || part['edge'] === 'end') {
+    if (part['fade'] === 'in' || part['fade'] === 'out') {
+      selectClip(track.id, clip.id);
+      blockDrag = { kind: 'audio-fade', clip, which: part['fade'] };
+    } else if (part['edge'] === 'start' || part['edge'] === 'end') {
       selectClip(track.id, clip.id);
       const { lo, hi } = audioFreeRange(track, clip.start, clip.id);
       blockDrag = { kind: part['edge'] === 'start' ? 'audio-start' : 'audio-end', clip, lo, hi, duration: sampleOf(clip.sample)?.duration };
@@ -704,7 +716,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   /** Over the waveform (not the name strip or the edges), the dashed line follows the pointer. */
   function onaudiopointermove(e: PointerEvent, track: AudioTrack, clip: AudioClip) {
     const part = (e.target as HTMLElement).dataset;
-    if (blockDrag || part['grab'] !== undefined || part['edge'] !== undefined) {
+    if (blockDrag || part['grab'] !== undefined || part['edge'] !== undefined || part['fade'] !== undefined) {
       splitHover = null;
       return;
     }
@@ -842,7 +854,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
 
   function startBlockDrag() {
     const k = blockDrag?.kind;
-    const resizing = k === 'resize-start' || k === 'resize-end' || k === 'audio-start' || k === 'audio-end';
+    const resizing = k === 'resize-start' || k === 'resize-end' || k === 'audio-start' || k === 'audio-end' || k === 'audio-fade';
     startDragLook(resizing ? 'ew-resize' : k === 'move' ? 'grabbing' : 'default');
     window.addEventListener('pointermove', onblockdragmove);
     window.addEventListener('pointerup', onblockdragend);
@@ -902,6 +914,12 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       case 'audio-start':
         trimAudioStart(d.clip, snap(at, unit), project.tempo, d.lo);
         break;
+      case 'audio-fade': {
+        // Free, not on the grid; dragged back to the edge (a few pixels) it is gone.
+        const beats = d.which === 'in' ? at - d.clip.start : d.clip.start + d.clip.length - at;
+        setAudioFade(d.clip, d.which, beats * timelineView.ppb < 3 ? 0 : beats);
+        break;
+      }
       case 'resize-start': {
         const end = d.clip.start + d.clip.length;
         const start = clamp(snap(at, unit), d.lo, end - min);
@@ -1181,8 +1199,8 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     aria-label="Playhead position"
     aria-valuemin={0}
     aria-valuemax={timeline.end}
-    aria-valuenow={shownBeat}
-    aria-valuetext={formatPosition(shownBeat)}
+    aria-valuenow={ariaBeat}
+    aria-valuetext={formatPosition(ariaBeat)}
     style:cursor
     onpointerdown={onrulerpointerdown}
     onpointermove={onrulerpointermove}
@@ -1208,7 +1226,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       {/each}
       <div class="end-shade" style:left={`${timeline.end * ppb}px`}></div>
       <div class="end-flag" style:left={`${timeline.end * ppb}px`} title={`End of the song: ${formatLength(timeline.end)}`}>End</div>
-      <div class="playhead-mark" style:left={`${shownBeat * ppb}px`}></div>
+      <div class="playhead-mark" style:transform={`translateX(${shownBeat * ppb}px)`}></div>
     </div>
   </div>
 
@@ -1489,6 +1507,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
               {@const wave = clipWave(c)}
               {@const missing = library.loaded && !sampleOf(c.sample)}
               {@const cutAt = splitLineAt(t, c)}
+              {@const fades = audioFades(c)}
               <div
                 class="block audio"
                 class:selected
@@ -1507,6 +1526,10 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                 onpointerdown={(e) => onaudiopointerdown(e, t, c)}
                 onpointermove={(e) => onaudiopointermove(e, t, c)}
                 onpointerleave={() => (splitHover = null)}
+                ondblclick={(e) => {
+                  const which = (e.target as HTMLElement).dataset['fade'];
+                  if (which === 'in' || which === 'out') setAudioFade(c, which, 0);
+                }}
                 oncontextmenu={(e) => {
                   e.preventDefault();
                   selectClip(t.id, c.id);
@@ -1528,9 +1551,35 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                 {#if cutAt !== null}
                   <span class="split-line" style:left={`${(cutAt - c.start) * ppb}px`}></span>
                 {/if}
+                {#if fades.fadeIn > 0}
+                  <svg class="fade" style:left="0" style:width={`${fades.fadeIn * ppb}px`} viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
+                    <polygon points="0,0 1,0 0,1" />
+                    <line x1="0" y1="1" x2="1" y2="0" />
+                  </svg>
+                {/if}
+                {#if fades.fadeOut > 0}
+                  <svg class="fade" style:right="0" style:width={`${fades.fadeOut * ppb}px`} viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
+                    <polygon points="0,0 1,0 1,1" />
+                    <line x1="0" y1="0" x2="1" y2="1" />
+                  </svg>
+                {/if}
                 <span class="clip-name" data-grab>{missing ? `${c.name} (missing)` : c.name}</span>
                 <span class="edge start" data-edge="start"></span>
                 <span class="edge end" data-edge="end"></span>
+                <span
+                  class="fade-handle in"
+                  class:set={fades.fadeIn > 0}
+                  data-fade="in"
+                  style:left={`${fades.fadeIn * ppb}px`}
+                  title="Fade in: drag to change, double-click to remove"
+                ></span>
+                <span
+                  class="fade-handle out"
+                  class:set={fades.fadeOut > 0}
+                  data-fade="out"
+                  style:right={`${fades.fadeOut * ppb}px`}
+                  title="Fade out: drag to change, double-click to remove"
+                ></span>
               </div>
             {/each}
             {#if dropOn?.track === t.id}
@@ -1548,7 +1597,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
         <div class="loop-shade" style:left={`${loop.start * ppb}px`} style:width={`${(loop.end - loop.start) * ppb}px`}></div>
       {/if}
       <div class="end-shade" style:left={`${timeline.end * ppb}px`}></div>
-      <div class="playhead" style:left={`${shownBeat * ppb}px`}></div>
+      <div class="playhead" style:transform={`translateX(${shownBeat * ppb}px)`}></div>
       {#if selectBox}
         <div class="select-box" style:left={`${selectBox.x}px`} style:top={`${selectBox.y}px`} style:width={`${selectBox.w}px`} style:height={`${selectBox.h}px`}></div>
       {/if}
@@ -1858,9 +1907,12 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     border-radius: 3px 0 0 3px;
     pointer-events: none;
   }
+  /* The playheads move with a transform on their own layer, so moving them redraws nothing else. */
   .playhead-mark {
     position: absolute;
     bottom: 0;
+    left: 0;
+    will-change: transform;
     width: 0;
     height: 0;
     margin-left: -6px;
@@ -2290,6 +2342,48 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   :global(html.dragging) .split-line {
     display: none;
   }
+  /* A fade: the part above its line is shaded, over the waveform. */
+  .block.audio .fade {
+    position: absolute;
+    top: 15px;
+    height: calc(100% - 15px);
+    pointer-events: none;
+    overflow: visible;
+  }
+  .block.audio .fade polygon {
+    fill: rgb(0 0 0 / 0.4);
+  }
+  .block.audio .fade line {
+    stroke: var(--text-strong);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+  /* The fade handles: just under the name strip, at the end of each fade. Shown when the pointer is
+     on the clip or the clip is selected; a set fade also shows by its line. */
+  .fade-handle {
+    position: absolute;
+    top: 15px;
+    z-index: 3;
+    width: 7px;
+    height: 7px;
+    border: 1px solid var(--text-strong);
+    background: color-mix(in srgb, var(--track-color) 60%, var(--surface-module));
+    cursor: ew-resize;
+    opacity: 0;
+  }
+  .fade-handle.in.set {
+    transform: translateX(-50%);
+  }
+  .fade-handle.out.set {
+    transform: translateX(50%);
+  }
+  .block.audio:hover .fade-handle,
+  .block.audio.selected .fade-handle {
+    opacity: 1;
+  }
+  .fade-handle:hover {
+    background: var(--text-strong);
+  }
   :global(html:not(.dragging)) .block.audio:hover {
     background: color-mix(in srgb, var(--track-color) 46%, var(--surface-module));
   }
@@ -2446,6 +2540,8 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     position: absolute;
     top: 0;
     bottom: 0;
+    left: 0;
+    will-change: transform;
     width: 2px;
     margin-left: -1px;
     background: var(--signal-audio);

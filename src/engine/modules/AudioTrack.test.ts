@@ -94,6 +94,20 @@ describe('AudioTrack', () => {
   });
 });
 
+describe('AudioTrack fades', () => {
+  it('fades a clip in and out in straight lines', () => {
+    const t = setup(0.5);
+    // 0–4 beats = 0–2 s; fade in over the first beat (0.5 s), out over the last two (1 s).
+    t.track.setAudioClips([{ sample: 's', start: 0, end: 4, offset: 0, fadeIn: 1, fadeOut: 2 }]);
+    const out = render(t, Math.ceil((2.2 * SR) / BLOCK_SIZE));
+    const at = (sec: number) => out[Math.floor(sec * SR)]!;
+    expect(at(0.25)).toBeCloseTo(0.25, 2); // halfway the fade in
+    expect(at(0.75)).toBeCloseTo(0.5, 5); // full
+    expect(at(1.5)).toBeCloseTo(0.25, 2); // halfway the fade out
+    expect(at(1.9)).toBeCloseTo(0.05, 2);
+  });
+});
+
 describe('AudioTrack pan', () => {
   it('turns the far side down and keeps the near side', () => {
     const t = setup(0.5);

@@ -106,7 +106,16 @@ export function serializeProject(project: Project, now = new Date()): string {
         mute: t.mute,
         solo: t.solo,
         ...(t.height ? { height: t.height } : {}),
-        clips: t.clips.map((c) => ({ id: c.id, sample: c.sample, name: c.name, start: c.start, length: c.length, offset: c.offset })),
+        clips: t.clips.map((c) => ({
+          id: c.id,
+          sample: c.sample,
+          name: c.name,
+          start: c.start,
+          length: c.length,
+          offset: c.offset,
+          ...(c.fadeIn ? { fadeIn: c.fadeIn } : {}),
+          ...(c.fadeOut ? { fadeOut: c.fadeOut } : {}),
+        })),
       })),
       patches: project.patches.map((p) => ({
         id: p.id,
@@ -467,6 +476,8 @@ function validateAudioTracks(raw: unknown, warnings: string[]): AudioTrack[] {
         start,
         length,
         offset: isFiniteNumber(c['offset']) ? Math.max(0, c['offset']) : 0,
+        ...(isFiniteNumber(c['fadeIn']) && c['fadeIn'] > 0 ? { fadeIn: Math.min(c['fadeIn'], MAX_BEATS) } : {}),
+        ...(isFiniteNumber(c['fadeOut']) && c['fadeOut'] > 0 ? { fadeOut: Math.min(c['fadeOut'], MAX_BEATS) } : {}),
       });
     }
     candidates.sort((a, b) => a.start - b.start);
