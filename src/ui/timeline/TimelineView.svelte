@@ -74,6 +74,7 @@ import TrackLevel from '../components/TrackLevel.svelte';
   import { showToast } from '../toast.svelte';
   import { clipWavePoints } from './clipWave';
   import TrackOverview from './TrackOverview.svelte';
+  import GateLed from './GateLed.svelte';
 import { waveColumns, waveShape } from '../../samples/waveform';
 import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   import AutomationLaneRow from './AutomationLaneRow.svelte';
@@ -1211,6 +1212,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                 title="Show this sequencer in its patch"
                 onclick={() => showModule(t.patch.id, r.module.id)}>↗</button
               >
+              <GateLed patch={t.patch.id} module={r.module.id} />
             </div>
           {/each}
           {#if !timelineView.folded[t.patch.id]}

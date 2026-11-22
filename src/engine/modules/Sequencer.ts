@@ -29,7 +29,8 @@ interface Block {
  * Parameters: "pitch1".."pitch8" in semitones (−24..+24 around C4), "on1".."on8" (0/1) for
  * bank 1, "b2pitch1".."b8on8" for banks 2..8, and "bank": the bank chosen on the module (0..7).
  * Meters: "step", the current step 1..8 (0 before the first clock edge or outside blocks);
- * "bank", the bank playing 1..8 (0 outside blocks).
+ * "bank", the bank playing 1..8 (0 outside blocks); "gate", 1 when the gate was high at any time since
+ * the meters were last read (for the light on the timeline, which a short gate must still light).
  *
  * Timeline blocks (`setClips`): when the sequencer has blocks, it plays only inside them, each
  * with the block's bank, and starts at step 1 when a block begins (also when the loop jumps back
@@ -43,7 +44,9 @@ export class Sequencer implements DspModule {
   /** Holds its pitch indefinitely, so it never sleeps. */
   readonly tailSeconds = Infinity;
   readonly keepsTime = true;
-  readonly meterNames = ['step', 'bank'] as const;
+  readonly meterNames = ['step', 'bank', 'gate'] as const;
+  /** A gate was high since the meters were last read, so a short gate still lights the light. */
+  private gateSeen = false;
 
   private readonly transport: Transport | null;
   /** All banks after each other: bank b, step s at b * 8 + s. */
@@ -110,6 +113,15 @@ export class Sequencer implements DspModule {
   process(inputs: readonly Float32Array[], _silent: readonly boolean[], outputs: readonly Float32Array[], frames: number): void {
     if (this.blocks.length > 0 && this.transport) this.processBlocks(inputs[0]!, outputs[0]!, outputs[1]!, frames, this.transport);
     else this.processFree(inputs[0]!, outputs[0]!, outputs[1]!, frames);
+    if (!this.gateSeen) {
+      const gate = outputs[1]!;
+      for (let i = 0; i < frames; i++) {
+        if (gate[i]! > 0) {
+          this.gateSeen = true;
+          break;
+        }
+      }
+    }
   }
 
   /** No timeline: the chosen bank, all the time. */
@@ -192,6 +204,8 @@ export class Sequencer implements DspModule {
   }
 
   readMeters(out: Float32Array, offset: number): void {
+    out[offset + 2] = this.gateSeen ? 1 : 0;
+    this.gateSeen = false;
     if (this.blocks.length > 0 && this.transport) {
       const block = this.blocks[this.current];
       out[offset] = block ? this.step + 1 : 0;

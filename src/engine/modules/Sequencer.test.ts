@@ -165,3 +165,33 @@ describe('Sequencer with timeline blocks', () => {
     expect(meters[1]).toBe(6);
   });
 });
+
+describe('Sequencer gate meter', () => {
+  /** One block with a clock pulse of 10 samples at the start. */
+  function pulse(seq: Sequencer) {
+    const clock = new Float32Array(BLOCK_SIZE);
+    clock.fill(1, 0, 10);
+    const outs = [new Float32Array(BLOCK_SIZE), new Float32Array(BLOCK_SIZE)];
+    seq.process([clock], [false], outs, BLOCK_SIZE);
+  }
+  const gateMeter = (seq: Sequencer) => {
+    const out = new Float32Array(3);
+    seq.readMeters(out, 0);
+    return out[2];
+  };
+
+  it('reports an open gate even when it has closed again, once per reading', () => {
+    const seq = new Sequencer(new Transport(SR));
+    seq.setParam(stepParam(0, 'on', 1), 1);
+    pulse(seq);
+    expect(gateMeter(seq)).toBe(1); // the gate was open for 10 samples only
+    expect(gateMeter(seq)).toBe(0); // read once, then cleared
+  });
+
+  it('stays off on a step that is switched off', () => {
+    const seq = new Sequencer(new Transport(SR));
+    seq.setParam(stepParam(0, 'on', 1), 0);
+    pulse(seq);
+    expect(gateMeter(seq)).toBe(0);
+  });
+});
