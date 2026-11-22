@@ -49,6 +49,7 @@
     max="1"
     step="0.001"
     value={pos}
+    style:--fill={`${(pos * 100).toFixed(1)}%`}
     aria-label={label}
     aria-valuetext={formatGainDb(value)}
     oninput={(e) => onchange(posToGain(Number((e.currentTarget as HTMLInputElement).value)))}
@@ -86,10 +87,58 @@
     );
     transition: clip-path 60ms linear;
   }
+  /*
+   * The slider is drawn here instead of left to the browser, which picks a light background for
+   * the unfilled part with some track colours. The filled part is in the track's colour.
+   */
   input {
     width: 100%;
     height: 12px;
     margin: 0;
-    accent-color: var(--track-color, var(--border-focus));
+    background: transparent;
+    appearance: none;
+    cursor: pointer;
+  }
+  input:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  input::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(
+      to right,
+      var(--track-color, var(--border-focus)) var(--fill),
+      var(--surface-inset) var(--fill)
+    );
+    box-shadow: inset 0 0 0 1px var(--border-default);
+  }
+  input::-webkit-slider-thumb {
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    margin-top: -4px;
+    border: 1px solid rgb(0 0 0 / 0.4);
+    border-radius: 50%;
+    background: var(--track-color, var(--border-focus));
+  }
+  input::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--surface-inset);
+    box-shadow: inset 0 0 0 1px var(--border-default);
+  }
+  input::-moz-range-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--track-color, var(--border-focus));
+  }
+  input::-moz-range-thumb {
+    width: 10px;
+    height: 10px;
+    border: 1px solid rgb(0 0 0 / 0.4);
+    border-radius: 50%;
+    background: var(--track-color, var(--border-focus));
   }
 </style>

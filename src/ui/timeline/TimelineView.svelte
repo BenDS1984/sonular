@@ -103,16 +103,18 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   } from './timelineGeometry';
   import { timelineView } from './timelineScreen.svelte';
 
-  const TRACK_H = 26;
-  const ROW_H = 44;
-  const EMPTY_H = 28;
+  /**
+   * Every track starts with one line: the header (name, level, mute, solo) at the left, with the
+   * empty band of the track at the right. A patch's sequencers each get their own row below it; an
+   * audio track is one taller line, because its lane shows the waveform.
+   */
+  const PATCH_H = 36;
+  const SEQ_H = 40;
+  const AUDIO_H = 56;
   const LOOP_H = 14;
   const EDGE_PX = 6;
-  /** Height of an audio track's row, and of the strip with the "+ Audio track" button. */
-  const AUDIO_H = 56;
+  /** Height of the strip with the "+ Audio track" button. */
   const ADD_H = 36;
-  /** Height of the strip with a patch track's meter and level. */
-  const MIX_H = 28;
 
   // The library tells which samples exist (waveforms, missing samples).
   void loadLibrary();
@@ -629,6 +631,15 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     return keys;
   }
 
+  // The "⋯" menu of a track: Free mode and automation (patch), or removing it (audio).
+  let trackMenu: { x: number; y: number; above: number; patch?: Patch; track?: AudioTrack } | null = $state(null);
+
+  /** What a block says: "Pattern A", or just the letter when the block is narrow. */
+  function blockLabel(c: Clip): string {
+    const letter = bankLetter(c.bank);
+    return c.length * ppb >= 64 ? `Pattern ${letter}` : letter;
+  }
+
   // Right-click menu on an audio clip.
   let audioMenu: { x: number; y: number; track: AudioTrack; clip: AudioClip } | null = $state(null);
 
@@ -911,6 +922,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     if (e.key === 'Escape') {
       menu = null;
       audioMenu = null;
+      trackMenu = null;
       laneMenu = null;
       addMenu = null;
       clearClipSelection();
@@ -1058,7 +1070,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     <div class="heads-inner" bind:this={heads} style:transform={`translateY(${-timelineView.scrollTop}px)`}>
       {#each tracks as t (t.patch.id)}
         <div class="track-head" style:--track-color={channelColor(t.patch.color)}>
-          <div class="track-name" style:height={`${TRACK_H}px`} title={t.patch.name}>
+          <div class="track-line" style:height={`${PATCH_H}px`} title={t.patch.name}>
             {#if t.lanes.length > 0}
               <button
                 type="button"
@@ -1073,30 +1085,28 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
               <span class="dot" aria-hidden="true"></span>
             {/if}
             <span class="name">{t.patch.name}</span>
-            <button
-              type="button"
-              class="free-toggle"
-              class:on={t.patch.free}
-              aria-pressed={!!t.patch.free}
-              title={t.patch.free
-                ? 'Free: this patch ignores the timeline and its sequencers play the pattern chosen on the module. Click to follow the timeline again.'
-                : 'Follows the timeline. Click for Free: ignore the blocks and play the pattern chosen on the module.'}
-              onclick={() => {
-                if (t.patch.free) delete t.patch.free;
-                else t.patch.free = true;
-              }}>Free</button
-            >
-            <button
-              type="button"
-              class="add-lane"
-              aria-label={`Add automation to ${t.patch.name}`}
-              title="Add automation: choose a control of this patch"
-              aria-haspopup="menu"
-              onclick={(e) => {
-                const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                addMenu = { x: r.left, y: r.bottom + 4, above: r.top - 4, patch: t.patch };
-              }}>+</button
-            >
+            {#if t.patch.free}
+              <button
+                type="button"
+                class="free-toggle on"
+                aria-pressed="true"
+                title="Free: this patch ignores the timeline and its sequencers play the pattern chosen on the module. Click to follow the timeline again."
+                onclick={() => delete t.patch.free}>Free</button
+              >
+            {/if}
+            {#if channelOf(t.patch)}
+              {@const ch = channelOf(t.patch)!}
+              <div class="level-slot">
+                <TrackLevel
+                  value={shownValue(ch, 'level')}
+                  onchange={(v) => setControl(ch, 'level', v)}
+                  defaultValue={channelDefaultLevel}
+                  meterL={meterValueIn(t.patch.id, ch.id, 'meterL')}
+                  meterR={meterValueIn(t.patch.id, ch.id, 'meterR')}
+                  label={`Level of ${t.patch.name}`}
+                />
+              </div>
+            {/if}
             <button
               type="button"
               class="mini mute"
@@ -1113,27 +1123,24 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
               title={isOn(t.patch, 'solo') ? 'Soloed' : 'Solo this patch'}
               onclick={() => toggleChannel(t.patch, 'solo')}>S</button
             >
-          </div>
-          <!-- The level and meter of the patch's Channel: the same as the mixer's fader and meter. -->
-          <div class="mix-row" style:height={`${MIX_H}px`}>
-            {#if channelOf(t.patch)}
-              {@const ch = channelOf(t.patch)!}
-              <TrackLevel
-                value={shownValue(ch, 'level')}
-                onchange={(v) => setControl(ch, 'level', v)}
-                defaultValue={channelDefaultLevel}
-                meterL={meterValueIn(t.patch.id, ch.id, 'meterL')}
-                meterR={meterValueIn(t.patch.id, ch.id, 'meterR')}
-                label={`Level of ${t.patch.name}`}
-              />
-            {/if}
+            <button
+              type="button"
+              class="mini more"
+              aria-label={`More for ${t.patch.name}`}
+              title="Free mode and automation"
+              aria-haspopup="menu"
+              onclick={(e) => {
+                const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                trackMenu = { x: r.left, y: r.bottom + 4, above: r.top - 4, patch: t.patch };
+              }}>⋯</button
+            >
           </div>
           {#each t.rows as r (r.module.id)}
             <div
               class="row-name"
               class:flash={flash.row === `${t.patch.id}:${r.module.id}`}
               data-row={`${t.patch.id}:${r.module.id}`}
-              style:height={`${ROW_H}px`}
+              style:height={`${SEQ_H}px`}
             >
               <EditableName
                 text={r.label}
@@ -1151,8 +1158,6 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                 onclick={() => showModule(t.patch.id, r.module.id)}>↗</button
               >
             </div>
-          {:else}
-            <div class="row-name empty" style:height={`${EMPTY_H}px`}>No sequencer</div>
           {/each}
           {#if !timelineView.folded[t.patch.id]}
             {#each t.lanes as l (`${l.lane.module}:${l.lane.param}`)}
@@ -1191,24 +1196,26 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       {/each}
       {#each project.audioTracks as t (t.id)}
         <div class="track-head" style:--track-color={channelColor(t.color)}>
-          <div class="track-name" style:height={`${TRACK_H}px`} title={t.name}>
+          <div class="track-line" style:height={`${AUDIO_H}px`} title={t.name}>
             <span class="dot" aria-hidden="true"></span>
             <span class="name-slot">
-            <EditableName
-              text={t.name}
-              value={t.name}
-              label="Audio track name"
-              title="Audio track: drag samples from the browser onto it"
-              onrename={(name) => renameAudioTrack(t, name)}
-            />
+              <EditableName
+                text={t.name}
+                value={t.name}
+                label="Audio track name"
+                title="Audio track: drag samples from the browser onto it"
+                onrename={(name) => renameAudioTrack(t, name)}
+              />
             </span>
-            <button
-              type="button"
-              class="mini remove"
-              aria-label={`Remove ${t.name}`}
-              title="Remove this audio track (Ctrl+Z brings it back)"
-              onclick={() => removeAudioTrack(project, t.id)}>×</button
-            >
+            <div class="level-slot">
+              <TrackLevel
+                value={t.level}
+                onchange={(v) => (t.level = v)}
+                meterL={engineState.playing ? meterValueIn('audio', t.id, 'meterL') : 0}
+                meterR={engineState.playing ? meterValueIn('audio', t.id, 'meterR') : 0}
+                label={`Level of ${t.name}`}
+              />
+            </div>
             <button
               type="button"
               class="mini mute"
@@ -1225,18 +1232,17 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
               title={t.solo ? 'Soloed' : 'Solo this track'}
               onclick={() => (t.solo = !t.solo)}>S</button
             >
-          </div>
-          <div class="mix-row" style:height={`${MIX_H}px`}>
-            <TrackLevel
-              value={t.level}
-              onchange={(v) => (t.level = v)}
-              meterL={engineState.playing ? meterValueIn('audio', t.id, 'meterL') : 0}
-              meterR={engineState.playing ? meterValueIn('audio', t.id, 'meterR') : 0}
-              label={`Level of ${t.name}`}
-            />
-          </div>
-          <div class="row-name audio-name" style:height={`${AUDIO_H}px`}>
-            {#if t.clips.length === 0}Drop samples here{/if}
+            <button
+              type="button"
+              class="mini more"
+              aria-label={`More for ${t.name}`}
+              title="Remove this track"
+              aria-haspopup="menu"
+              onclick={(e) => {
+                const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                trackMenu = { x: r.left, y: r.bottom + 4, above: r.top - 4, track: t };
+              }}>⋯</button
+            >
           </div>
         </div>
       {/each}
@@ -1251,13 +1257,12 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     <div class="content" bind:this={content} class:beats={showsBeats(ppb)} class:sixteenths={showsSixteenths(ppb)} style:width={`${contentW}px`}>
       {#each tracks as t (t.patch.id)}
         <div class="track" class:free={t.patch.free} style:--track-color={channelColor(t.patch.color)}>
-          <div class="track-top" style:height={`${TRACK_H}px`}></div>
-          <div class="track-mix" style:height={`${MIX_H}px`}></div>
+          <div class="track-top" style:height={`${PATCH_H}px`}></div>
           {#each t.rows as r (r.module.id)}
             <!-- svelte-ignore a11y_no_static_element_interactions (drawing blocks is a pointer gesture) -->
             <div
               class="row"
-              style:height={`${ROW_H}px`}
+              style:height={`${SEQ_H}px`}
               aria-label={`${t.patch.name}: ${r.label}`}
               onpointerdown={onrowpointerdown}
               ondblclick={(e) => onrowdblclick(e, t.patch, r.module.id)}
@@ -1285,14 +1290,12 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                     menu = { x: e.clientX, y: e.clientY, patch: t.patch, clip: c };
                   }}
                 >
-                  <span class="bank-label">{c.length * ppb >= 64 ? `Pattern ${bankLetter(c.bank)}` : bankLetter(c.bank)}</span>
+                  <span class="bank-label">{blockLabel(c)}</span>
                   <span class="edge start" data-edge="start"></span>
                   <span class="edge end" data-edge="end"></span>
                 </div>
               {/each}
             </div>
-          {:else}
-            <div class="row empty" style:height={`${EMPTY_H}px`}></div>
           {/each}
           {#if !timelineView.folded[t.patch.id]}
             {#each t.lanes as l (`${l.lane.module}:${l.lane.param}`)}
@@ -1317,8 +1320,6 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       {/each}
       {#each project.audioTracks as t (t.id)}
         <div class="track" class:silent={t.mute} style:--track-color={channelColor(t.color)}>
-          <div class="track-top" style:height={`${TRACK_H}px`}></div>
-          <div class="track-mix" style:height={`${MIX_H}px`}></div>
           <!-- svelte-ignore a11y_no_static_element_interactions (drawing a selection and dropping samples are pointer gestures) -->
           <div
             class="row audio-row"
@@ -1376,6 +1377,9 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
             {#if dropOn?.track === t.id}
               <div class="block audio ghost" style:left={`${dropOn.start * ppb}px`} style:width={`${dropOn.length * ppb}px`}></div>
             {/if}
+            {#if t.clips.length === 0}
+              <span class="drop-hint">Drop samples here</span>
+            {/if}
           </div>
         </div>
       {/each}
@@ -1415,6 +1419,46 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     <div class="menu-sep" role="separator"></div>
     <button type="button" role="menuitem" onclick={() => copyBlock(m.patch, m.clip)}>Duplicate <kbd>Ctrl+D</kbd></button>
     <button type="button" role="menuitem" class="danger" onclick={() => deleteBlock(m.patch, m.clip)}>Delete <kbd>Del</kbd></button>
+  </div>
+{/if}
+
+{#if trackMenu}
+  {@const m = trackMenu}
+  <div class="backdrop" role="presentation" onpointerdown={() => (trackMenu = null)} oncontextmenu={(e) => e.preventDefault()}></div>
+  <div class="menu" role="menu" use:placeMenu={{ x: m.x, y: m.y, above: m.above }}>
+    {#if m.patch}
+      {@const patch = m.patch}
+      <button
+        type="button"
+        role="menuitemcheckbox"
+        aria-checked={!!patch.free}
+        title="A Free patch ignores the timeline: its sequencers play the pattern chosen on the module"
+        onclick={() => {
+          if (patch.free) delete patch.free;
+          else patch.free = true;
+          trackMenu = null;
+        }}>{patch.free ? '✓ ' : ''}Free (ignore the timeline)</button
+      >
+      <button
+        type="button"
+        role="menuitem"
+        onclick={() => {
+          addMenu = { x: m.x, y: m.y, above: m.above, patch };
+          trackMenu = null;
+        }}>Add automation…</button
+      >
+    {:else if m.track}
+      {@const track = m.track}
+      <button
+        type="button"
+        role="menuitem"
+        class="danger"
+        onclick={() => {
+          removeAudioTrack(project, track.id);
+          trackMenu = null;
+        }}>Remove track</button
+      >
+    {/if}
   </div>
 {/if}
 
@@ -1491,7 +1535,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
 
 <style>
   .timeline {
-    --header-w: 224px;
+    --header-w: 280px;
     --ruler-h: 36px;
     --grid-bar: rgb(255 255 255 / 0.1);
     --grid-beat: rgb(255 255 255 / 0.04);
@@ -1623,15 +1667,26 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     border-bottom: 1px solid var(--border-default);
     border-left: 3px solid var(--track-color);
   }
-  .track-name {
+  /* One line per track: name, level, mute, solo and the "⋯" menu. */
+  .track-line {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 0 8px;
+    padding: 0 6px 0 8px;
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
     color: var(--text-strong);
     background: color-mix(in srgb, var(--track-color) 14%, transparent);
+  }
+  .level-slot {
+    flex: none;
+    display: flex;
+    width: 76px;
+  }
+  .mini.more {
+    border-color: transparent;
+    background: transparent;
+    font-size: var(--text-sm);
   }
   .free-toggle {
     flex: none;
@@ -1714,10 +1769,6 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       background: color-mix(in srgb, var(--border-focus) 35%, transparent);
       color: var(--text-strong);
     }
-  }
-  .row-name.empty {
-    color: var(--text-muted);
-    font-style: italic;
   }
 
   /* ---------- Tracks ---------- */
@@ -1806,22 +1857,6 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   }
   .lane-row.paused :global(svg) {
     opacity: 0.4;
-  }
-  .add-lane {
-    flex: none;
-    width: 18px;
-    height: 18px;
-    padding: 0;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    background: var(--surface-control);
-    color: var(--text-default);
-    font-size: var(--text-sm);
-    line-height: 1;
-    cursor: pointer;
-  }
-  .add-lane:hover {
-    background: var(--surface-control-hover);
   }
   .add-menu {
     max-height: min(420px, 70vh);
@@ -1968,20 +2003,18 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     background: color-mix(in srgb, var(--track-color) 55%, transparent);
     color: var(--text-strong);
   }
-  .mini.remove {
-    border-color: transparent;
-    background: transparent;
-    font-size: var(--text-sm);
+  .audio-row {
+    background: color-mix(in srgb, var(--track-color) 8%, transparent);
   }
-  .mix-row {
-    display: flex;
-    align-items: center;
-    padding: 0 8px 0 22px;
-    border-top: 1px solid var(--border-subtle);
-  }
-  .audio-name {
+  .drop-hint {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
     color: var(--text-muted);
+    font-size: var(--text-sm);
     font-style: italic;
+    pointer-events: none;
   }
   .add-audio {
     display: flex;
@@ -2147,9 +2180,6 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--text-muted);
-  }
-  .row.empty {
-    background: rgb(0 0 0 / 0.12);
   }
   .loop-shade {
     position: absolute;
