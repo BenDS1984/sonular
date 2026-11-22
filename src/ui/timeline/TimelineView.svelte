@@ -283,15 +283,23 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     });
   }
 
-  /** Ctrl + wheel zooms around the pointer; the ruler scrolls sideways with the plain wheel. */
+  /**
+   * Ctrl + wheel zooms around the pointer; the ruler scrolls sideways with the plain wheel. The
+   * tracks scroll sideways with Shift + wheel or a sideways touchpad swipe (done here, as the
+   * tracks area hides its sideways scrollbar).
+   */
   function onwheel(e: WheelEvent, area: 'body' | 'ruler') {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const rect = body?.getBoundingClientRect();
       zoomTo(Math.exp(-e.deltaY * 0.0015), rect ? e.clientX - rect.left : viewW / 2);
-    } else if (area === 'ruler' && body) {
+    } else if (!body) {
+      return;
+    } else if (area === 'ruler' || e.shiftKey) {
       e.preventDefault();
-      body.scrollLeft += e.deltaY || e.deltaX;
+      body.scrollLeft += Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    } else if (e.deltaX !== 0) {
+      body.scrollLeft += e.deltaX;
     }
   }
 
@@ -1944,9 +1952,12 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   }
 
   /* ---------- Tracks ---------- */
+  /* No sideways scrollbar: the overview below does that job. Sideways wheel scrolling is done in
+     onwheel, since overflow-x: hidden turns off the browser's own. */
   .body {
     position: relative;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
   .content {
     position: relative;
