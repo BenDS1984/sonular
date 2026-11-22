@@ -150,6 +150,12 @@
 
   const fit = fitAll;
 
+  /** Hide or show the cables; a hidden cable cannot stay selected (Delete would remove it unseen). */
+  function toggleCables() {
+    prefs.cablesVisible = !prefs.cablesVisible;
+    if (!prefs.cablesVisible && canvasState.selection?.kind === 'cable') canvasState.selection = null;
+  }
+
 
   function onkeydown(e: KeyboardEvent) {
     const t = e.target as HTMLElement;
@@ -250,6 +256,10 @@
     onfit={fit}
     minimap={prefs.minimap}
     ontoggleminimap={() => (prefs.minimap = !prefs.minimap)}
+    cablesVisible={prefs.cablesVisible}
+    ontogglecables={toggleCables}
+    cableOpacity={prefs.cableOpacity}
+    oncableopacity={(o) => (prefs.cableOpacity = Math.min(1, Math.max(0.1, o)))}
   />
 
 </main>

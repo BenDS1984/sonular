@@ -15,6 +15,10 @@ interface Prefs {
   browserWidth: number;
   /** Module families folded in the browser. */
   browserFolded: string[];
+  /** Cables are drawn on the canvas (hidden ones still connect). */
+  cablesVisible: boolean;
+  /** How opaque cables are drawn, 0.1..1 (a cable pointed at or selected is always fully shown). */
+  cableOpacity: number;
 }
 
 const DEFAULTS: Prefs = {
@@ -24,6 +28,8 @@ const DEFAULTS: Prefs = {
   browserOpen: true,
   browserWidth: 240,
   browserFolded: [],
+  cablesVisible: true,
+  cableOpacity: 1,
 };
 
 function load(): Prefs {

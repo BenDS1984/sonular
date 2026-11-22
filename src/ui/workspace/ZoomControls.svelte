@@ -1,4 +1,4 @@
-<!-- Zoom buttons in the bottom-right corner of the canvas. -->
+<!-- Bottom-right corner of the canvas: cable visibility and transparency, overview, zoom. -->
 <script lang="ts">
   interface Props {
     zoom: number;
@@ -7,12 +7,60 @@
     onfit: () => void;
     minimap: boolean;
     ontoggleminimap: () => void;
+    cablesVisible: boolean;
+    ontogglecables: () => void;
+    /** 0.1..1 */
+    cableOpacity: number;
+    oncableopacity: (opacity: number) => void;
   }
 
-  let { zoom, onzoom, onreset, onfit, minimap, ontoggleminimap }: Props = $props();
+  let {
+    zoom,
+    onzoom,
+    onreset,
+    onfit,
+    minimap,
+    ontoggleminimap,
+    cablesVisible,
+    ontogglecables,
+    cableOpacity,
+    oncableopacity,
+  }: Props = $props();
 </script>
 
-<div class="zoom" role="toolbar" aria-label="Zoom">
+<div class="zoom" role="toolbar" aria-label="View">
+  <button
+    type="button"
+    class:on={cablesVisible}
+    title={cablesVisible ? 'Hide cables (they stay connected)' : 'Show cables'}
+    aria-label={cablesVisible ? 'Hide cables' : 'Show cables'}
+    aria-pressed={cablesVisible}
+    onclick={ontogglecables}
+  >
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path d="M3.5 4.5c0 6 9 1 9 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      <circle cx="3.5" cy="4" r="1.8" fill="currentColor" />
+      <circle cx="12.5" cy="12" r="1.8" fill="currentColor" />
+      {#if !cablesVisible}
+        <path d="M2.5 13.5 13.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      {/if}
+    </svg>
+  </button>
+  <input
+    class="opacity"
+    type="range"
+    min="10"
+    max="100"
+    step="5"
+    value={Math.round(cableOpacity * 100)}
+    style:--fill={`${((cableOpacity * 100 - 10) / 90) * 100}%`}
+    disabled={!cablesVisible}
+    title={`Cable opacity: ${Math.round(cableOpacity * 100)}%`}
+    aria-label="Cable opacity"
+    oninput={(e) => oncableopacity(Number((e.currentTarget as HTMLInputElement).value) / 100)}
+    onpointerdown={(e) => e.stopPropagation()}
+  />
+  <span class="sep" aria-hidden="true"></span>
   <button
     type="button"
     class:on={minimap}
@@ -77,6 +125,38 @@
     width: 1px;
     margin: 4px 2px;
     background: var(--border-default);
+  }
+  /* A quiet slider: dark track, filled part a little lighter, soft grey knob. */
+  .opacity {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 72px;
+    height: 4px;
+    margin: 0 6px 0 2px;
+    align-self: center;
+    border-radius: 2px;
+    background: linear-gradient(to right, var(--gray-550) var(--fill), var(--gray-700) var(--fill));
+    cursor: pointer;
+  }
+  .opacity::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--gray-400);
+    border: 0;
+  }
+  .opacity::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--gray-400);
+    border: 0;
+  }
+  .opacity:disabled {
+    opacity: 0.35;
+    cursor: default;
   }
   .pct {
     min-width: 48px;
