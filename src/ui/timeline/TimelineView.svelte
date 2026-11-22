@@ -62,7 +62,10 @@ import TrackLevel from '../components/TrackLevel.svelte';
     removeAudioClip,
     removeAudioTrack,
     renameAudioTrack,
+    audioTrackHeight,
+    AUDIO_TRACK_HEIGHT,
     secondsToBeats,
+    setAudioTrackHeight,
     trimAudioStart,
   } from '../../patch/audioTracks';
   import type { AudioClip, AudioTrack, AutomationLane, Clip, Patch } from '../../patch/types';
@@ -111,7 +114,6 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
    */
   const PATCH_H = 36;
   const SEQ_H = 40;
-  const AUDIO_H = 56;
   const LOOP_H = 14;
   const EDGE_PX = 6;
   /** Height of the strip with the "+ Audio track" button. */
@@ -141,6 +143,27 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   function onresizeend() {
     if (laneResize) endDragLook();
     laneResize = null;
+  }
+
+  // ---------- Audio track heights: drag the bottom edge of a track, double-click it for the standard height ----------
+  let audioResize: { track: AudioTrack; y0: number; h0: number } | null = $state(null);
+
+  function onaudioresizedown(e: PointerEvent, track: AudioTrack) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    audioResize = { track, y0: e.clientY, h0: audioTrackHeight(track) };
+    startDragLook('ns-resize');
+  }
+
+  function onaudioresizemove(e: PointerEvent) {
+    if (audioResize) setAudioTrackHeight(audioResize.track, audioResize.h0 + e.clientY - audioResize.y0);
+  }
+
+  function onaudioresizeend() {
+    if (audioResize) endDragLook();
+    audioResize = null;
   }
 
   // ---------- Tracks ----------
@@ -984,6 +1007,25 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
 </script>
 
 <main class="timeline" aria-label="Timeline" style:--ppb={`${ppb}px`} style:--bar={`${ppb * BEATS_PER_BAR}px`}>
+  {#snippet audioResizer(track: AudioTrack)}
+    <div
+      class="lane-resize"
+      class:active={audioResize?.track === track}
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label="Track height"
+      title="Drag to change the track's height; double-click for the standard height"
+      onpointerdown={(e) => onaudioresizedown(e, track)}
+      onpointermove={onaudioresizemove}
+      onpointerup={onaudioresizeend}
+      onpointercancel={onaudioresizeend}
+      ondblclick={(e) => {
+        e.stopPropagation();
+        setAudioTrackHeight(track, AUDIO_TRACK_HEIGHT);
+      }}
+    ></div>
+  {/snippet}
+
   {#snippet resizer(patch: Patch, lane: AutomationLane)}
     <div
       class="lane-resize"
@@ -1208,7 +1250,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       {/each}
       {#each project.audioTracks as t (t.id)}
         <div class="track-head" style:--track-color={channelColor(t.color)}>
-          <div class="track-line" style:height={`${AUDIO_H}px`} title={t.name}>
+          <div class="track-line" style:height={`${audioTrackHeight(t)}px`} title={t.name}>
             <span class="dot" aria-hidden="true"></span>
             <span class="name-slot">
               <EditableName
@@ -1256,6 +1298,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                 trackMenu = { x: r.left, y: r.bottom + 4, above: r.top - 4, track: t };
               }}>⋯</button
             >
+            {@render audioResizer(t)}
           </div>
         </div>
       {/each}
@@ -1337,7 +1380,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
           <div
             class="row audio-row"
             class:drop={dropOn?.track === t.id}
-            style:height={`${AUDIO_H}px`}
+            style:height={`${audioTrackHeight(t)}px`}
             aria-label={`${t.name}: audio track`}
             onpointerdown={onrowpointerdown}
             ondragover={(e) => onaudiodragover(e, t)}
@@ -1393,6 +1436,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
             {#if t.clips.length === 0}
               <span class="drop-hint">Drop samples here</span>
             {/if}
+            {@render audioResizer(t)}
           </div>
         </div>
       {/each}
@@ -1703,6 +1747,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   }
   /* One line per track: name, level, mute, solo and the "⋯" menu. */
   .track-line {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 6px;

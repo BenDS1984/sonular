@@ -154,6 +154,16 @@ describe('project files', () => {
     expect(warnings.join(' ')).toMatch(/2 audio clips/);
   });
 
+  it('keeps the height of a taller audio track and ignores a bad one', () => {
+    const file = JSON.parse(serializeProject(sample()));
+    file.project.audioTracks[0].height = 180;
+    file.project.audioTracks.push({ id: 'a3', name: 'B', height: 'tall', clips: [] }, { id: 'a4', name: 'C', height: 10, clips: [] });
+    const { project } = parseProjectFile(JSON.stringify(file), getDef);
+    expect(project.audioTracks.map((t) => t.height)).toEqual([180, undefined, undefined]);
+    const again = parseProjectFile(serializeProject(project), getDef).project;
+    expect(again.audioTracks[0]!.height).toBe(180);
+  });
+
   it('opens a version 4 file without audio tracks', () => {
     const file = JSON.parse(serializeProject(sample()));
     delete file.project.audioTracks;

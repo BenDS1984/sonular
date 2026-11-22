@@ -147,6 +147,8 @@ export interface AudioTrack {
   send2: number;
   mute: boolean;
   solo: boolean;
+  /** Height of the track on the timeline in pixels, when the user made it taller than the standard. */
+  height?: number;
   clips: AudioClip[];
 }
 

@@ -10,6 +10,24 @@ import type { AudioClip, AudioTrack, Project } from './types';
 /** Highest channel level of an audio track (+6 dB), like the patch channels. */
 export const AUDIO_MAX_LEVEL = 2;
 
+/** Standard (and smallest) height of an audio track on the timeline, in pixels. */
+export const AUDIO_TRACK_HEIGHT = 56;
+export const MAX_AUDIO_TRACK_HEIGHT = 400;
+
+export const clampAudioHeight = (h: number) =>
+  Math.round(Math.min(MAX_AUDIO_TRACK_HEIGHT, Math.max(AUDIO_TRACK_HEIGHT, Number.isFinite(h) ? h : AUDIO_TRACK_HEIGHT)));
+
+/** Height of an audio track on the timeline, in pixels. */
+export const audioTrackHeight = (track: Pick<AudioTrack, 'height'>) =>
+  track.height === undefined ? AUDIO_TRACK_HEIGHT : clampAudioHeight(track.height);
+
+/** Make a track taller (or back to the standard); the standard height is not stored. */
+export function setAudioTrackHeight(track: Pick<AudioTrack, 'height'>, height: number): void {
+  const h = clampAudioHeight(height);
+  if (h === AUDIO_TRACK_HEIGHT) delete track.height;
+  else track.height = h;
+}
+
 export const beatsToSeconds = (beats: number, tempo: number) => (beats * 60) / tempo;
 export const secondsToBeats = (seconds: number, tempo: number) => (seconds * tempo) / 60;
 

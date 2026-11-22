@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   addAudioClip,
   addAudioTrack,
+  AUDIO_TRACK_HEIGHT,
+  audioTrackHeight,
+  setAudioTrackHeight,
   audioFreeRange,
   duplicateAudioClip,
   maxAudioLength,
@@ -16,6 +19,17 @@ import { emptyProject } from './operations';
 const sample = (id: string, duration: number) => ({ id, name: id, duration });
 
 describe('audio tracks', () => {
+  it('can be made taller, within limits, and the standard height is not stored', () => {
+    const t = addAudioTrack(emptyProject('x', 120));
+    expect(audioTrackHeight(t)).toBe(AUDIO_TRACK_HEIGHT);
+    setAudioTrackHeight(t, 150);
+    expect(audioTrackHeight(t)).toBe(150);
+    setAudioTrackHeight(t, 20);
+    expect(t.height).toBeUndefined();
+    setAudioTrackHeight(t, 99999);
+    expect(audioTrackHeight(t)).toBeLessThanOrEqual(400);
+  });
+
   it('adds tracks with their own ids, names and colours, and never reuses an id', () => {
     const p = emptyProject('x', 120);
     const a = addAudioTrack(p);

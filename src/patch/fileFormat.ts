@@ -8,7 +8,7 @@
 import { clampTempo, DEFAULT_TEMPO } from '../engine/core/Transport';
 import type { ModuleDefinition } from '../modules/types';
 import { ensureChannel } from './operations';
-import { AUDIO_MAX_LEVEL } from './audioTracks';
+import { AUDIO_MAX_LEVEL, AUDIO_TRACK_HEIGHT, clampAudioHeight } from './audioTracks';
 import { BEATS_PER_BAR, clampBank, clampLaneHeight, emptyTimeline, hasBanks, LANE_HEIGHT, MAX_BEATS, MIN_CLIP_LENGTH } from './timeline';
 import type { AudioClip, AudioTrack, AutomationLane, Cable, Clip, ModuleInstance, Patch, Project, Timeline } from './types';
 
@@ -105,6 +105,7 @@ export function serializeProject(project: Project, now = new Date()): string {
         send2: t.send2,
         mute: t.mute,
         solo: t.solo,
+        ...(t.height ? { height: t.height } : {}),
         clips: t.clips.map((c) => ({ id: c.id, sample: c.sample, name: c.name, start: c.start, length: c.length, offset: c.offset })),
       })),
       patches: project.patches.map((p) => ({
@@ -493,6 +494,7 @@ function validateAudioTracks(raw: unknown, warnings: string[]): AudioTrack[] {
       send2: isFiniteNumber(rt['send2']) ? Math.min(1, Math.max(0, rt['send2'])) : 0,
       mute: rt['mute'] === true,
       solo: rt['solo'] === true,
+      ...(isFiniteNumber(rt['height']) && clampAudioHeight(rt['height']) > AUDIO_TRACK_HEIGHT ? { height: clampAudioHeight(rt['height']) } : {}),
       clips,
     });
   }
