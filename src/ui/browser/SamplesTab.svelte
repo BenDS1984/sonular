@@ -1,7 +1,8 @@
 <!--
   The Samples tab of the browser: the sample library on this computer.
   - drop audio files from the computer anywhere on the tab, or use "Add samples…" to choose them
-  - click a sample to listen to it (click again to stop); one sample plays at a time
+  - click a sample to listen to it (click again to stop); one sample plays at a time, and its
+    waveform shows how far it has played
   - right-click a sample to rename or delete it
   The library stays when the app is closed; it is not part of a project.
 -->
@@ -20,6 +21,7 @@
   } from '../../samples/library.svelte';
   import { formatBytes, formatSampleLength, PEAK_COUNT } from '../../samples/sampleFiles';
   import type { SampleInfo } from '../../platform/sampleStore';
+  import { prefs } from '../prefs.svelte';
 
   void loadLibrary();
   onDestroy(stopPreview);
@@ -155,6 +157,14 @@
             </span>
             <svg class="wave" viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
               <polygon points={waveShape(s.peaks)} />
+              {#if playing}
+                <!-- The part already played, in the playing colour, and the position line. -->
+                <clipPath id={`played-${s.id}`}>
+                  <rect x="0" y="0" width={library.progress * 100} height="20" />
+                </clipPath>
+                <polygon class="played" points={waveShape(s.peaks)} clip-path={`url(#played-${s.id})`} />
+                <line class="position" x1={library.progress * 100} y1="0" x2={library.progress * 100} y2="20" />
+              {/if}
             </svg>
           </button>
         {/if}
@@ -173,11 +183,48 @@
   </div>
 
   <div class="footer">
-    {#if library.adding > 0}
-      Reading {library.adding} file{library.adding > 1 ? 's' : ''}…
-    {:else}
-      {library.samples.length} sample{library.samples.length === 1 ? '' : 's'} · {formatBytes(librarySize())}
-    {/if}
+    <span class="count">
+      {#if library.adding > 0}
+        Reading {library.adding} file{library.adding > 1 ? 's' : ''}…
+      {:else}
+        {library.samples.length} sample{library.samples.length === 1 ? '' : 's'} · {formatBytes(librarySize())}
+      {/if}
+    </span>
+    <button
+      type="button"
+      class="speaker"
+      title={prefs.sampleMuted ? 'Unmute listening' : 'Mute listening'}
+      aria-label={prefs.sampleMuted ? 'Unmute listening' : 'Mute listening'}
+      aria-pressed={prefs.sampleMuted}
+      onclick={() => (prefs.sampleMuted = !prefs.sampleMuted)}
+    >
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+        <path d="M2.5 6h2.5l3.5-3v10L5 10H2.5z" fill="currentColor" />
+        {#if prefs.sampleMuted || prefs.sampleVolume === 0}
+          <path d="M11 6l3.5 4M14.5 6 11 10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+        {:else}
+          <path d="M10.5 5.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+          {#if prefs.sampleVolume > 0.5}
+            <path d="M12.3 3.8a6 6 0 0 1 0 8.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+          {/if}
+        {/if}
+      </svg>
+    </button>
+    <input
+      class="volume"
+      type="range"
+      min="0"
+      max="100"
+      step="1"
+      value={Math.round(prefs.sampleVolume * 100)}
+      style:--fill={`${prefs.sampleMuted ? 0 : prefs.sampleVolume * 100}%`}
+      title={`Listening volume: ${prefs.sampleMuted ? 'muted' : `${Math.round(prefs.sampleVolume * 100)}%`}`}
+      aria-label="Listening volume"
+      oninput={(e) => {
+        prefs.sampleVolume = Number((e.currentTarget as HTMLInputElement).value) / 100;
+        prefs.sampleMuted = false;
+      }}
+    />
   </div>
 
   {#if dropping}
@@ -314,9 +361,14 @@
     fill: var(--text-muted);
     opacity: 0.6;
   }
-  .sample.playing .wave polygon {
+  .wave polygon.played {
     fill: var(--signal-audio-soft);
     opacity: 1;
+  }
+  .wave .position {
+    stroke: var(--text-strong);
+    stroke-width: 1.2;
+    vector-effect: non-scaling-stroke;
   }
   .rename {
     width: 100%;
@@ -337,10 +389,62 @@
     line-height: 1.5;
   }
   .footer {
-    padding: var(--space-2) var(--space-3);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
     border-top: 1px solid var(--border-subtle);
     color: var(--text-muted);
     font-size: var(--text-xs);
+  }
+  .count {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .speaker {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .speaker:hover {
+    background: var(--surface-control);
+    color: var(--text-strong);
+  }
+  /* A quiet slider, like the cable slider on the canvas. */
+  .volume {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 64px;
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right, var(--gray-550) var(--fill), var(--gray-700) var(--fill));
+    cursor: pointer;
+  }
+  .volume::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--gray-400);
+    border: 0;
+  }
+  .volume::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--gray-400);
+    border: 0;
   }
   .samples.dropping {
     outline: 2px dashed var(--border-focus);

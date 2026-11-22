@@ -5,6 +5,7 @@
  */
 import { askPersistentStorage, browserSampleStore, type SampleInfo } from '../platform/sampleStore';
 import { showToast } from '../ui/toast.svelte';
+import { prefs } from '../ui/prefs.svelte';
 import { computePeaks, isAudioFile, sampleName } from './sampleFiles';
 
 const store = browserSampleStore;
@@ -16,6 +17,8 @@ export const library = $state({
   adding: 0,
   /** The sample being listened to. */
   playing: null as string | null,
+  /** How far it has played, 0..1. */
+  progress: 0,
 });
 
 /** Total size of the library in bytes. Reactive. */
@@ -127,8 +130,32 @@ export async function removeSample(id: string): Promise<void> {
 
 let audio: HTMLAudioElement | null = null;
 let url: string | null = null;
+let frame = 0;
+
+/** Loudness for listening: the slider's position squared, so it feels even to the ear. */
+const listenGain = () => (prefs.sampleMuted ? 0 : Math.min(1, Math.max(0, prefs.sampleVolume)) ** 2);
+
+// A change of the volume (or mute) is heard at once, also while a sample plays.
+$effect.root(() => {
+  $effect(() => {
+    const gain = listenGain();
+    if (audio) audio.volume = gain;
+  });
+});
+
+/** Follow the playing sample's position for the waveform. */
+function track() {
+  frame = 0;
+  if (!audio) return;
+  const d = audio.duration;
+  if (Number.isFinite(d) && d > 0) library.progress = Math.min(1, audio.currentTime / d);
+  frame = requestAnimationFrame(track);
+}
 
 export function stopPreview() {
+  if (frame) cancelAnimationFrame(frame);
+  frame = 0;
+  library.progress = 0;
   audio?.pause();
   audio = null;
   if (url) URL.revokeObjectURL(url);
@@ -148,6 +175,7 @@ export async function togglePreview(id: string): Promise<void> {
   }
   url = URL.createObjectURL(blob);
   const a = new Audio(url);
+  a.volume = listenGain();
   audio = a;
   library.playing = id;
   a.onended = () => {
@@ -155,6 +183,7 @@ export async function togglePreview(id: string): Promise<void> {
   };
   try {
     await a.play();
+    if (audio === a && !frame) frame = requestAnimationFrame(track);
   } catch {
     if (audio === a) stopPreview();
     showToast('This sample could not be played.', 'error');
