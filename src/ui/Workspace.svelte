@@ -5,6 +5,7 @@
   - drag empty space (or middle mouse anywhere) to pan; scroll to pan, Ctrl + scroll to zoom
   - drag a module by its header; click to select
   - drag from a jack to patch a cable; drag a connected input to move/remove its cable
+  - while dragging a module or a cable near an edge, the canvas scrolls along
   - double-click empty space to search the browser for a module to add there
   - drop a module from the browser to add it there; drop a .sonular file to open it
   Keyboard: Delete/Backspace removes the selection, Escape cancels.
@@ -22,6 +23,7 @@
   import { openProjectFile } from '../patch/fileActions';
   import { beginCableDrag, cancelCableDrag, endCableDrag, interaction, updateCableDrag } from './workspace/interaction.svelte';
   import { placeModule } from './workspace/placeModule';
+  import { startAutoPan } from './workspace/autoPan';
   import { MODULE_DRAG_TYPE, requestBrowserSearch, sideBrowser } from './browser/browserPanel.svelte';
 
   let el: HTMLElement | undefined = $state();
@@ -58,14 +60,26 @@
     if (!moduleId || !portId || !kind) return;
     e.preventDefault();
     beginCableDrag({ module: moduleId, port: portId }, kind, canvasPoint(e));
-    const move = (ev: PointerEvent) => updateCableDrag(canvasPoint(ev), patch.view.zoom);
+    // Near an edge the canvas scrolls; the cable end stays under the pointer.
+    let last = { clientX: e.clientX, clientY: e.clientY };
+    const pan = startAutoPan(
+      () => el,
+      () => updateCableDrag(canvasPoint(last), patch.view.zoom),
+    );
+    const move = (ev: PointerEvent) => {
+      last = { clientX: ev.clientX, clientY: ev.clientY };
+      updateCableDrag(canvasPoint(ev), patch.view.zoom);
+      pan.update(ev);
+    };
     const up = () => {
+      pan.stop();
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', cancel);
       endCableDrag();
     };
     const cancel = () => {
+      pan.stop();
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', cancel);

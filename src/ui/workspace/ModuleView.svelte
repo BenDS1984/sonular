@@ -13,6 +13,7 @@
   import { CHANNEL_TYPE } from '../../patch/operations';
   import type { ModuleInstance } from '../../patch/types';
   import { interaction, isValidTarget } from './interaction.svelte';
+  import { startAutoPan } from './autoPan';
   import { flash } from '../focus.svelte';
 
   interface Props {
@@ -60,12 +61,23 @@
     const startY = e.clientY;
     const origX = module.x;
     const origY = module.y;
-    const move = (ev: PointerEvent) => {
+    // Where the canvas was: when it scrolls along at an edge, the module keeps up with it.
+    const viewX = patch.view.x;
+    const viewY = patch.view.y;
+    let last = { clientX: e.clientX, clientY: e.clientY };
+    const place = () => {
       const zoom = patch.view.zoom;
-      module.x = snap(origX + (ev.clientX - startX) / zoom);
-      module.y = snap(origY + (ev.clientY - startY) / zoom);
+      module.x = snap(origX + (last.clientX - startX - (patch.view.x - viewX)) / zoom);
+      module.y = snap(origY + (last.clientY - startY - (patch.view.y - viewY)) / zoom);
+    };
+    const pan = startAutoPan(() => header.closest<HTMLElement>('.workspace'), place);
+    const move = (ev: PointerEvent) => {
+      last = { clientX: ev.clientX, clientY: ev.clientY };
+      place();
+      pan.update(ev);
     };
     const up = () => {
+      pan.stop();
       header.removeEventListener('pointermove', move);
       header.removeEventListener('pointerup', up);
       header.removeEventListener('pointercancel', up);
