@@ -85,6 +85,13 @@ export interface ModuleDefinition {
    * in its parameter "bank".
    */
   banks?: number;
+  /**
+   * Gates the module makes that get a light on the timeline: for each, the name of the engine meter
+   * that reports it (1 while the gate was open since the last report, see GateLatch) and a name for
+   * the light. A module with gates gets a row on the timeline with its name and these lights, also
+   * without banks (a generative sequencer has no blocks to draw).
+   */
+  gates?: { meter: string; label: string }[];
   /** Controls shown in the module body. */
   panel: Component<ModulePanelProps>;
   /**

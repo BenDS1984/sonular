@@ -21,6 +21,9 @@ export function emptyTimeline(): Timeline {
 /** Whether a module type gets a row of blocks on the timeline. */
 export const hasBanks = (def: ModuleDefinition | undefined): boolean => (def?.banks ?? 0) > 0;
 
+/** Whether a module type gets a row on the timeline: blocks (banks) and/or lights for its gates. */
+export const hasTimelineRow = (def: ModuleDefinition | undefined): boolean => hasBanks(def) || (def?.gates?.length ?? 0) > 0;
+
 /**
  * Name of a module with a timeline row, with its number: "Sequencer 2". The number comes from the
  * module id (sequencer2), so it stays the same when other sequencers are added or removed.
@@ -36,7 +39,7 @@ export function numberedTitle(def: ModuleDefinition | undefined, module: { id: s
  * (they need the number there), else the plain title ("Oscillator").
  */
 export function defaultTitle(def: ModuleDefinition | undefined, module: { id: string; type: string }): string {
-  return hasBanks(def) ? numberedTitle(def, module) : (def?.title ?? module.type);
+  return hasTimelineRow(def) ? numberedTitle(def, module) : (def?.title ?? module.type);
 }
 
 /** What a module is called: the user's name, else its default title. */

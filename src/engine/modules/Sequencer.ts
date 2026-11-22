@@ -1,4 +1,5 @@
 import { parseStepParam, SEQUENCER_BANKS, SEQUENCER_STEPS } from '../../modules/sequencer/banks';
+import { GateLatch } from '../core/GateLatch';
 import type { DspModule, EngineClip } from '../core/types';
 import type { Transport } from '../core/Transport';
 
@@ -45,8 +46,8 @@ export class Sequencer implements DspModule {
   readonly tailSeconds = Infinity;
   readonly keepsTime = true;
   readonly meterNames = ['step', 'bank', 'gate'] as const;
-  /** A gate was high since the meters were last read, so a short gate still lights the light. */
-  private gateSeen = false;
+  /** Remembers an open gate between readings, so a short gate still lights the light. */
+  private readonly gateLatch = new GateLatch();
 
   private readonly transport: Transport | null;
   /** All banks after each other: bank b, step s at b * 8 + s. */
@@ -113,15 +114,7 @@ export class Sequencer implements DspModule {
   process(inputs: readonly Float32Array[], _silent: readonly boolean[], outputs: readonly Float32Array[], frames: number): void {
     if (this.blocks.length > 0 && this.transport) this.processBlocks(inputs[0]!, outputs[0]!, outputs[1]!, frames, this.transport);
     else this.processFree(inputs[0]!, outputs[0]!, outputs[1]!, frames);
-    if (!this.gateSeen) {
-      const gate = outputs[1]!;
-      for (let i = 0; i < frames; i++) {
-        if (gate[i]! > 0) {
-          this.gateSeen = true;
-          break;
-        }
-      }
-    }
+    this.gateLatch.see(outputs[1]!, frames);
   }
 
   /** No timeline: the chosen bank, all the time. */
@@ -204,8 +197,7 @@ export class Sequencer implements DspModule {
   }
 
   readMeters(out: Float32Array, offset: number): void {
-    out[offset + 2] = this.gateSeen ? 1 : 0;
-    this.gateSeen = false;
+    out[offset + 2] = this.gateLatch.take();
     if (this.blocks.length > 0 && this.transport) {
       const block = this.blocks[this.current];
       out[offset] = block ? this.step + 1 : 0;

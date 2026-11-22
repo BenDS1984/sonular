@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { ModuleDefinition } from '../modules/types';
 import { duplicatePatch, emptyPatch, emptyProject, removeModule } from './operations';
 import {
+  defaultTitle,
+  hasTimelineRow,
   addClip,
   clipsOf,
   duplicateClip,
@@ -447,5 +449,18 @@ describe('bent automation lines', () => {
     const base = bentLane().points;
     const pts = punchIn(lin, base, 3, 4, [{ time: 3, value: 0 }, { time: 4, value: 0 }], 0);
     for (const t of [1, 2, 2.9, 4.1, 6, 7.5]) expect(laneValueAt(lin, pts, t)).toBeCloseTo(laneValueAt(lin, base, t)!, 9);
+  });
+});
+
+describe('rows on the timeline', () => {
+  const def = (extra: object) => ({ type: 'x', title: 'X', ...extra }) as never;
+  it('gives a row to modules with banks or with gates, and numbers them', () => {
+    expect(hasTimelineRow(def({ banks: 8 }))).toBe(true);
+    expect(hasTimelineRow(def({ gates: [{ meter: 'gate', label: 'Gate' }] }))).toBe(true);
+    expect(hasTimelineRow(def({ gates: [] }))).toBe(false);
+    expect(hasTimelineRow(def({}))).toBe(false);
+    expect(hasTimelineRow(undefined)).toBe(false);
+    expect(defaultTitle(def({ gates: [{ meter: 'gate', label: 'Gate' }] }), { id: 'gen2', type: 'x' })).toBe('X 2');
+    expect(defaultTitle(def({}), { id: 'osc2', type: 'x' })).toBe('X');
   });
 });

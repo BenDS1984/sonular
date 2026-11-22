@@ -7,12 +7,12 @@
   import { engineState, meterValueIn } from '../../engine/engine.svelte';
   import Led from '../components/Led.svelte';
 
-  let { patch, module }: { patch: string; module: string } = $props();
+  let { patch, module, meter = 'gate', label = 'Gate' }: { patch: string; module: string; meter?: string; label?: string } = $props();
 
   /** How long the light stays on after a report with an open gate (ms). */
   const HOLD_MS = 90;
 
-  const open = $derived(engineState.playing && meterValueIn(patch, module, 'gate') > 0.5);
+  const open = $derived(engineState.playing && meterValueIn(patch, module, meter) > 0.5);
   let lit = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -30,7 +30,7 @@
   $effect(() => () => clearTimeout(timer));
 </script>
 
-<span class="gate" title="Gate: lights when the sequencer opens its gate">
+<span class="gate" title={`${label}: lights while it is open`}>
   <Led level={lit ? 1 : 0} signal="gate" />
 </span>
 

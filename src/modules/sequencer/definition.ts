@@ -49,6 +49,7 @@ export const sequencer: ModuleDefinition = {
     { id: 'bank', label: 'Pattern', min: 0, max: SEQUENCER_BANKS - 1, default: 0, step: 1, automatable: false },
   ],
   banks: SEQUENCER_BANKS,
+  gates: [{ meter: 'gate', label: 'Gate' }],
   panel: SequencerPanel,
   engine: 'native:sequencer',
 };

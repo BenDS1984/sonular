@@ -37,6 +37,7 @@ import TrackLevel from '../components/TrackLevel.svelte';
     nextClipId,
     clampBank,
     hasBanks,
+    hasTimelineRow,
     MAX_BEATS,
     moduleLabel,
     moduleTooltip,
@@ -170,7 +171,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   // ---------- Tracks ----------
   const tracks = $derived(
     project.patches.map((patch) => {
-      const seqs = patch.modules.filter((m) => hasBanks(getDefinition(m.type)));
+      const seqs = patch.modules.filter((m) => hasTimelineRow(getDefinition(m.type)));
       const rows = seqs
         .map((module) => {
           const def = getDefinition(module.type);
@@ -1212,7 +1213,9 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                 title="Show this sequencer in its patch"
                 onclick={() => showModule(t.patch.id, r.module.id)}>↗</button
               >
-              <GateLed patch={t.patch.id} module={r.module.id} />
+              {#each r.def?.gates ?? [] as g (g.meter)}
+                <GateLed patch={t.patch.id} module={r.module.id} meter={g.meter} label={g.label} />
+              {/each}
             </div>
           {/each}
           {#if !timelineView.folded[t.patch.id]}
