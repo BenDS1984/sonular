@@ -22,7 +22,9 @@
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { engineState, setPlayhead, transportState } from '../../engine/engine.svelte';
+  import { engineState, meterValueIn, setPlayhead, transportState } from '../../engine/engine.svelte';
+import { setControl, shownValue } from '../automation.svelte';
+import TrackLevel from '../components/TrackLevel.svelte';
   import { getDefinition } from '../../modules/registry';
   import { project } from '../../patch/patch.svelte';
   import { CHANNEL_TYPE } from '../../patch/operations';
@@ -109,6 +111,8 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   /** Height of an audio track's row, and of the strip with the "+ Audio track" button. */
   const AUDIO_H = 56;
   const ADD_H = 36;
+  /** Height of the strip with a patch track's meter and level. */
+  const MIX_H = 28;
 
   // The library tells which samples exist (waveforms, missing samples).
   void loadLibrary();
@@ -537,6 +541,9 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     const ch = channelOf(patch);
     if (ch) ch.params[param] = isOn(patch, param) ? 0 : 1;
   }
+
+  /** The Channel's starting level, which a double-click on a level slider goes back to. */
+  const channelDefaultLevel = getDefinition(CHANNEL_TYPE)?.params.find((p) => p.id === 'level')?.default ?? 0.5;
 
   const sampleOf = (id: string) => library.samples.find((s) => s.id === id);
 
@@ -1061,22 +1068,6 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
             <span class="name">{t.patch.name}</span>
             <button
               type="button"
-              class="mini mute"
-              class:on={isOn(t.patch, 'mute')}
-              aria-pressed={isOn(t.patch, 'mute')}
-              title={isOn(t.patch, 'mute') ? 'Muted' : 'Mute this patch'}
-              onclick={() => toggleChannel(t.patch, 'mute')}>M</button
-            >
-            <button
-              type="button"
-              class="mini solo"
-              class:on={isOn(t.patch, 'solo')}
-              aria-pressed={isOn(t.patch, 'solo')}
-              title={isOn(t.patch, 'solo') ? 'Soloed' : 'Solo this patch'}
-              onclick={() => toggleChannel(t.patch, 'solo')}>S</button
-            >
-            <button
-              type="button"
               class="free-toggle"
               class:on={t.patch.free}
               aria-pressed={!!t.patch.free}
@@ -1099,6 +1090,36 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                 addMenu = { x: r.left, y: r.bottom + 4, above: r.top - 4, patch: t.patch };
               }}>+</button
             >
+            <button
+              type="button"
+              class="mini mute"
+              class:on={isOn(t.patch, 'mute')}
+              aria-pressed={isOn(t.patch, 'mute')}
+              title={isOn(t.patch, 'mute') ? 'Muted' : 'Mute this patch'}
+              onclick={() => toggleChannel(t.patch, 'mute')}>M</button
+            >
+            <button
+              type="button"
+              class="mini solo"
+              class:on={isOn(t.patch, 'solo')}
+              aria-pressed={isOn(t.patch, 'solo')}
+              title={isOn(t.patch, 'solo') ? 'Soloed' : 'Solo this patch'}
+              onclick={() => toggleChannel(t.patch, 'solo')}>S</button
+            >
+          </div>
+          <!-- The level and meter of the patch's Channel: the same as the mixer's fader and meter. -->
+          <div class="mix-row" style:height={`${MIX_H}px`}>
+            {#if channelOf(t.patch)}
+              {@const ch = channelOf(t.patch)!}
+              <TrackLevel
+                value={shownValue(ch, 'level')}
+                onchange={(v) => setControl(ch, 'level', v)}
+                defaultValue={channelDefaultLevel}
+                meterL={meterValueIn(t.patch.id, ch.id, 'meterL')}
+                meterR={meterValueIn(t.patch.id, ch.id, 'meterR')}
+                label={`Level of ${t.patch.name}`}
+              />
+            {/if}
           </div>
           {#each t.rows as r (r.module.id)}
             <div
@@ -1164,6 +1185,8 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       {#each project.audioTracks as t (t.id)}
         <div class="track-head" style:--track-color={channelColor(t.color)}>
           <div class="track-name" style:height={`${TRACK_H}px`} title={t.name}>
+            <span class="dot" aria-hidden="true"></span>
+            <span class="name-slot">
             <EditableName
               text={t.name}
               value={t.name}
@@ -1171,6 +1194,14 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
               title="Audio track: drag samples from the browser onto it"
               onrename={(name) => renameAudioTrack(t, name)}
             />
+            </span>
+            <button
+              type="button"
+              class="mini remove"
+              aria-label={`Remove ${t.name}`}
+              title="Remove this audio track (Ctrl+Z brings it back)"
+              onclick={() => removeAudioTrack(project, t.id)}>×</button
+            >
             <button
               type="button"
               class="mini mute"
@@ -1188,26 +1219,17 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
               onclick={() => (t.solo = !t.solo)}>S</button
             >
           </div>
+          <div class="mix-row" style:height={`${MIX_H}px`}>
+            <TrackLevel
+              value={t.level}
+              onchange={(v) => (t.level = v)}
+              meterL={engineState.playing ? meterValueIn('audio', t.id, 'meterL') : 0}
+              meterR={engineState.playing ? meterValueIn('audio', t.id, 'meterR') : 0}
+              label={`Level of ${t.name}`}
+            />
+          </div>
           <div class="row-name audio-name" style:height={`${AUDIO_H}px`}>
-            <label class="level" title="Level (double-click for 0 dB)">
-              <span>Level</span>
-              <input
-                type="range"
-                min="0"
-                max="2"
-                step="0.01"
-                bind:value={t.level}
-                aria-label={`Level of ${t.name}`}
-                ondblclick={() => (t.level = 1)}
-              />
-            </label>
-            <button
-              type="button"
-              class="mini remove"
-              aria-label={`Remove ${t.name}`}
-              title="Remove this audio track (Ctrl+Z brings it back)"
-              onclick={() => removeAudioTrack(project, t.id)}>×</button
-            >
+            {#if t.clips.length === 0}Drop samples here{/if}
           </div>
         </div>
       {/each}
@@ -1223,6 +1245,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       {#each tracks as t (t.patch.id)}
         <div class="track" class:free={t.patch.free} style:--track-color={channelColor(t.patch.color)}>
           <div class="track-top" style:height={`${TRACK_H}px`}></div>
+          <div class="track-mix" style:height={`${MIX_H}px`}></div>
           {#each t.rows as r (r.module.id)}
             <!-- svelte-ignore a11y_no_static_element_interactions (drawing blocks is a pointer gesture) -->
             <div
@@ -1288,6 +1311,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       {#each project.audioTracks as t (t.id)}
         <div class="track" class:silent={t.mute} style:--track-color={channelColor(t.color)}>
           <div class="track-top" style:height={`${TRACK_H}px`}></div>
+          <div class="track-mix" style:height={`${MIX_H}px`}></div>
           <!-- svelte-ignore a11y_no_static_element_interactions (drawing a selection and dropping samples are pointer gestures) -->
           <div
             class="row audio-row"
@@ -1604,7 +1628,6 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   }
   .free-toggle {
     flex: none;
-    margin-left: 0;
     height: 18px;
     padding: 0 6px;
     border: 1px solid var(--border-strong);
@@ -1634,6 +1657,11 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     height: 8px;
     border-radius: 50%;
     background: var(--track-color);
+  }
+  .name,
+  .name-slot {
+    flex: 1;
+    min-width: 0;
   }
   .name {
     overflow: hidden;
@@ -1923,9 +1951,6 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     background: var(--surface-control-hover);
     color: var(--text-default);
   }
-  .mini.mute {
-    margin-left: auto;
-  }
   .mini.mute.on {
     border-color: var(--danger);
     background: color-mix(in srgb, var(--danger) 45%, transparent);
@@ -1941,24 +1966,15 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     background: transparent;
     font-size: var(--text-sm);
   }
-  .audio-name {
-    padding-left: 14px;
-  }
-  .audio-name .level {
-    flex: 1;
-    min-width: 0;
-  }
-  .level {
+  .mix-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    color: var(--text-muted);
-    font-size: var(--text-xs);
+    padding: 0 8px 0 22px;
+    border-top: 1px solid var(--border-subtle);
   }
-  .level input {
-    flex: 1;
-    min-width: 0;
-    accent-color: var(--track-color);
+  .audio-name {
+    color: var(--text-muted);
+    font-style: italic;
   }
   .add-audio {
     display: flex;
