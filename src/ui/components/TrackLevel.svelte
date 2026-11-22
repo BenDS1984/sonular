@@ -71,7 +71,7 @@
     gap: 1px;
   }
   .bar {
-    height: 3px;
+    height: 4px;
     border-radius: 1px;
     background: var(--surface-inset);
   }
@@ -93,7 +93,7 @@
    */
   input {
     width: 100%;
-    height: 12px;
+    height: 16px;
     margin: 0;
     background: transparent;
     appearance: none;
@@ -105,7 +105,7 @@
     border-radius: 6px;
   }
   input::-webkit-slider-runnable-track {
-    height: 4px;
+    height: 5px;
     border-radius: 2px;
     background: linear-gradient(
       to right,
@@ -116,27 +116,27 @@
   }
   input::-webkit-slider-thumb {
     appearance: none;
-    width: 12px;
-    height: 12px;
-    margin-top: -4px;
+    width: 15px;
+    height: 15px;
+    margin-top: -5px;
     border: 1px solid rgb(0 0 0 / 0.4);
     border-radius: 50%;
     background: var(--track-color, var(--border-focus));
   }
   input::-moz-range-track {
-    height: 4px;
+    height: 5px;
     border-radius: 2px;
     background: var(--surface-inset);
     box-shadow: inset 0 0 0 1px var(--border-default);
   }
   input::-moz-range-progress {
-    height: 4px;
+    height: 5px;
     border-radius: 2px;
     background: var(--track-color, var(--border-focus));
   }
   input::-moz-range-thumb {
-    width: 10px;
-    height: 10px;
+    width: 13px;
+    height: 13px;
     border: 1px solid rgb(0 0 0 / 0.4);
     border-radius: 50%;
     background: var(--track-color, var(--border-focus));

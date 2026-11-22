@@ -15,10 +15,12 @@
     placeholder?: string;
     label: string;
     title?: string;
+    /** Show the pencil button (the name can always be renamed with a double-click). */
+    pencil?: boolean;
     onrename: (name: string) => void;
   }
 
-  let { text, value = text, placeholder = '', label, title = '', onrename }: Props = $props();
+  let { text, value = text, placeholder = '', label, title = '', pencil = true, onrename }: Props = $props();
 
   let editing = $state(false);
   let draft = $state('');
@@ -71,6 +73,7 @@
       if (e.key === 'F2') start();
     }}>{text}</span
   >
+  {#if pencil}
   <button
     type="button"
     class="pencil"
@@ -87,6 +90,7 @@
       <path d="M11 2.5l2.5 2.5L6 12.5l-3.25.75L3.5 10 11 2.5z" />
     </svg>
   </button>
+  {/if}
   </span>
 {/if}
 

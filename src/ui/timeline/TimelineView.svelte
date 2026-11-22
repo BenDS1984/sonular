@@ -1147,6 +1147,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                 value={r.module.name ?? ''}
                 placeholder={r.numbered}
                 label="Sequencer name"
+                pencil={false}
                 title={moduleTooltip(r.def, r.module)}
                 onrename={(name) => renameModule(r.module, name)}
               />
@@ -1203,6 +1204,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                 text={t.name}
                 value={t.name}
                 label="Audio track name"
+                pencil={false}
                 title="Audio track: drag samples from the browser onto it"
                 onrename={(name) => renameAudioTrack(t, name)}
               />
@@ -1679,9 +1681,9 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     background: color-mix(in srgb, var(--track-color) 14%, transparent);
   }
   .level-slot {
-    flex: none;
+    flex: 0 1 96px;
     display: flex;
-    width: 76px;
+    min-width: 64px;
   }
   .mini.more {
     border-color: transparent;
@@ -1723,7 +1725,8 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   .name,
   .name-slot {
     flex: 1;
-    min-width: 0;
+    /* The name keeps this much (the level slider gives way first). */
+    min-width: 46px;
   }
   .name {
     overflow: hidden;
