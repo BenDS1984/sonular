@@ -25,6 +25,7 @@
   import { engineState, setPlayhead, transportState } from '../../engine/engine.svelte';
   import { getDefinition } from '../../modules/registry';
   import { project } from '../../patch/patch.svelte';
+  import { CHANNEL_TYPE } from '../../patch/operations';
   import {
     addClip,
     BEATS_PER_BAR,
@@ -526,6 +527,14 @@
   }
 
   // ---------- Audio tracks ----------
+  /** The patch's Channel: its mute and solo are the ones of the mixer and the Channel module. */
+  const channelOf = (patch: Patch) => patch.modules.find((m) => m.type === CHANNEL_TYPE);
+  const isOn = (patch: Patch, param: 'mute' | 'solo') => (channelOf(patch)?.params[param] ?? 0) >= 0.5;
+  function toggleChannel(patch: Patch, param: 'mute' | 'solo') {
+    const ch = channelOf(patch);
+    if (ch) ch.params[param] = isOn(patch, param) ? 0 : 1;
+  }
+
   const sampleOf = (id: string) => library.samples.find((s) => s.id === id);
 
   function newAudioTrack() {
@@ -1024,6 +1033,22 @@
             <span class="name">{t.patch.name}</span>
             <button
               type="button"
+              class="mini mute"
+              class:on={isOn(t.patch, 'mute')}
+              aria-pressed={isOn(t.patch, 'mute')}
+              title={isOn(t.patch, 'mute') ? 'Muted' : 'Mute this patch'}
+              onclick={() => toggleChannel(t.patch, 'mute')}>M</button
+            >
+            <button
+              type="button"
+              class="mini solo"
+              class:on={isOn(t.patch, 'solo')}
+              aria-pressed={isOn(t.patch, 'solo')}
+              title={isOn(t.patch, 'solo') ? 'Soloed' : 'Solo this patch'}
+              onclick={() => toggleChannel(t.patch, 'solo')}>S</button
+            >
+            <button
+              type="button"
               class="free-toggle"
               class:on={t.patch.free}
               aria-pressed={!!t.patch.free}
@@ -1400,7 +1425,7 @@
 
 <style>
   .timeline {
-    --header-w: 184px;
+    --header-w: 224px;
     --ruler-h: 36px;
     --grid-bar: rgb(255 255 255 / 0.1);
     --grid-beat: rgb(255 255 255 / 0.04);
@@ -1543,7 +1568,7 @@
   }
   .free-toggle {
     flex: none;
-    margin-left: auto;
+    margin-left: 0;
     height: 18px;
     padding: 0 6px;
     border: 1px solid var(--border-strong);
