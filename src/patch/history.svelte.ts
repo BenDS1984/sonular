@@ -2,7 +2,7 @@
  * Undo/redo for the whole project: one history across all patches.
  *
  * Every change to modules, cables, parameters, the tempo, the project or a patch's name, colour,
- * the list of patches, the timeline (blocks, automation, loop, song end) or the audio tracks becomes an undo step, but changes that belong
+ * the list of patches, the timeline (blocks, automation, loop, song end) or the audio tracks (not their height) becomes an undo step, but changes that belong
  * together are merged: while a mouse button is held (dragging a module or turning a knob) nothing
  * is recorded until release, and other bursts (scroll wheel, arrow keys) are merged when they
  * come within a short pause of each other. Panning and zooming a view and switching between
@@ -27,13 +27,24 @@ interface Content {
   patches: PatchContent[];
 }
 
-const snapshot = (): string =>
-  JSON.stringify({
+/** An audio track without its height on the timeline: like the views, that is not part of the history. */
+const withoutHeight = (t: AudioTrack): AudioTrack => {
+  const { height, ...rest } = t;
+  void height;
+  return rest;
+};
+
+/** The latest height of every audio track by id (also of removed ones, so Undo brings back a track as tall as it was). */
+const heights = new Map<string, number | undefined>();
+
+const snapshot = (): string => {
+  for (const t of project.audioTracks) heights.set(t.id, t.height);
+  return JSON.stringify({
     name: project.name,
     tempo: project.tempo,
     masterLevel: project.masterLevel,
     timeline: project.timeline,
-    audioTracks: project.audioTracks,
+    audioTracks: project.audioTracks.map(withoutHeight),
     patches: project.patches.map((p) => ({
       id: p.id,
       name: p.name,
@@ -45,6 +56,7 @@ const snapshot = (): string =>
       free: p.free,
     })),
   });
+};
 
 export const historyState = $state({ canUndo: false, canRedo: false });
 
@@ -78,7 +90,11 @@ function restore(state: string) {
   project.tempo = content.tempo;
   project.masterLevel = content.masterLevel ?? 1;
   project.timeline = content.timeline ?? emptyTimeline();
-  project.audioTracks = content.audioTracks ?? [];
+  // Heights are not in the history: every track keeps the height it last had.
+  project.audioTracks = (content.audioTracks ?? []).map((t) => {
+    const height = heights.get(t.id);
+    return height === undefined ? t : { ...t, height };
+  });
   // Views are not part of the history: patches that still exist keep where they were scrolled to.
   const views = new Map(project.patches.map((p) => [p.id, p.view]));
   project.patches = content.patches.map((p) => ({ ...p, view: views.get(p.id) ?? { x: 0, y: 0, zoom: 1 } }));
@@ -106,6 +122,7 @@ export function redo() {
 
 /** Forget all history (e.g. after opening a file is not wanted as an undo step). */
 export function resetHistory() {
+  heights.clear();
   if (timer) clearTimeout(timer);
   timer = null;
   pending = null;
