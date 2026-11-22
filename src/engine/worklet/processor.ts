@@ -43,6 +43,7 @@ class SonularProcessor extends AudioWorkletProcessor {
     peakR: 0,
     clipped: false,
     faulted: false,
+    running: false,
     processed: 0,
     sleeping: 0,
     unreachable: 0,
@@ -197,6 +198,7 @@ class SonularProcessor extends AudioWorkletProcessor {
     st.peakR = meters.peakR;
     st.clipped = meters.clipped;
     st.faulted = meters.faulted;
+    st.running = this.running;
     st.processed = engine.stats.processed;
     st.sleeping = engine.stats.sleeping;
     st.unreachable = engine.stats.unreachable;

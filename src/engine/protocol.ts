@@ -49,6 +49,8 @@ export interface EngineStats {
   peakR: number;
   clipped: boolean;
   faulted: boolean;
+  /** Whether the engine is rendering for Play (false while idle, or fading out after Stop). */
+  running: boolean;
   processed: number;
   sleeping: number;
   unreachable: number;

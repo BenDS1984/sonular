@@ -291,6 +291,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
 
   $effect(() => {
     void engineState.statsTick;
+    if (!engineState.live) return;
     anchor.beat = engineState.beat;
     anchor.time = performance.now();
   });
@@ -302,6 +303,12 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     }
     let raf = 0;
     const frame = () => {
+      if (!engineState.live) {
+        // The engine has not started yet: wait at the start instead of running ahead.
+        shownBeat = transportState.start;
+        raf = requestAnimationFrame(frame);
+        return;
+      }
       const elapsed = Math.min(0.25, (performance.now() - anchor.time) / 1000);
       let b = anchor.beat + (elapsed * project.tempo) / 60;
       const l = project.timeline.loop;

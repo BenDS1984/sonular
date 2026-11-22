@@ -36,6 +36,12 @@ export const engineState = $state({
   sleeping: 0,
   /** Transport position in beats from the start of the song (while playing). */
   beat: 0,
+  /**
+   * Whether the engine has started rendering since Play was pressed, so `beat` is real. Until then
+   * (the audio device can take a moment to wake up) the position stays at the start instead of
+   * running ahead and jumping back.
+   */
+  live: false,
   /** Increments with every stats message, so views can react even when values repeat. */
   statsTick: 0,
   /** Live meter values per module: meters[moduleId][meterName], linear peak amplitude. */
@@ -65,7 +71,7 @@ let beatAt = 0;
  * then (positions arrive every 50 ms), wrapped round the loop. Not reactive.
  */
 export function currentBeat(): number {
-  if (!engineState.playing) return engineState.beat;
+  if (!engineState.playing || !engineState.live) return engineState.beat;
   let b = engineState.beat + (Math.min(200, performance.now() - beatAt) / 60000) * project.tempo;
   const loop = project.timeline.loop;
   if (loop.on && loop.end > loop.start && engineState.beat < loop.end && b >= loop.end) {
@@ -116,8 +122,12 @@ export const audio = new AudioEngine(
       engineState.clipped = s.clipped;
       engineState.processed = s.processed;
       engineState.sleeping = s.sleeping;
-      engineState.beat = s.beat;
-      beatAt = performance.now();
+      // Positions from before the engine started running (it reports while idle too) say nothing.
+      engineState.live = engineState.playing && s.running;
+      if (engineState.live) {
+        engineState.beat = s.beat;
+        beatAt = performance.now();
+      }
       engineState.statsTick++;
       if (cpuHistory.add(performance.now() / 1000, s.cpu, engineState.playing)) cpuHistoryState.version++;
       let i = 0;
@@ -370,6 +380,7 @@ export async function togglePlay(): Promise<void> {
   if (engineState.playing) {
     audio.setRunning(false);
     engineState.playing = false;
+    engineState.live = false;
     transportStopped();
     return;
   }
@@ -383,5 +394,6 @@ export async function togglePlay(): Promise<void> {
   audio.setRunning(true, transportState.start);
   engineState.beat = transportState.start;
   beatAt = performance.now();
+  engineState.live = false;
   engineState.playing = true;
 }
