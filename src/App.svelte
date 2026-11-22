@@ -36,7 +36,12 @@
     {#if view.main === 'mixer'}
       <MixerView />
     {:else if view.main === 'timeline'}
-      <TimelineView />
+      <div class="patch-row">
+        {#if prefs.browserOpen}
+          <SideBrowser samplesOnly />
+        {/if}
+        <TimelineView />
+      </div>
     {:else}
       <div class="patch-row">
         {#if prefs.browserOpen}

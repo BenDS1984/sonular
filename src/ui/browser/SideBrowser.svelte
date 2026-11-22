@@ -16,6 +16,10 @@
   import { clampBrowserWidth, MODULE_DRAG_TYPE, sideBrowser } from './browserPanel.svelte';
   import SamplesTab from './SamplesTab.svelte';
 
+  /** On the timeline only the sample library is shown (modules are for patches). */
+  let { samplesOnly = false }: { samplesOnly?: boolean } = $props();
+  const tab = $derived(samplesOnly ? 'samples' : prefs.browserTab);
+
   let query = $state('');
   let activeIndex = $state(-1);
   let input: HTMLInputElement | undefined = $state();
@@ -126,22 +130,24 @@
 
 <aside class="side-browser" style:width={`${clampBrowserWidth(prefs.browserWidth)}px`} aria-label="Browser">
   <div class="tabs" role="tablist" aria-label="Browser">
+    {#if !samplesOnly}
+      <button
+        type="button"
+        role="tab"
+        aria-selected={tab === 'modules'}
+        class:on={tab === 'modules'}
+        onclick={() => (prefs.browserTab = 'modules')}>Modules</button
+      >
+    {/if}
     <button
       type="button"
       role="tab"
-      aria-selected={prefs.browserTab === 'modules'}
-      class:on={prefs.browserTab === 'modules'}
-      onclick={() => (prefs.browserTab = 'modules')}>Modules</button
-    >
-    <button
-      type="button"
-      role="tab"
-      aria-selected={prefs.browserTab === 'samples'}
-      class:on={prefs.browserTab === 'samples'}
+      aria-selected={tab === 'samples'}
+      class:on={tab === 'samples'}
       onclick={() => (prefs.browserTab = 'samples')}>Samples</button
     >
   </div>
-  {#if prefs.browserTab === 'samples'}
+  {#if tab === 'samples'}
     <SamplesTab />
   {:else}
   <section class="section" aria-label="Modules">

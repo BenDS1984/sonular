@@ -87,7 +87,7 @@
     }
 
     // B shows or hides the browser on the left of a patch.
-    if (!typing && !e.altKey && !e.repeat && e.key.toLowerCase() === 'b' && view.main === 'patch') {
+    if (!typing && !e.altKey && !e.repeat && e.key.toLowerCase() === 'b' && (view.main === 'patch' || view.main === 'timeline')) {
       e.preventDefault();
       toggleBrowserPanel();
       return;
@@ -106,12 +106,12 @@
 <header class="topbar">
   <IconButton
     icon="browser"
-    label={view.main !== 'patch'
-      ? 'Browser (open a patch to use it)'
+    label={view.main === 'mixer'
+      ? 'Browser (open a patch or the timeline to use it)'
       : prefs.browserOpen
         ? 'Hide the browser (B)'
-        : 'Show the browser: modules to drag onto the patch (B)'}
-    disabled={view.main !== 'patch'}
+        : 'Show the browser: modules and samples (B)'}
+    disabled={view.main === 'mixer'}
     onclick={toggleBrowserPanel}
   />
   <div class="logo" aria-label="Sonular">
