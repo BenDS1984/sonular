@@ -1939,7 +1939,8 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   }
   .block.selected {
     border-color: var(--text-strong);
-    box-shadow: 0 0 0 1px var(--text-strong);
+    /* Inside the block: a ring outside it would be cut off at the left edge of the timeline. */
+    box-shadow: inset 0 0 0 1px var(--text-strong);
     z-index: 2;
   }
   .block.moving {
