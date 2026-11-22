@@ -12,8 +12,10 @@
   - keys: Ctrl+A selects all blocks, Escape clears; on the selection, A–H choose the pattern,
     Delete removes, Ctrl+D copies right after it, Ctrl+C copies and Ctrl+V pastes at the playhead
     (on the same sequencers, at the first place from there where all fit)
-  - audio clips: S cuts the selected ones at the playhead (also in the right-click menu, which can
-    cut where you clicked); a clip dropped or moved onto other clips replaces the part under it
+  - audio clips: drag the name strip at the top to move them; over the waveform a dashed line shows
+    where a cut would go, and a click there places the playhead (and selects the clip). S cuts the
+    selected ones at the playhead (also in the right-click menu, which can cut at the dashed line);
+    a clip dropped or moved onto other clips replaces the part under it
   - ruler: click or drag to place the playhead (Play starts there; while playing it jumps)
   - the strip above the numbers holds the loop: drag it to move, drag its edges to resize, drag
     on an empty part to draw a new one, double-click it to switch it on or off
@@ -677,16 +679,43 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       toggleClip(track.id, clip.id);
       return;
     }
-    const edge = (e.target as HTMLElement).dataset['edge'];
-    if (edge === 'start' || edge === 'end') {
+    const part = (e.target as HTMLElement).dataset;
+    if (part['edge'] === 'start' || part['edge'] === 'end') {
       selectClip(track.id, clip.id);
       const { lo, hi } = audioFreeRange(track, clip.start, clip.id);
-      blockDrag = { kind: edge === 'start' ? 'audio-start' : 'audio-end', clip, lo, hi, duration: sampleOf(clip.sample)?.duration };
-    } else {
+      blockDrag = { kind: part['edge'] === 'start' ? 'audio-start' : 'audio-end', clip, lo, hi, duration: sampleOf(clip.sample)?.duration };
+    } else if (part['grab'] !== undefined) {
+      // Only the name strip moves the clip, as in Ableton.
       if (!isClipSelected(track.id, clip.id)) selectClip(track.id, clip.id);
       blockDrag = { kind: 'move', clip, grab: bodyBeat(e) - clip.start, items: movingBlocks() };
+    } else {
+      // The waveform: put the playhead on the dashed line, so S cuts exactly there.
+      selectClip(track.id, clip.id);
+      setPlayhead(snap(bodyBeat(e), unitOf(e)));
+      return;
     }
+    splitHover = null;
     startBlockDrag();
+  }
+
+  /** Where the dashed cut line is drawn on an audio clip: the clip's key and the beat. */
+  let splitHover: { key: string; at: number } | null = $state(null);
+
+  /** Over the waveform (not the name strip or the edges), the dashed line follows the pointer. */
+  function onaudiopointermove(e: PointerEvent, track: AudioTrack, clip: AudioClip) {
+    const part = (e.target as HTMLElement).dataset;
+    if (blockDrag || part['grab'] !== undefined || part['edge'] !== undefined) {
+      splitHover = null;
+      return;
+    }
+    const at = snap(bodyBeat(e), unitOf(e));
+    splitHover = at > clip.start && at < clip.start + clip.length ? { key: clipKey(track.id, clip.id), at } : null;
+  }
+
+  /** The beat of the dashed line on a clip, if it has one: the open menu's cut, else the pointer's. */
+  function splitLineAt(track: AudioTrack, clip: AudioClip): number | null {
+    if (audioMenu) return audioMenu.clip === clip ? audioMenu.at : null;
+    return splitHover?.key === clipKey(track.id, clip.id) ? splitHover.at : null;
   }
 
   /** Cut an audio clip in two at a beat; the right part gets selected. */
@@ -813,7 +842,8 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
 
   function startBlockDrag() {
     const k = blockDrag?.kind;
-    startDragLook(k === 'resize-start' || k === 'resize-end' ? 'ew-resize' : k === 'move' ? 'grabbing' : 'default');
+    const resizing = k === 'resize-start' || k === 'resize-end' || k === 'audio-start' || k === 'audio-end';
+    startDragLook(resizing ? 'ew-resize' : k === 'move' ? 'grabbing' : 'default');
     window.addEventListener('pointermove', onblockdragmove);
     window.addEventListener('pointerup', onblockdragend);
     window.addEventListener('pointercancel', onblockdragend);
@@ -1458,6 +1488,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
               {@const selected = isClipSelected(t.id, c.id)}
               {@const wave = clipWave(c)}
               {@const missing = library.loaded && !sampleOf(c.sample)}
+              {@const cutAt = splitLineAt(t, c)}
               <div
                 class="block audio"
                 class:selected
@@ -1474,6 +1505,8 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                   ? `${c.name}: this sample is not in the library on this computer, so it is silent. Add it again with the same name to hear it.`
                   : `${c.name}: ${formatPosition(c.start)} – ${formatPosition(c.start + c.length)} (${formatLength(c.length)})`}
                 onpointerdown={(e) => onaudiopointerdown(e, t, c)}
+                onpointermove={(e) => onaudiopointermove(e, t, c)}
+                onpointerleave={() => (splitHover = null)}
                 oncontextmenu={(e) => {
                   e.preventDefault();
                   selectClip(t.id, c.id);
@@ -1492,7 +1525,10 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                     <polygon points={wave.points} />
                   </svg>
                 {/if}
-                <span class="clip-name">{missing ? `${c.name} (missing)` : c.name}</span>
+                {#if cutAt !== null}
+                  <span class="split-line" style:left={`${(cutAt - c.start) * ppb}px`}></span>
+                {/if}
+                <span class="clip-name" data-grab>{missing ? `${c.name} (missing)` : c.name}</span>
                 <span class="edge start" data-edge="start"></span>
                 <span class="edge end" data-edge="end"></span>
               </div>
@@ -2229,10 +2265,30 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   .track.silent .block.audio {
     opacity: 0.4;
   }
+  /* Audio clips move by their name strip only; the waveform is for placing the playhead and cuts. */
   .block.audio {
     padding: 0;
     background: color-mix(in srgb, var(--track-color) 34%, var(--surface-module));
     border-color: color-mix(in srgb, var(--track-color) 80%, black);
+    cursor: text;
+  }
+  .block.audio.moving,
+  .block.audio.moving .clip-name {
+    cursor: grabbing;
+  }
+  /* Where a cut would go: follows the pointer over the waveform, stays while the menu is open. */
+  .split-line {
+    position: absolute;
+    top: 15px;
+    bottom: 0;
+    width: 0;
+    margin-left: -1px;
+    border-left: 1px dashed var(--text-strong);
+    pointer-events: none;
+    z-index: 1;
+  }
+  :global(html.dragging) .split-line {
+    display: none;
   }
   :global(html:not(.dragging)) .block.audio:hover {
     background: color-mix(in srgb, var(--track-color) 46%, var(--surface-module));
@@ -2284,7 +2340,10 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     line-height: 15px;
     text-overflow: ellipsis;
     white-space: nowrap;
-    pointer-events: none;
+    cursor: grab;
+  }
+  :global(html:not(.dragging)) .block.audio .clip-name:hover {
+    background: rgb(0 0 0 / 0.45);
   }
 
   /* ---------- Block menu ---------- */
