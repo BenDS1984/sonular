@@ -311,10 +311,12 @@
     padding-top: 7px;
   }
   /* The limiter switch, with a light that comes on while it turns peaks down. */
+  /* Centred under the meters and fader; the reduction goes under the button, so it never moves. */
   .limiter {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 2px;
     margin-top: var(--space-3);
   }
   .lim {
@@ -353,6 +355,7 @@
     box-shadow: 0 0 6px var(--amber-500);
   }
   .reduction {
+    min-height: 1.2em;
     font-size: var(--text-xs);
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
