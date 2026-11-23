@@ -43,12 +43,13 @@ const sample = (): Project => ({
       send2: 0,
       mute: false,
       solo: true,
-      clips: [{ id: 'c1', sample: 's1', name: 'Verse', start: 4, length: 8, offset: 1.5 }],
+      clips: [{ id: 'c1', sample: 's1', name: 'Verse', start: 4, length: 8, offset: 1.5, fadeIn: 1, gain: 0.5 }],
     },
   ],
   name: 'My drone',
   tempo: 96,
   masterLevel: 0.8,
+  masterLimiter: false,
   activePatch: 'p3',
   patches: [
     {
@@ -110,6 +111,7 @@ describe('project files', () => {
       name: 'Old drone',
       tempo: 90,
       masterLevel: 1,
+      masterLimiter: true,
       activePatch: 'p1',
       patches: [
         {

@@ -116,6 +116,7 @@ export function replaceProject(next: Project) {
   project.name = next.name;
   project.tempo = next.tempo;
   project.masterLevel = next.masterLevel;
+  project.masterLimiter = next.masterLimiter;
   project.patches = next.patches;
   project.activePatch = next.activePatch;
   project.timeline = next.timeline;

@@ -106,6 +106,13 @@ describe('AudioTrack fades', () => {
     expect(at(1.5)).toBeCloseTo(0.25, 2); // halfway the fade out
     expect(at(1.9)).toBeCloseTo(0.05, 2);
   });
+
+  it('plays a clip at its own volume', () => {
+    const t = setup(0.5);
+    t.track.setAudioClips([{ sample: 's', start: 0, end: 4, offset: 0, gain: 0.5 }]);
+    const out = render(t, Math.ceil((1 * SR) / BLOCK_SIZE));
+    expect(out[Math.floor(0.5 * SR)]!).toBeCloseTo(0.25, 5);
+  });
 });
 
 describe('AudioTrack pan', () => {

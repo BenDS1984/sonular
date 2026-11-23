@@ -132,6 +132,7 @@ export function emptyProject(name: string, tempo: number): Project {
     name,
     tempo,
     masterLevel: 1,
+    masterLimiter: true,
     patches: [emptyPatch('p1', 'Patch 1')],
     activePatch: 'p1',
     timeline: emptyTimeline(),

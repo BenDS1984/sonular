@@ -40,6 +40,8 @@ export class AudioEngine {
   private tempo = DEFAULT_TEMPO;
   /** Master level (linear); kept here for the same reason. */
   private masterLevel = 1;
+  /** Master limiter on or off; kept here for the same reason. */
+  private limiter = true;
   /** The loop; kept here for the same reason. */
   private loop: LoopSetting = { on: false, start: 0, end: 16 };
 
@@ -123,7 +125,7 @@ export class AudioEngine {
     });
     node.onprocessorerror = () => this.events.onStatus?.('error', 'The audio engine crashed.');
 
-    this.send({ type: 'init', faust: programs, tempo: this.tempo, masterLevel: this.masterLevel, loop: this.loop });
+    this.send({ type: 'init', faust: programs, tempo: this.tempo, masterLevel: this.masterLevel, limiter: this.limiter, loop: this.loop });
     await ready;
     node.connect(ctx.destination);
     if (ctx.state !== 'running') await ctx.resume();
@@ -190,6 +192,11 @@ export class AudioEngine {
   setMasterLevel(level: number): void {
     this.masterLevel = level;
     this.send({ type: 'master', level });
+  }
+
+  setLimiter(on: boolean): void {
+    this.limiter = on;
+    this.send({ type: 'limiter', on });
   }
 
   /** Start (from a position in beats) or stop rendering, with a short fade to avoid clicks. */

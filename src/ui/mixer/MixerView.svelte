@@ -43,6 +43,22 @@
   const masterL = $derived(engineState.playing ? engineState.peakL : 0);
   const masterR = $derived(engineState.playing ? engineState.peakR : 0);
 
+  // ---------- Limiter light: how far it turns down, held a moment so a short peak is seen ----------
+  const LIMIT_SHOWN_DB = 0.1;
+  const LIMIT_HOLD_MS = 500;
+  let limitDb = $state(0);
+  let limitAt = 0;
+  $effect(() => {
+    void engineState.statsTick;
+    const g = engineState.playing && project.masterLimiter ? engineState.limiterGain : 1;
+    const db = g > 0 ? -20 * Math.log10(g) : 60;
+    const now = performance.now();
+    if (db >= limitDb || now - limitAt > LIMIT_HOLD_MS) {
+      limitDb = db < LIMIT_SHOWN_DB ? 0 : db;
+      limitAt = now;
+    }
+  });
+
   // ---------- Drag a strip by its grip to change the order ----------
   let channelsEl: HTMLDivElement | undefined = $state();
   const stripEls: Record<string, HTMLElement> = {};
@@ -179,6 +195,22 @@
         <Fader bind:value={project.masterLevel} defaultValue={1} max={MASTER_MAX} height={METER_HEIGHT} label="Master level" />
       </div>
     </div>
+    <div class="limiter">
+      <button
+        class="lim"
+        class:on={project.masterLimiter}
+        class:working={limitDb > 0}
+        type="button"
+        aria-pressed={project.masterLimiter}
+        title={project.masterLimiter
+          ? 'Limiter on: peaks are turned down smoothly so the master never goes over full scale. The light shows when it works. Click to switch off.'
+          : 'Limiter off: peaks over full scale are clipped (they crackle). Click to switch on.'}
+        onclick={() => (project.masterLimiter = !project.masterLimiter)}
+      >
+        <span class="led" aria-hidden="true"></span>LIM
+      </button>
+      <span class="reduction" aria-live="off">{limitDb > 0 ? `-${limitDb.toFixed(1)} dB` : ''}</span>
+    </div>
   </section>
 </main>
 
@@ -277,5 +309,52 @@
   }
   .fader {
     padding-top: 7px;
+  }
+  /* The limiter switch, with a light that comes on while it turns peaks down. */
+  .limiter {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: var(--space-3);
+  }
+  .lim {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong);
+    background: var(--surface-control);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    line-height: 1;
+    cursor: pointer;
+  }
+  .lim:hover {
+    background: var(--surface-control-hover);
+    color: var(--text-default);
+  }
+  .lim.on {
+    color: var(--text-strong);
+  }
+  .led {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border-strong);
+  }
+  .lim.on .led {
+    background: color-mix(in srgb, var(--amber-500) 35%, var(--surface-control));
+  }
+  .lim.on.working .led {
+    background: var(--amber-500);
+    box-shadow: 0 0 6px var(--amber-500);
+  }
+  .reduction {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
   }
 </style>

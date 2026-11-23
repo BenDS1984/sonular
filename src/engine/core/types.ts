@@ -116,6 +116,8 @@ export interface EngineAudioClip {
   /** Fade in and fade out in beats, straight lines (none when left out). */
   fadeIn?: number;
   fadeOut?: number;
+  /** The clip's own volume as a factor (1 when left out). */
+  gain?: number;
 }
 
 export interface PatchNode {

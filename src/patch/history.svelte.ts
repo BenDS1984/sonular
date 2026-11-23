@@ -22,6 +22,7 @@ interface Content {
   name: string;
   tempo: number;
   masterLevel: number;
+  masterLimiter?: boolean;
   timeline?: Timeline;
   audioTracks?: AudioTrack[];
   patches: PatchContent[];
@@ -43,6 +44,7 @@ const snapshot = (): string => {
     name: project.name,
     tempo: project.tempo,
     masterLevel: project.masterLevel,
+    masterLimiter: project.masterLimiter,
     timeline: project.timeline,
     audioTracks: project.audioTracks.map(withoutHeight),
     patches: project.patches.map((p) => ({
@@ -89,6 +91,7 @@ function restore(state: string) {
   project.name = content.name;
   project.tempo = content.tempo;
   project.masterLevel = content.masterLevel ?? 1;
+  project.masterLimiter = content.masterLimiter ?? true;
   project.timeline = content.timeline ?? emptyTimeline();
   // Heights are not in the history: every track keeps the height it last had.
   project.audioTracks = (content.audioTracks ?? []).map((t) => {

@@ -213,6 +213,39 @@ export function setAudioFade(clip: AudioClip, which: 'in' | 'out', beats: number
   else clip[key] = v;
 }
 
+// ---------- Clip volume ----------
+
+/** Loudest a clip's own volume goes: +12 dB. */
+export const MAX_CLIP_GAIN = 10 ** (12 / 20);
+
+export const clampClipGain = (g: number) => Math.min(MAX_CLIP_GAIN, Math.max(0, Number.isFinite(g) ? g : 1));
+
+/** A clip's own volume as a factor (1 = 0 dB). */
+export const audioGain = (clip: Pick<AudioClip, 'gain'>) => (clip.gain === undefined ? 1 : clampClipGain(clip.gain));
+
+/** Set a clip's own volume (a factor); 0 dB is not stored. */
+export function setAudioGain(clip: AudioClip, gain: number): void {
+  const g = clampClipGain(gain);
+  if (g === 1) delete clip.gain;
+  else clip.gain = g;
+}
+
+/**
+ * Where the volume line sits in a clip, 0 (bottom: silent) to 1 (top: +12 dB), and back. Like a
+ * fader: the position cubed, so 0 dB is a bit under two thirds of the way up and -6 dB about halfway.
+ */
+const GAIN_CURVE_TOP = Math.cbrt(MAX_CLIP_GAIN);
+export const gainToLinePosition = (gain: number) => Math.cbrt(clampClipGain(gain)) / GAIN_CURVE_TOP;
+export const linePositionToGain = (pos: number) => clampClipGain((Math.min(1, Math.max(0, pos)) * GAIN_CURVE_TOP) ** 3);
+
+/** A clip volume as text: "+3.5 dB", "-6.0 dB", "0 dB" or "-inf dB". */
+export function formatGainDb(gain: number): string {
+  if (!(gain > 1e-5)) return '-inf dB';
+  const db = Math.round(20 * Math.log10(gain) * 10) / 10;
+  if (db === 0) return '0 dB';
+  return `${db > 0 ? '+' : ''}${db.toFixed(1)} dB`;
+}
+
 export function removeAudioClip(track: AudioTrack, id: string): void {
   const i = track.clips.findIndex((c) => c.id === id);
   if (i >= 0) track.clips.splice(i, 1);
@@ -246,6 +279,7 @@ export function splitAudioClip(track: AudioTrack, id: string, at: number, tempo:
     start: at,
     length: end - at,
     offset: clip.offset + beatsToSeconds(at - clip.start, tempo),
+    ...(clip.gain !== undefined ? { gain: clip.gain } : {}),
   };
   clip.length = at - clip.start;
   delete clip.fadeOut;
@@ -279,6 +313,7 @@ export function carveAudio(track: AudioTrack, start: number, end: number, keep: 
         start: end,
         length: after,
         offset: c.offset + beatsToSeconds(end - c.start, tempo),
+        ...(c.gain !== undefined ? { gain: c.gain } : {}),
       };
       if (c.fadeOut !== undefined) setAudioFade(right, 'out', c.fadeOut);
       c.length = before;

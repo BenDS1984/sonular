@@ -3,6 +3,12 @@ import {
   addAudioClip,
   addAudioTrack,
   audioFades,
+  audioGain,
+  setAudioGain,
+  gainToLinePosition,
+  linePositionToGain,
+  formatGainDb,
+  MAX_CLIP_GAIN,
   carveAudio,
   setAudioFade,
   placeAudioClip,
@@ -192,5 +198,44 @@ describe('fades', () => {
     expect(audioFades(right!)).toEqual({ fadeIn: 0, fadeOut: 2 });
     carveAudio(t, 0, 1, [], 120); // cut the front off the left part
     expect(t.clips.find((c) => c.start === 1)?.fadeIn).toBeUndefined();
+  });
+});
+
+describe('clip volume', () => {
+  it('stays between silent and +12 dB, and 0 dB is not stored', () => {
+    const t = addAudioTrack(emptyProject('x', 120));
+    const clip = addAudioClip(t, sample('s1', 4), 0, 120)!;
+    expect(audioGain(clip)).toBe(1);
+    setAudioGain(clip, 100);
+    expect(audioGain(clip)).toBeCloseTo(MAX_CLIP_GAIN);
+    setAudioGain(clip, -1);
+    expect(clip.gain).toBe(0);
+    setAudioGain(clip, 1);
+    expect(clip.gain).toBeUndefined();
+  });
+
+  it('maps the line position to a volume and back, with 0 dB under two thirds up', () => {
+    expect(linePositionToGain(0)).toBe(0);
+    expect(linePositionToGain(1)).toBeCloseTo(MAX_CLIP_GAIN);
+    expect(gainToLinePosition(1)).toBeGreaterThan(0.6);
+    expect(gainToLinePosition(1)).toBeLessThan(0.67);
+    expect(linePositionToGain(gainToLinePosition(0.3))).toBeCloseTo(0.3);
+  });
+
+  it('is shown in dB', () => {
+    expect(formatGainDb(1)).toBe('0 dB');
+    expect(formatGainDb(0.5)).toBe('-6.0 dB');
+    expect(formatGainDb(2)).toBe('+6.0 dB');
+    expect(formatGainDb(0)).toBe('-inf dB');
+  });
+
+  it('goes with both parts when a clip is split or a clip is placed inside it', () => {
+    const t = addAudioTrack(emptyProject('x', 120));
+    const clip = addAudioClip(t, sample('s1', 4), 0, 120)!; // 0–8
+    setAudioGain(clip, 0.5);
+    const second = splitAudioClip(t, clip.id, 4, 120)!;
+    expect(audioGain(second)).toBe(0.5);
+    placeAudioClip(t, sample('s2', 0.5), 1, 120); // 1–2, inside the first part
+    expect(t.clips.filter((c) => c.sample === 's1').map(audioGain)).toEqual([0.5, 0.5, 0.5]);
   });
 });

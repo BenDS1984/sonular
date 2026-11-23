@@ -15,7 +15,7 @@ class JsSine extends AudioWorkletProcessor {
   private readonly statsFrames = Math.round(0.05 * sampleRate);
   private readonly msg = {
     type: 'stats',
-    stats: { cpu: 0, peakL: 0, peakR: 0, clipped: false, faulted: false, processed: 2, sleeping: 0, unreachable: 0 },
+    stats: { cpu: 0, peakL: 0, peakR: 0, clipped: false, faulted: false, limiterGain: 1, processed: 2, sleeping: 0, unreachable: 0 },
   };
 
   constructor(options?: unknown) {

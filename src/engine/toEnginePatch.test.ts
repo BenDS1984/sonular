@@ -38,6 +38,7 @@ const project = (...patches: Patch[]): Project => ({
   name: 'x',
   tempo: 120,
   masterLevel: 1,
+  masterLimiter: true,
   patches,
   activePatch: patches[0]!.id,
   timeline: emptyTimeline(),

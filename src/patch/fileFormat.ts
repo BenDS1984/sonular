@@ -8,7 +8,7 @@
 import { clampTempo, DEFAULT_TEMPO } from '../engine/core/Transport';
 import type { ModuleDefinition } from '../modules/types';
 import { ensureChannel } from './operations';
-import { AUDIO_MAX_LEVEL, AUDIO_TRACK_HEIGHT, clampAudioHeight } from './audioTracks';
+import { AUDIO_MAX_LEVEL, AUDIO_TRACK_HEIGHT, clampAudioHeight, clampClipGain } from './audioTracks';
 import { BEATS_PER_BAR, clampBank, clampLaneHeight, emptyTimeline, hasBanks, LANE_HEIGHT, MAX_BEATS, MIN_CLIP_LENGTH } from './timeline';
 import type { AudioClip, AudioTrack, AutomationLane, Cable, Clip, ModuleInstance, Patch, Project, Timeline } from './types';
 
@@ -93,6 +93,7 @@ export function serializeProject(project: Project, now = new Date()): string {
       name: project.name,
       tempo: project.tempo,
       masterLevel: project.masterLevel,
+      masterLimiter: project.masterLimiter,
       activePatch: project.activePatch,
       timeline: { end: project.timeline.end, loop: { ...project.timeline.loop } },
       audioTracks: project.audioTracks.map((t) => ({
@@ -115,6 +116,7 @@ export function serializeProject(project: Project, now = new Date()): string {
           offset: c.offset,
           ...(c.fadeIn ? { fadeIn: c.fadeIn } : {}),
           ...(c.fadeOut ? { fadeOut: c.fadeOut } : {}),
+          ...(c.gain !== undefined && c.gain !== 1 ? { gain: c.gain } : {}),
         })),
       })),
       patches: project.patches.map((p) => ({
@@ -224,6 +226,8 @@ export function validateProject(raw: unknown, getDef: DefinitionLookup, fallback
   // Files from before the master channel existed play at 0 dB, as they did then.
   const ml = src['masterLevel'];
   const masterLevel = isFiniteNumber(ml) ? Math.min(2, Math.max(0, ml)) : 1;
+  // Files from before the limiter existed get it too: it only acts where they would have clipped.
+  const masterLimiter = src['masterLimiter'] !== false;
 
   const timeline = validateTimeline(src['timeline']);
 
@@ -232,6 +236,7 @@ export function validateProject(raw: unknown, getDef: DefinitionLookup, fallback
       name: asString(src['name'], fallbackName),
       tempo,
       masterLevel,
+      masterLimiter,
       patches,
       activePatch,
       timeline,
@@ -478,6 +483,7 @@ function validateAudioTracks(raw: unknown, warnings: string[]): AudioTrack[] {
         offset: isFiniteNumber(c['offset']) ? Math.max(0, c['offset']) : 0,
         ...(isFiniteNumber(c['fadeIn']) && c['fadeIn'] > 0 ? { fadeIn: Math.min(c['fadeIn'], MAX_BEATS) } : {}),
         ...(isFiniteNumber(c['fadeOut']) && c['fadeOut'] > 0 ? { fadeOut: Math.min(c['fadeOut'], MAX_BEATS) } : {}),
+        ...(isFiniteNumber(c['gain']) && c['gain'] !== 1 ? { gain: clampClipGain(c['gain']) } : {}),
       });
     }
     candidates.sort((a, b) => a.start - b.start);

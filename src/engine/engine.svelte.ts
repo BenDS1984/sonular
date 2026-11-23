@@ -32,6 +32,8 @@ export const engineState = $state({
   peakL: 0,
   peakR: 0,
   clipped: false,
+  /** Lowest gain of the master limiter in the latest stats (1: it did nothing). */
+  limiterGain: 1,
   processed: 0,
   sleeping: 0,
   /** Transport position in beats from the start of the song (while playing). */
@@ -120,6 +122,7 @@ export const audio = new AudioEngine(
       engineState.peakL = s.peakL;
       engineState.peakR = s.peakR;
       engineState.clipped = s.clipped;
+      engineState.limiterGain = s.limiterGain;
       engineState.processed = s.processed;
       engineState.sleeping = s.sleeping;
       // Positions from before the engine started running (it reports while idle too) say nothing.
@@ -267,6 +270,9 @@ export function startPatchSync(): () => void {
     });
     $effect(() => {
       audio.setMasterLevel(project.masterLevel);
+    });
+    $effect(() => {
+      audio.setLimiter(project.masterLimiter);
     });
     $effect(() => {
       const { on, start, end } = project.timeline.loop;

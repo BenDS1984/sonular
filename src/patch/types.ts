@@ -135,6 +135,8 @@ export interface AudioClip {
    */
   fadeIn?: number;
   fadeOut?: number;
+  /** The clip's own volume, as a factor (0 = silent, up to +12 dB); 1 (0 dB) when left out. */
+  gain?: number;
 }
 
 /** A timeline track that plays samples, with its own channel in the mixer. */
@@ -165,6 +167,8 @@ export interface Project {
   tempo: number;
   /** Master channel level (linear gain, 1 = 0 dB, up to 2 = +6 dB). */
   masterLevel: number;
+  /** Whether the master limiter keeps the master under full scale (on unless switched off). */
+  masterLimiter: boolean;
   /** Always at least one. */
   patches: Patch[];
   /** Id of the patch shown in the workspace. */

@@ -77,7 +77,7 @@ export class AudioTrack implements SinkModule {
     const old = this.states;
     this.states = clips.map((clip) => {
       const same = old.find(
-        // A changed fade is not a different clip: it keeps playing, with the new fade.
+        // A changed fade or volume is not a different clip: it keeps playing, with the new one.
         (s) => s.clip.sample === clip.sample && s.clip.start === clip.start && s.clip.end === clip.end && s.clip.offset === clip.offset,
       );
       return same
@@ -151,7 +151,7 @@ export class AudioTrack implements SinkModule {
         if (i0 >= 0 && i0 < data.length) {
           const frac = pos - i0;
           const i1 = i0 + 1 < data.length ? i0 + 1 : i0;
-          let g = 1;
+          let g = c.gain ?? 1;
           if (s.age < fade) g = s.age / fade;
           const toEnd = (c.end - b) / bps;
           if (toEnd < fade) g *= toEnd / fade;

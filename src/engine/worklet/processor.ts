@@ -36,13 +36,14 @@ class SonularProcessor extends AudioWorkletProcessor {
   private renderedFrames = 0;
   private readonly statsFrames = Math.round(STATS_INTERVAL_SECONDS * sampleRate);
   // Reused every time stats are sent, to avoid creating garbage on the audio thread.
-  private readonly meters: MasterMeters = { peakL: 0, peakR: 0, clipped: false, faulted: false };
+  private readonly meters: MasterMeters = { peakL: 0, peakR: 0, clipped: false, faulted: false, limiterGain: 1 };
   private readonly stats: EngineStats = {
     cpu: 0,
     peakL: 0,
     peakR: 0,
     clipped: false,
     faulted: false,
+    limiterGain: 1,
     running: false,
     processed: 0,
     sleeping: 0,
@@ -92,6 +93,7 @@ class SonularProcessor extends AudioWorkletProcessor {
         this.engine = new Engine(sampleRate, factories);
         this.engine.setTempo(msg.tempo);
         this.engine.setMasterLevel(msg.masterLevel);
+        this.engine.setLimiter(msg.limiter, true);
         this.engine.setLoop(msg.loop.on, msg.loop.start, msg.loop.end);
         this.post({ type: 'ready', sampleRate, hiResTimer: HIRES_TIMER });
         break;
@@ -135,6 +137,9 @@ class SonularProcessor extends AudioWorkletProcessor {
         break;
       case 'master':
         this.engine?.setMasterLevel(msg.level);
+        break;
+      case 'limiter':
+        this.engine?.setLimiter(msg.on);
         break;
       case 'run':
         // Starting from silence: begin at the playhead. Restarting while a stop is still fading
@@ -198,6 +203,7 @@ class SonularProcessor extends AudioWorkletProcessor {
     st.peakR = meters.peakR;
     st.clipped = meters.clipped;
     st.faulted = meters.faulted;
+    st.limiterGain = meters.limiterGain;
     st.running = this.running;
     st.processed = engine.stats.processed;
     st.sleeping = engine.stats.sleeping;

@@ -12,7 +12,7 @@ export interface FaustProgram {
 }
 
 export type ToEngine =
-  | { type: 'init'; faust: FaustProgram[]; tempo: number; masterLevel: number; loop: LoopSetting }
+  | { type: 'init'; faust: FaustProgram[]; tempo: number; masterLevel: number; limiter: boolean; loop: LoopSetting }
   | { type: 'patch'; patch: EnginePatch }
   | { type: 'param'; node: string; name: string; value: number }
   /** A sequencer's timeline blocks changed. */
@@ -30,6 +30,8 @@ export type ToEngine =
   | { type: 'sinkActive'; node: string; active: boolean }
   /** Master level, linear gain. */
   | { type: 'master'; level: number }
+  /** Master limiter on or off. */
+  | { type: 'limiter'; on: boolean }
   /** Start (from `from`, in beats) or stop. */
   | { type: 'run'; running: boolean; from: number }
   /** The playhead moved while playing. */
@@ -49,6 +51,8 @@ export interface EngineStats {
   peakR: number;
   clipped: boolean;
   faulted: boolean;
+  /** Lowest gain the master limiter applied since the previous stats (1: it did nothing). */
+  limiterGain: number;
   /** Whether the engine is rendering for Play (false while idle, or fading out after Stop). */
   running: boolean;
   processed: number;

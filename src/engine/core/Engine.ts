@@ -14,6 +14,7 @@ import {
 } from './types';
 import { Transport } from './Transport';
 import { positionAt, segmentAt, type EngineLane } from './automation';
+import { Limiter } from './Limiter';
 import { fromNormalized, quantize } from '../../ui/scale';
 
 /** An automation lane bound to its node. */
@@ -31,6 +32,8 @@ export interface MasterMeters {
   peakR: number;
   clipped: boolean;
   faulted: boolean;
+  /** Lowest gain the master limiter applied since the previous reading (1: it did nothing). */
+  limiterGain: number;
 }
 
 /** Samples below this magnitude count as silence (about −140 dBFS). */
@@ -140,6 +143,8 @@ export class Engine {
   /** Share of the remaining distance the master level moves per sample. */
   private readonly masterCoef: number;
   private readonly fadeStep: number;
+  /** Keeps the master under full scale without clipping (see Limiter). */
+  private readonly limiter: Limiter;
   /** A sink went dormant or woke up: rebuild the processing order before the next block. */
   private orderDirty = false;
 
@@ -164,6 +169,16 @@ export class Engine {
     this.fadeStep = 1 / (FADE_SECONDS * sampleRate);
     this.masterCoef = MASTER_SMOOTH_HZ / sampleRate;
     this.meterFall = Math.exp(-1 / (METER_FALL_SECONDS * sampleRate));
+    // Off until switched on (the app does at once): the engine on its own adds no delay.
+    this.limiter = new Limiter(sampleRate, false);
+  }
+
+  /**
+   * Switch the master limiter on or off: gliding over a few milliseconds while playing, or at once
+   * (`atOnce`, when the engine starts).
+   */
+  setLimiter(on: boolean, atOnce = false): void {
+    this.limiter.setOn(on, atOnce);
   }
 
   // ---------- Patch management ----------
@@ -366,6 +381,7 @@ export class Engine {
       node.sinkGain = node.sinkTarget;
     }
     this.masterGain = this.masterTarget;
+    this.limiter.reset();
   }
 
   /**
@@ -617,6 +633,9 @@ export class Engine {
       this.resetAll();
     }
 
+    // The limiter, before the meters: they show what comes out. Its light shows when it works.
+    this.limiter.process(L, R, n);
+
     let pl = this.peakL;
     let pr = this.peakR;
     const fall = this.meterFall;
@@ -658,15 +677,16 @@ export class Engine {
   }
 
   /**
-   * Read the master meters (levels are pre-ceiling, so overs are visible) and clear the clip and
-   * fault flags.
+   * Read the master meters (after the limiter, before the hard ceiling, so overs are visible when
+   * the limiter is off) and clear the clip, fault and limiter readings.
    * Writes into `into` when given, so the audio thread can reuse one object (no garbage).
    */
-  takeMeters(into: MasterMeters = { peakL: 0, peakR: 0, clipped: false, faulted: false }): MasterMeters {
+  takeMeters(into: MasterMeters = { peakL: 0, peakR: 0, clipped: false, faulted: false, limiterGain: 1 }): MasterMeters {
     into.peakL = this.peakL;
     into.peakR = this.peakR;
     into.clipped = this.clipped;
     into.faulted = this.faulted;
+    into.limiterGain = this.limiter.takeReduction();
     this.clipped = false;
     this.faulted = false;
     return into;
