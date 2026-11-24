@@ -17,6 +17,12 @@ export const patch = $state<Patch>({
   view: { x: 0, y: 0, zoom: 1 },
 });
 
+/** Switch the master limiter on or off; on is the default and is not stored. */
+export function setLimiter(on: boolean) {
+  if (on) delete patch.limiter;
+  else patch.limiter = false;
+}
+
 export type Selection = { kind: 'module'; id: string } | { kind: 'cable'; id: string } | null;
 
 export const canvasState = $state({

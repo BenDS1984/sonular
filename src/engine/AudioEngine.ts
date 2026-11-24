@@ -37,6 +37,8 @@ export class AudioEngine {
 
   /** Current tempo in BPM; kept here so a freshly started engine gets it too. */
   private tempo = DEFAULT_TEMPO;
+  /** Master limiter on or off; kept here for the same reason. */
+  private limiter = true;
 
   /** Requested buffer size (preset name or milliseconds). */
   readonly buffer: BufferSize;
@@ -118,7 +120,7 @@ export class AudioEngine {
     });
     node.onprocessorerror = () => this.events.onStatus?.('error', 'The audio engine crashed.');
 
-    this.send({ type: 'init', faust: programs, tempo: this.tempo });
+    this.send({ type: 'init', faust: programs, tempo: this.tempo, limiter: this.limiter });
     await ready;
     node.connect(ctx.destination);
     if (ctx.state !== 'running') await ctx.resume();
@@ -154,6 +156,11 @@ export class AudioEngine {
   setTempo(bpm: number): void {
     this.tempo = bpm;
     this.send({ type: 'tempo', bpm });
+  }
+
+  setLimiter(on: boolean): void {
+    this.limiter = on;
+    this.send({ type: 'limiter', on });
   }
 
   /** Start or stop rendering (with a short fade to avoid clicks). */

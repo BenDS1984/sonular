@@ -7,7 +7,7 @@ import { getDefinition } from '../modules/registry';
 import { dialogs } from '../ui/dialogs.svelte';
 import { showToast } from '../ui/toast.svelte';
 import { FILE_EXTENSION, PatchFileError, fileNameFor, parsePatchFile, serializePatch } from './fileFormat';
-import { canvasState, DEFAULT_PATCH_NAME, fitAll, patch } from './patch.svelte';
+import { canvasState, DEFAULT_PATCH_NAME, fitAll, patch, setLimiter } from './patch.svelte';
 import type { Patch } from './types';
 import welcomePreset from '../presets/welcome.sonular?raw';
 
@@ -56,6 +56,7 @@ function applyPatch(loaded: Patch) {
   canvasState.selection = null;
   patch.name = loaded.name;
   patch.tempo = loaded.tempo;
+  setLimiter(loaded.limiter !== false);
   patch.modules = loaded.modules;
   patch.cables = loaded.cables;
   patch.view = loaded.view;
@@ -88,6 +89,7 @@ export function newPatch() {
   canvasState.selection = null;
   patch.name = DEFAULT_PATCH_NAME;
   patch.tempo = DEFAULT_TEMPO;
+  setLimiter(true);
   patch.modules = [];
   patch.cables = [];
   patch.view = { x: 0, y: 0, zoom: 1 };

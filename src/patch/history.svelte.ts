@@ -7,7 +7,7 @@
  * come within a short pause of each other. Panning and zooming the view is not undoable.
  */
 import { untrack } from 'svelte';
-import { canvasState, patch } from './patch.svelte';
+import { canvasState, patch, setLimiter } from './patch.svelte';
 import { UndoStack } from './UndoStack';
 import type { Cable, ModuleInstance } from './types';
 
@@ -16,11 +16,12 @@ const MERGE_MS = 350;
 interface Content {
   name: string;
   tempo: number;
+  limiter?: boolean;
   modules: ModuleInstance[];
   cables: Cable[];
 }
 
-const snapshot = (): string => JSON.stringify({ name: patch.name, tempo: patch.tempo, modules: patch.modules, cables: patch.cables });
+const snapshot = (): string => JSON.stringify({ name: patch.name, tempo: patch.tempo, limiter: patch.limiter, modules: patch.modules, cables: patch.cables });
 
 export const historyState = $state({ canUndo: false, canRedo: false });
 
@@ -52,6 +53,7 @@ function restore(state: string) {
   const content = JSON.parse(state) as Content;
   patch.name = content.name;
   patch.tempo = content.tempo;
+  setLimiter(content.limiter !== false);
   patch.modules = content.modules;
   patch.cables = content.cables;
   const sel = canvasState.selection;

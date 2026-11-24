@@ -39,6 +39,8 @@ export interface Patch {
   name: string;
   /** Tempo of the master clock in BPM. */
   tempo: number;
+  /** The master limiter: on unless this says false (and then not stored when on). */
+  limiter?: boolean;
   modules: ModuleInstance[];
   cables: Cable[];
   view: ViewState;

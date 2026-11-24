@@ -42,6 +42,15 @@ describe('patch files', () => {
     expect(patch).toEqual(sample());
   });
 
+  it('keeps the limiter switch: on is the default and is not stored', () => {
+    const on = serializePatch(sample());
+    expect(JSON.parse(on).patch.limiter).toBeUndefined();
+    expect(parsePatchFile(on, getDef).patch.limiter).toBeUndefined();
+    const off = serializePatch({ ...sample(), limiter: false });
+    expect(JSON.parse(off).patch.limiter).toBe(false);
+    expect(parsePatchFile(off, getDef).patch.limiter).toBe(false);
+  });
+
   it('rejects files that are not Sonular patches', () => {
     expect(() => parsePatchFile('not json', getDef)).toThrow(PatchFileError);
     expect(() => parsePatchFile('{"hello": 1}', getDef)).toThrow(/not a Sonular patch/);

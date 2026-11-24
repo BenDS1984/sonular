@@ -5,7 +5,7 @@
   import IconButton from './components/IconButton.svelte';
   import TempoField from './components/TempoField.svelte';
   import CpuGraph from './CpuGraph.svelte';
-  import { DEFAULT_PATCH_NAME, patch } from '../patch/patch.svelte';
+  import { DEFAULT_PATCH_NAME, patch, setLimiter } from '../patch/patch.svelte';
   import { historyState, redo, undo } from '../patch/history.svelte';
   import { choosePatchFile, newPatch, requestSave } from '../patch/fileActions';
   import { toggleBrowserPanel } from './browser/browserPanel.svelte';
@@ -42,6 +42,23 @@
     if (document.fullscreenElement) void document.exitFullscreen();
     else void document.documentElement.requestFullscreen().catch(() => {});
   }
+
+  // ---------- Limiter light: how far it turns down, held a moment so a short peak is seen ----------
+  const limiterOn = $derived(patch.limiter !== false);
+  const LIMIT_SHOWN_DB = 0.1;
+  const LIMIT_HOLD_MS = 500;
+  let limitDb = $state(0);
+  let limitAt = 0;
+  $effect(() => {
+    void engineState.statsTick;
+    const g = engineState.playing && limiterOn ? engineState.limiterGain : 1;
+    const db = g > 0 ? -20 * Math.log10(g) : 60;
+    const now = performance.now();
+    if (db >= limitDb || now - limitAt > LIMIT_HOLD_MS) {
+      limitDb = db < LIMIT_SHOWN_DB ? 0 : db;
+      limitAt = now;
+    }
+  });
 
   // Position as bar.beat.sixteenth in 4/4, counted from 1.
   const position = $derived.by(() => {
@@ -188,6 +205,19 @@
   </div>
 
   <div class="group">
+    <button
+      class="lim"
+      class:on={limiterOn}
+      class:working={limitDb > 0}
+      type="button"
+      aria-pressed={limiterOn}
+      title={limiterOn
+        ? `Limiter on: peaks are turned down smoothly so the output never goes over full scale.${limitDb > 0 ? ` Now turning down ${limitDb.toFixed(1)} dB.` : ''} Click to switch off.`
+        : 'Limiter off: peaks over full scale are clipped (they crackle). Click to switch on.'}
+      onclick={() => setLimiter(!limiterOn)}
+    >
+      <span class="led" aria-hidden="true"></span>LIM
+    </button>
     <MasterMeter left={engineState.peakL} right={engineState.peakR} active={engineState.playing} tick={engineState.statsTick} />
     <span class="cpu-wrap">
       <button
@@ -258,6 +288,43 @@
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+  /* The limiter switch, with a light that comes on while it turns peaks down. */
+  .lim {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-control);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: var(--weight-bold);
+    line-height: 1;
+    cursor: pointer;
+  }
+  .lim:hover {
+    background: var(--surface-control-hover);
+    color: var(--text-default);
+  }
+  .lim.on {
+    color: var(--text-strong);
+  }
+  .lim .led {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border-strong);
+  }
+  .lim.on .led {
+    background: color-mix(in srgb, var(--amber-500) 35%, var(--surface-control));
+  }
+  .lim.on.working .led {
+    background: var(--amber-500);
+    box-shadow: 0 0 6px var(--amber-500);
   }
   .doc {
     gap: 2px;

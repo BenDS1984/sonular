@@ -5,7 +5,7 @@
 import { getDefinition } from '../modules/registry';
 import { browserStore, type KeyValueStore } from '../platform/storage';
 import { parsePatchFile, serializePatch } from './fileFormat';
-import { patch } from './patch.svelte';
+import { patch, setLimiter } from './patch.svelte';
 
 const KEY = 'sonular.autosave';
 const SAVE_DELAY_MS = 400;
@@ -18,6 +18,7 @@ export function restoreAutosave(store: KeyValueStore = browserStore): boolean {
     const { patch: saved } = parsePatchFile(text, getDefinition);
     patch.name = saved.name;
     patch.tempo = saved.tempo;
+    setLimiter(saved.limiter !== false);
     patch.modules = saved.modules;
     patch.cables = saved.cables;
     patch.view = saved.view;

@@ -10,6 +10,7 @@ import {
   type RecordedAudio,
   type SinkModule,
 } from './types';
+import { Limiter } from './Limiter';
 import { Transport } from './Transport';
 
 export interface MasterMeters {
@@ -17,6 +18,8 @@ export interface MasterMeters {
   peakR: number;
   clipped: boolean;
   faulted: boolean;
+  /** Lowest gain the limiter applied since the previous reading (1: it did nothing). */
+  limiterGain: number;
 }
 
 /** Samples below this magnitude count as silence (about −140 dBFS). */
@@ -102,6 +105,8 @@ export class Engine {
   private clipped = false;
   /** Set when a module produced NaN/Infinity; the block was muted and state was reset. */
   private faulted = false;
+  /** Keeps the master under full scale without clipping (see Limiter). */
+  private readonly limiter: Limiter;
 
   readonly stats: EngineBlockStats = { processed: 0, sleeping: 0, unreachable: 0 };
 
@@ -109,6 +114,8 @@ export class Engine {
     this.sampleRate = sampleRate;
     this.transport = new Transport(sampleRate);
     this.factories = factories;
+    // Off until switched on (the app does at once): the engine on its own adds no delay.
+    this.limiter = new Limiter(sampleRate, false);
   }
 
   // ---------- Patch management ----------
@@ -228,6 +235,14 @@ export class Engine {
     this.nodes.get(nodeId)?.module.setParam(name, value);
   }
 
+  /**
+   * Switch the master limiter on or off: gliding over a few milliseconds while playing, or at once
+   * (`atOnce`, when the engine starts).
+   */
+  setLimiter(on: boolean, atOnce = false): void {
+    this.limiter.setOn(on, atOnce);
+  }
+
   /** Clear the state of every module (e.g. on stop, or after a fault). */
   resetAll(): void {
     for (const node of this.nodes.values()) {
@@ -237,6 +252,7 @@ export class Engine {
       node.silentInputBlocks = 0;
       node.asleep = false;
     }
+    this.limiter.reset();
   }
 
   /**
@@ -422,6 +438,9 @@ export class Engine {
       this.resetAll();
     }
 
+    // The limiter, before the meters: they show what comes out. Its light shows when it works.
+    this.limiter.process(L, R, n);
+
     let pl = this.peakL;
     let pr = this.peakR;
     for (let i = 0; i < n; i++) {
@@ -465,7 +484,8 @@ export class Engine {
    * Read and reset the master meters (peaks are pre-ceiling, so overs are visible).
    * Writes into `into` when given, so the audio thread can reuse one object (no garbage).
    */
-  takeMeters(into: MasterMeters = { peakL: 0, peakR: 0, clipped: false, faulted: false }): MasterMeters {
+  takeMeters(into: MasterMeters = { peakL: 0, peakR: 0, clipped: false, faulted: false, limiterGain: 1 }): MasterMeters {
+    into.limiterGain = this.limiter.takeReduction();
     into.peakL = this.peakL;
     into.peakR = this.peakR;
     into.clipped = this.clipped;

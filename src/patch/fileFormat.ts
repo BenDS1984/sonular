@@ -36,6 +36,7 @@ export function serializePatch(patch: Patch, now = new Date()): string {
     patch: {
       name: patch.name,
       tempo: patch.tempo,
+      ...(patch.limiter === false ? { limiter: false } : {}),
       modules: patch.modules.map((m) => ({ id: m.id, type: m.type, x: m.x, y: m.y, params: { ...m.params }, ...(m.name ? { name: m.name } : {}) })),
       cables: patch.cables.map((c) => ({ id: c.id, from: { ...c.from }, to: { ...c.to } })),
       view: { ...patch.view },
@@ -161,7 +162,10 @@ export function validatePatch(raw: unknown, getDef: DefinitionLookup, fallbackNa
   // Files from before the tempo existed play at the default tempo.
   const tempo = isFiniteNumber(src['tempo']) ? clampTempo(src['tempo']) : DEFAULT_TEMPO;
 
-  return { patch: { name: asString(src['name'], fallbackName), tempo, modules, cables, view }, warnings };
+  return {
+    patch: { name: asString(src['name'], fallbackName), tempo, ...(src['limiter'] === false ? { limiter: false } : {}), modules, cables, view },
+    warnings,
+  };
 }
 
 /** File name for downloads: the patch name made safe for file systems. */

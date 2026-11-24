@@ -11,10 +11,12 @@ export interface FaustProgram {
 }
 
 export type ToEngine =
-  | { type: 'init'; faust: FaustProgram[]; tempo: number }
+  | { type: 'init'; faust: FaustProgram[]; tempo: number; limiter: boolean }
   | { type: 'patch'; patch: EnginePatch }
   | { type: 'param'; node: string; name: string; value: number }
   | { type: 'tempo'; bpm: number }
+  /** Master limiter on or off. */
+  | { type: 'limiter'; on: boolean }
   | { type: 'run'; running: boolean };
 
 export interface EngineStats {
@@ -23,6 +25,8 @@ export interface EngineStats {
   peakL: number;
   peakR: number;
   clipped: boolean;
+  /** Lowest gain the master limiter applied since the previous stats (1: it did nothing). */
+  limiterGain: number;
   faulted: boolean;
   processed: number;
   sleeping: number;

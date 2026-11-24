@@ -18,6 +18,8 @@ export const engineState = $state({
   peakL: 0,
   peakR: 0,
   clipped: false,
+  /** Lowest gain the master limiter applied lately (1: it did nothing). */
+  limiterGain: 1,
   processed: 0,
   sleeping: 0,
   /** Transport position in beats since Play was pressed. */
@@ -66,6 +68,7 @@ export const audio = new AudioEngine(
       engineState.peakL = s.peakL;
       engineState.peakR = s.peakR;
       engineState.clipped = s.clipped;
+      engineState.limiterGain = s.limiterGain;
       engineState.processed = s.processed;
       engineState.sleeping = s.sleeping;
       engineState.beat = s.beat;
@@ -141,6 +144,10 @@ export function startPatchSync(): () => void {
     // The tempo is remembered by `audio` even while the engine is off, so start-up uses it too.
     $effect(() => {
       audio.setTempo(patch.tempo);
+    });
+    // The master limiter is on unless the patch says otherwise.
+    $effect(() => {
+      audio.setLimiter(patch.limiter !== false);
     });
 
     $effect(() => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Engine } from './Engine';
+import { LIMITER_CEILING } from './Limiter';
 import { BLOCK_SIZE, type DspModule, type EnginePatch, type ModuleFactory } from './types';
 import { Master } from '../modules/Master';
 
@@ -211,6 +212,23 @@ describe('Engine', () => {
     expect(L.every((v) => v === 0)).toBe(true);
     expect(R.every((v) => v === 0)).toBe(true);
     expect(engine.takeMeters().faulted).toBe(true);
+  });
+
+  it('with the limiter on, keeps the master under full scale without clipping', () => {
+    const { render, engine } = setup({
+      nodes: [
+        { id: 'c', kind: 'const', params: { value: 2 } },
+        { id: 'master', kind: 'master' },
+      ],
+      connections: [wire('c', 'master')],
+    });
+    engine.setLimiter(true, true);
+    let peak = 0;
+    for (let b = 0; b < 20; b++) for (const v of render().L) peak = Math.max(peak, Math.abs(v));
+    expect(peak).toBeLessThanOrEqual(LIMITER_CEILING + 1e-6);
+    const m = engine.takeMeters();
+    expect(m.clipped).toBe(false);
+    expect(m.limiterGain).toBeLessThan(0.5);
   });
 
   it('limits the master bus to ±1 and reports clipping with the true peak', () => {
