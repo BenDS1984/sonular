@@ -9,7 +9,7 @@
 import { untrack } from 'svelte';
 import { canvasState, patch, setLimiter } from './patch.svelte';
 import { UndoStack } from './UndoStack';
-import type { Cable, ModuleInstance } from './types';
+import type { Cable, ModuleGroup, ModuleInstance } from './types';
 
 const MERGE_MS = 350;
 
@@ -19,9 +19,18 @@ interface Content {
   limiter?: boolean;
   modules: ModuleInstance[];
   cables: Cable[];
+  groups?: ModuleGroup[];
 }
 
-const snapshot = (): string => JSON.stringify({ name: patch.name, tempo: patch.tempo, limiter: patch.limiter, modules: patch.modules, cables: patch.cables });
+const snapshot = (): string =>
+  JSON.stringify({
+    name: patch.name,
+    tempo: patch.tempo,
+    limiter: patch.limiter,
+    modules: patch.modules,
+    cables: patch.cables,
+    groups: patch.groups,
+  });
 
 export const historyState = $state({ canUndo: false, canRedo: false });
 
@@ -56,6 +65,7 @@ function restore(state: string) {
   setLimiter(content.limiter !== false);
   patch.modules = content.modules;
   patch.cables = content.cables;
+  patch.groups = content.groups;
   const sel = canvasState.selection;
   if (sel?.kind === 'module' && !content.modules.some((m) => m.id === sel.id)) canvasState.selection = null;
   if (sel?.kind === 'cable' && !content.cables.some((c) => c.id === sel.id)) canvasState.selection = null;

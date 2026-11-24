@@ -62,6 +62,7 @@ function applyPatch(loaded: Patch) {
   setLimiter(loaded.limiter !== false);
   patch.modules = loaded.modules;
   patch.cables = loaded.cables;
+  patch.groups = loaded.groups;
   patch.view = loaded.view;
 }
 
@@ -95,6 +96,7 @@ export function newPatch() {
   setLimiter(true);
   patch.modules = [];
   patch.cables = [];
+  patch.groups = undefined;
   patch.view = { x: 0, y: 0, zoom: 1 };
   addDefaultOutput();
   foldAllFamilies();

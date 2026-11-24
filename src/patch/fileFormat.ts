@@ -7,7 +7,7 @@
  */
 import { clampTempo, DEFAULT_TEMPO } from '../engine/core/Transport';
 import type { ModuleDefinition } from '../modules/types';
-import type { Cable, ModuleInstance, Patch } from './types';
+import type { Cable, ModuleGroup, ModuleInstance, Patch } from './types';
 
 export const FILE_FORMAT = 'sonular-patch';
 export const FILE_VERSION = 1;
@@ -39,6 +39,9 @@ export function serializePatch(patch: Patch, now = new Date()): string {
       ...(patch.limiter === false ? { limiter: false } : {}),
       modules: patch.modules.map((m) => ({ id: m.id, type: m.type, x: m.x, y: m.y, params: { ...m.params }, ...(m.name ? { name: m.name } : {}) })),
       cables: patch.cables.map((c) => ({ id: c.id, from: { ...c.from }, to: { ...c.to } })),
+      ...(patch.groups?.length
+        ? { groups: patch.groups.map((g) => ({ id: g.id, name: g.name, moduleIds: [...g.moduleIds], collapsed: g.collapsed })) }
+        : {}),
       view: { ...patch.view },
     },
   };
@@ -152,6 +155,22 @@ export function validatePatch(raw: unknown, getDef: DefinitionLookup, fallbackNa
   }
   if (dropped) warnings.push(`Removed ${dropped} cable${dropped > 1 ? 's' : ''} that pointed nowhere.`);
 
+  // Groups: keep the modules that exist, each in one group only; a group needs two modules.
+  const groups: ModuleGroup[] = [];
+  const grouped = new Set<string>();
+  for (const g of Array.isArray(src['groups']) ? src['groups'] : []) {
+    if (!isObject(g) || !Array.isArray(g['moduleIds'])) continue;
+    const ids = g['moduleIds'].filter((id): id is string => typeof id === 'string' && byId.has(id) && !grouped.has(id));
+    if (ids.length < 2) continue;
+    for (const id of ids) grouped.add(id);
+    groups.push({
+      id: `g${groups.length + 1}`,
+      name: asString(g['name'], `Group ${groups.length + 1}`).slice(0, 40),
+      moduleIds: ids,
+      collapsed: g['collapsed'] === true,
+    });
+  }
+
   const v = isObject(src['view']) ? src['view'] : {};
   const view = {
     x: isFiniteNumber(v['x']) ? v['x'] : 0,
@@ -163,7 +182,7 @@ export function validatePatch(raw: unknown, getDef: DefinitionLookup, fallbackNa
   const tempo = isFiniteNumber(src['tempo']) ? clampTempo(src['tempo']) : DEFAULT_TEMPO;
 
   return {
-    patch: { name: asString(src['name'], fallbackName), tempo, ...(src['limiter'] === false ? { limiter: false } : {}), modules, cables, view },
+    patch: { name: asString(src['name'], fallbackName), tempo, ...(src['limiter'] === false ? { limiter: false } : {}), modules, cables, ...(groups.length ? { groups } : {}), view },
     warnings,
   };
 }

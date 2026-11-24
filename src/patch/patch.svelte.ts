@@ -4,6 +4,7 @@
 import { DEFAULT_TEMPO } from '../engine/core/Transport';
 import { getDefinition } from '../modules/registry';
 import { fitView } from './geometry';
+import { groupOf } from './groups';
 import * as ops from './operations';
 import type { Patch, PortRef } from './types';
 
@@ -91,9 +92,55 @@ export function removeModule(id: string) {
   }
   delete canvasState.moduleSizes[id];
   delete canvasState.zIndex[id];
+  dropFromGroups(id);
   const sel = canvasState.selection;
   if (sel?.kind === 'modules') selectModules(sel.ids.filter((x) => x !== id));
   else if (sel?.id === id) canvasState.selection = null;
+}
+
+// ---------- Groups ----------
+
+/** A removed module leaves its group; a group of fewer than two modules is dissolved. */
+function dropFromGroups(moduleId: string) {
+  if (!patch.groups) return;
+  for (const g of patch.groups) g.moduleIds = g.moduleIds.filter((id) => id !== moduleId);
+  const left = patch.groups.filter((g) => g.moduleIds.length >= 2);
+  patch.groups = left.length ? left : undefined;
+}
+
+/** Whether the selected modules can be grouped: two or more, none of them in a group yet. */
+export function canGroupSelection(): boolean {
+  const ids = selectedModuleIds();
+  return ids.length >= 2 && ids.every((id) => !groupOf(patch, id));
+}
+
+/** Group the selected modules (a frame around them with a title; it can be collapsed). */
+export function groupSelection() {
+  if (!canGroupSelection()) return;
+  const ids = selectedModuleIds();
+  const groups = patch.groups ?? [];
+  let n = groups.length + 1;
+  while (groups.some((g) => g.id === `g${n}`)) n++;
+  patch.groups = [...groups, { id: `g${n}`, name: `Group ${n}`, moduleIds: [...ids], collapsed: false }];
+}
+
+/** Dissolve a group; its modules stay where they are. */
+export function ungroup(groupId: string) {
+  const left = (patch.groups ?? []).filter((g) => g.id !== groupId);
+  patch.groups = left.length ? left : undefined;
+}
+
+export function toggleGroupCollapsed(groupId: string) {
+  const g = patch.groups?.find((x) => x.id === groupId);
+  if (!g) return;
+  g.collapsed = !g.collapsed;
+  // Hidden modules cannot stay selected: Delete would remove them unseen.
+  if (g.collapsed && selectedModuleIds().some((id) => g.moduleIds.includes(id))) canvasState.selection = null;
+}
+
+/** Whether a module is hidden inside a collapsed group. */
+export function isHidden(moduleId: string): boolean {
+  return !!groupOf(patch, moduleId)?.collapsed;
 }
 
 export function connect(from: PortRef, to: PortRef) {

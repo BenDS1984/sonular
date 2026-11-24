@@ -34,6 +34,18 @@ export interface ViewState {
   zoom: number;
 }
 
+/**
+ * Modules the user grouped on the canvas, like a mini patch. Only a view on the patch: the sound is
+ * exactly the same. A collapsed group shows as one small bar and hides its modules.
+ */
+export interface ModuleGroup {
+  id: string;
+  name: string;
+  /** Two or more modules; a module is in at most one group. */
+  moduleIds: string[];
+  collapsed: boolean;
+}
+
 export interface Patch {
   /** Shown in the top bar and used as the file name. */
   name: string;
@@ -43,5 +55,7 @@ export interface Patch {
   limiter?: boolean;
   modules: ModuleInstance[];
   cables: Cable[];
+  /** Left out when there are none. */
+  groups?: ModuleGroup[];
   view: ViewState;
 }

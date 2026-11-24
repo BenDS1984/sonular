@@ -5,6 +5,8 @@
   - drag empty space (or middle mouse anywhere) to pan; scroll to pan, Ctrl + scroll to zoom
   - Shift + drag on empty space draws a frame that selects every module it touches; dragging one
     of them by its header moves them all, Delete removes them all
+  - "Group" (or Ctrl+G) puts the selected modules in a group with a frame and a name; Collapse
+    turns the group into one small bar (the sound does not change), Ungroup dissolves it
   - drag a module by its header; click to select
   - drag from a jack to patch a cable; drag a connected input to move/remove its cable
   - while dragging a module or a cable near an edge, the canvas scrolls along
@@ -18,7 +20,19 @@
   import ZoomControls from './workspace/ZoomControls.svelte';
   import Minimap from './workspace/Minimap.svelte';
   import { prefs } from './prefs.svelte';
-  import { canvasState, deleteSelection, fitAll, isPatchEmpty, patch, selectModules } from '../patch/patch.svelte';
+  import GroupView from './workspace/GroupView.svelte';
+  import {
+    canGroupSelection,
+    canvasState,
+    deleteSelection,
+    fitAll,
+    groupSelection,
+    isHidden,
+    isPatchEmpty,
+    patch,
+    selectedModuleIds,
+    selectModules,
+  } from '../patch/patch.svelte';
   import { loadStarterPatch } from '../patch/fileActions';
   import { GRID, toCanvas, zoomAt } from '../patch/geometry';
   import { getDefinition } from '../modules/registry';
@@ -137,6 +151,7 @@
       const a = toCanvas(patch.view, Math.min(frame.x0, frame.x1), Math.min(frame.y0, frame.y1));
       const b = toCanvas(patch.view, Math.max(frame.x0, frame.x1), Math.max(frame.y0, frame.y1));
       const ids = patch.modules
+        .filter((m) => !isHidden(m.id))
         .filter((m) => {
           const s = canvasState.moduleSizes[m.id] ?? { w: 200, h: 240 };
           return m.x < b.x && m.x + s.w > a.x && m.y < b.y && m.y + s.h > a.y;
@@ -216,7 +231,10 @@
   function onkeydown(e: KeyboardEvent) {
     const t = e.target as HTMLElement;
     if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t.isContentEditable) return;
-    if (e.key === 'Delete' || e.key === 'Backspace') {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+      if (canGroupSelection()) groupSelection();
+      e.preventDefault();
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
       if (canvasState.selection) {
         deleteSelection();
         e.preventDefault();
@@ -278,11 +296,20 @@
   aria-label="Patch canvas"
 >
   <div class="world" style:transform={`translate(${view.x}px, ${view.y}px) scale(${view.zoom})`}>
+    {#each patch.groups ?? [] as group (group.id)}
+      <GroupView {group} />
+    {/each}
     {#each patch.modules as module (`${module.id}:${module.type}`)}
       <ModuleView {module} />
     {/each}
     <CableLayer onjackpointerdown={startJackDrag} />
   </div>
+
+  {#if canGroupSelection() && !frame}
+    <button type="button" class="group-button" onpointerdown={(e) => e.stopPropagation()} onclick={groupSelection}>
+      Group {selectedModuleIds().length} modules
+    </button>
+  {/if}
 
   {#if frame}
     <div
@@ -353,6 +380,23 @@
     width: 0;
     height: 0;
     transform-origin: 0 0;
+  }
+  .group-button {
+    position: absolute;
+    top: var(--space-3);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 190000;
+    height: 30px;
+    padding: 0 var(--space-4);
+    border: 1px solid var(--border-focus);
+    border-radius: var(--radius-md);
+    background: var(--surface-control);
+    color: var(--text-strong);
+    cursor: pointer;
+  }
+  .group-button:hover {
+    background: var(--surface-control-hover);
   }
   .frame {
     position: absolute;

@@ -21,6 +21,7 @@ export function restoreAutosave(store: KeyValueStore = browserStore): boolean {
     setLimiter(saved.limiter !== false);
     patch.modules = saved.modules;
     patch.cables = saved.cables;
+    patch.groups = saved.groups;
     patch.view = saved.view;
     return true;
   } catch {
