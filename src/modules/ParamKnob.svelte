@@ -10,6 +10,7 @@
   import { paramFormatter } from './paramFormat';
   import { isAutomated, isOverridden, isRecordingControl, openControlMenu, setControl, shownValue } from '../ui/automation.svelte';
   import type { ModuleDefinition } from './types';
+  import { moduleLabel } from '../patch/timeline';
 
   interface Props {
     module: ModuleInstance;
@@ -44,7 +45,7 @@
       : automated
         ? 'Automated — right-click for options'
         : undefined}
-    oncontextmenu={(e) => openControlMenu(e, module, param, `${def.title} · ${label ?? spec.label}`)}
+    oncontextmenu={(e) => openControlMenu(e, module, param, `${moduleLabel(def, module)} · ${label ?? spec.label}`)}
   >
   <Knob
     value={shownValue(module, param)}

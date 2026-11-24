@@ -25,8 +25,8 @@ export const hasBanks = (def: ModuleDefinition | undefined): boolean => (def?.ba
 export const hasTimelineRow = (def: ModuleDefinition | undefined): boolean => hasBanks(def) || (def?.gates?.length ?? 0) > 0;
 
 /**
- * Name of a module with a timeline row, with its number: "Sequencer 2". The number comes from the
- * module id (sequencer2), so it stays the same when other sequencers are added or removed.
+ * Name of a module with its number: "Sequencer 2". The number comes from the module id
+ * (sequencer2), so it stays the same when other modules of that type are added or removed.
  */
 export function numberedTitle(def: ModuleDefinition | undefined, module: { id: string; type: string }): string {
   const title = def?.title ?? module.type;
@@ -35,11 +35,11 @@ export function numberedTitle(def: ModuleDefinition | undefined, module: { id: s
 }
 
 /**
- * What a module is called without a name of its own: "Sequencer 2" for modules with a timeline row
- * (they need the number there), else the plain title ("Oscillator").
+ * What a module is called without a name of its own: its title with its number ("Oscillator 2"),
+ * except for a fixed module such as the Channel, of which a patch has only one.
  */
 export function defaultTitle(def: ModuleDefinition | undefined, module: { id: string; type: string }): string {
-  return hasTimelineRow(def) ? numberedTitle(def, module) : (def?.title ?? module.type);
+  return def?.fixed ? def.title : numberedTitle(def, module);
 }
 
 /** What a module is called: the user's name, else its default title. */

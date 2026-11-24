@@ -97,12 +97,12 @@ describe('timeline blocks', () => {
 });
 
 describe('module names', () => {
-  it('lets any module have its own name, without a number for modules off the timeline', () => {
+  it('lets any module have its own name, and numbers modules off the timeline too', () => {
     const m: { id: string; type: string; name?: string } = { id: 'plain2', type: 'plain' };
-    expect(moduleLabel(plain, m)).toBe('seq');
+    expect(moduleLabel(plain, m)).toBe('seq 2');
     renameModule(m, 'Bass');
     expect(moduleLabel(plain, m)).toBe('Bass');
-    expect(moduleTooltip(plain, m)).toBe('Bass (seq)');
+    expect(moduleTooltip(plain, m)).toBe('Bass (seq 2)');
   });
 
 
@@ -461,6 +461,7 @@ describe('rows on the timeline', () => {
     expect(hasTimelineRow(def({}))).toBe(false);
     expect(hasTimelineRow(undefined)).toBe(false);
     expect(defaultTitle(def({ gates: [{ meter: 'gate', label: 'Gate' }] }), { id: 'gen2', type: 'x' })).toBe('X 2');
-    expect(defaultTitle(def({}), { id: 'osc2', type: 'x' })).toBe('X');
+    expect(defaultTitle(def({}), { id: 'osc2', type: 'x' })).toBe('X 2');
+    expect(defaultTitle(def({ fixed: true }), { id: 'channel1', type: 'x' })).toBe('X');
   });
 });
