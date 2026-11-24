@@ -4,7 +4,7 @@
 import { DEFAULT_TEMPO } from '../engine/core/Transport';
 import { getDefinition } from '../modules/registry';
 import { fitView } from './geometry';
-import { groupOf } from './groups';
+import { groupOf, type DropHint } from './groups';
 import * as ops from './operations';
 import type { Patch, PortRef } from './types';
 
@@ -71,6 +71,8 @@ export const canvasState = $state({
   zIndex: {} as Record<string, number>,
   /** Size of the visible canvas area in screen pixels. */
   viewport: { w: 0, h: 0 },
+  /** While a module is dragged: the group it would join or leave if let go now (shown on the group). */
+  groupHint: null as DropHint | null,
 });
 
 let zCounter = 0;
@@ -106,6 +108,19 @@ function dropFromGroups(moduleId: string) {
   for (const g of patch.groups) g.moduleIds = g.moduleIds.filter((id) => id !== moduleId);
   const left = patch.groups.filter((g) => g.moduleIds.length >= 2);
   patch.groups = left.length ? left : undefined;
+}
+
+/** Put a loose module into a group. */
+export function addToGroup(groupId: string, moduleId: string) {
+  const g = patch.groups?.find((x) => x.id === groupId);
+  if (!g || groupOf(patch, moduleId) || !patch.modules.some((m) => m.id === moduleId)) return;
+  g.moduleIds = [...g.moduleIds, moduleId];
+  raiseModule(moduleId);
+}
+
+/** Take a module out of its group (a group left with fewer than two modules is dissolved). */
+export function removeFromGroup(moduleId: string) {
+  dropFromGroups(moduleId);
 }
 
 /** Whether the selected modules can be grouped: two or more, none of them in a group yet. */

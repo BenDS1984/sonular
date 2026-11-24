@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BAR_WIDTH, barAnchor, barRect, frameRect, groupOf, GROUP_HEADER, GROUP_PAD } from './groups';
+import { BAR_WIDTH, barAnchor, barRect, dropHint, frameRect, groupOf, GROUP_HEADER, GROUP_PAD } from './groups';
 import { parsePatchFile, serializePatch } from './fileFormat';
 import type { ModuleDefinition } from '../modules/types';
 import type { Patch } from './types';
@@ -76,5 +76,45 @@ describe('groups in the file', () => {
     expect(parsePatchFile(serializePatch(p), getDef).patch.groups).toBeUndefined();
     delete p.groups;
     expect(parsePatchFile(serializePatch(p), getDef).patch.groups).toBeUndefined();
+  });
+});
+
+describe('dropHint', () => {
+  const p = (): Patch => {
+    const x = patch();
+    x.groups![0]!.collapsed = false;
+    return x;
+  };
+
+  it('says a loose module over the group joins it', () => {
+    const x = p();
+    x.modules[2]!.x = 300; // module c, centre now inside the frame of a and b
+    x.modules[2]!.y = 120;
+    expect(dropHint(x, sizes, 'c')).toEqual({ groupId: 'g1', kind: 'in' });
+  });
+
+  it('says a member dragged far from the others leaves', () => {
+    const x = p();
+    const start = frameRect(x, x.groups![0]!, sizes);
+    x.modules[1]!.x = 1500;
+    expect(dropHint(x, sizes, 'b', start)).toEqual({ groupId: 'g1', kind: 'out' });
+  });
+
+  it('keeps a member that is only moved around inside its group', () => {
+    const x = p();
+    const start = frameRect(x, x.groups![0]!, sizes);
+    x.modules[1]!.x = 330; // b moves around next to a, inside the frame
+    expect(dropHint(x, sizes, 'b', start)).toBeNull();
+    x.modules[1]!.x = 380;
+    expect(dropHint(x, sizes, 'b', start)).toBeNull();
+  });
+
+  it('does nothing for a member that stays near, a loose module far away, or a collapsed group', () => {
+    const x = p();
+    expect(dropHint(x, sizes, 'b', frameRect(x, x.groups![0]!, sizes))).toBeNull();
+    expect(dropHint(x, sizes, 'c')).toBeNull();
+    x.groups![0]!.collapsed = true;
+    x.modules[2]!.x = 300;
+    expect(dropHint(x, sizes, 'c')).toBeNull();
   });
 });

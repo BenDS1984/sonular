@@ -6,7 +6,8 @@
   import ModulePanel from '../components/ModulePanel.svelte';
   import Port from '../components/Port.svelte';
   import { getDefinition } from '../../modules/registry';
-  import { canvasState, isHidden, moduleLayer, patch, raiseModule, removeModule, selectModule } from '../../patch/patch.svelte';
+  import { dropHint, frameRect, groupOf } from '../../patch/groups';
+  import { addToGroup, canvasState, isHidden, moduleLayer, patch, raiseModule, removeFromGroup, removeModule, selectModule } from '../../patch/patch.svelte';
   import { snap } from '../../patch/geometry';
   import { isPortConnected } from '../../patch/operations';
   import type { ModuleInstance } from '../../patch/types';
@@ -73,6 +74,10 @@
         return m ? [{ m, x: m.x, y: m.y }] : [];
       });
     let moved = false;
+    // A single module can be dragged into a group or out of it (not while a whole group is moved).
+    const single = !inGroup;
+    const ownGroup = groupOf(patch, module.id);
+    const startFrame = ownGroup ? frameRect(patch, ownGroup, canvasState.moduleSizes) : null;
     // Where the canvas was: when it scrolls along at an edge, the module keeps up with it.
     const viewX = patch.view.x;
     const viewY = patch.view.y;
@@ -86,6 +91,7 @@
         o.m.x = o.x + module.x - origX;
         o.m.y = o.y + module.y - origY;
       }
+      if (single) canvasState.groupHint = dropHint(patch, canvasState.moduleSizes, module.id, startFrame);
     };
     const pan = startAutoPan(() => header.closest<HTMLElement>('.workspace'), place);
     const move = (ev: PointerEvent) => {
@@ -95,6 +101,10 @@
     };
     const up = () => {
       pan.stop();
+      const hint = canvasState.groupHint;
+      canvasState.groupHint = null;
+      if (single && hint?.kind === 'in') addToGroup(hint.groupId, module.id);
+      else if (single && hint?.kind === 'out') removeFromGroup(module.id);
       if (inGroup && !moved) selectModule(module.id); // a plain click inside a group selects just this one
       header.removeEventListener('pointermove', move);
       header.removeEventListener('pointerup', up);

@@ -68,6 +68,8 @@
   <div
     class="group-view"
     class:collapsed={group.collapsed}
+    class:joining={canvasState.groupHint?.groupId === group.id && canvasState.groupHint.kind === 'in'}
+    class:leaving={canvasState.groupHint?.groupId === group.id && canvasState.groupHint.kind === 'out'}
     role="group"
     aria-label={`Group ${group.name}`}
     title={group.collapsed ? `${group.moduleIds.length} modules` : undefined}
@@ -118,6 +120,18 @@
     user-select: none;
     /* Just below its own modules (z-index is set from the modules' stacking); only the grey bar takes the mouse. */
     pointer-events: none;
+  }
+  /* While dragging a module: a bright frame means "it joins when you let go", a dashed one "it leaves". */
+  .group-view.joining {
+    border-color: var(--border-focus);
+    box-shadow:
+      0 0 0 2px var(--border-focus),
+      var(--shadow-module);
+  }
+  .group-view.leaving {
+    border-style: dashed;
+    border-color: var(--danger);
+    opacity: 0.85;
   }
   .group-view.collapsed {
     z-index: 100001;
