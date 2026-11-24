@@ -1,13 +1,13 @@
 import type { DspModule } from '../core/types';
-
-export const SEQUENCER_STEPS = 8;
+import { parseStepParam, SEQUENCER_BANKS, SEQUENCER_STEPS } from '../../modules/sequencer/banks';
 
 /** A clock input counts as high above this level and as low again below the lower one. */
 const HIGH = 0.6;
 const LOW = 0.4;
 
 /**
- * Sequencer: eight steps, each with a pitch and an on/off switch, advanced by a clock.
+ * Sequencer: eight steps, each with a pitch and an on/off switch, advanced by a clock, in eight
+ * patterns (banks A–H) of which the one chosen on the module plays.
  *
  * Input 0: clock. Every rising edge moves to the next step (the first edge plays step 1).
  * Output 0: pitch, 1 per octave, 0 = C4 (the step's semitones / 12). Changes exactly on the
@@ -15,7 +15,9 @@ const LOW = 0.4;
  * Output 1: gate. Follows the clock pulse while the current step is on; stays low on steps
  *           that are off.
  *
- * Parameters: "pitch1".."pitch8" in semitones (−24..+24 around C4), "on1".."on8" (0/1).
+ * Parameters: "pitch1".."pitch8" in semitones (−24..+24 around C4), "on1".."on8" (0/1) for pattern
+ * A, "b2pitch1".."b8on8" for the others, and "bank" (0..7), the pattern that plays. Switching
+ * pattern while playing keeps the step going: the next step is simply read from the new pattern.
  * Meter "step": the current step, 1..8 (0 before the first clock edge).
  */
 export class Sequencer implements DspModule {
@@ -25,20 +27,26 @@ export class Sequencer implements DspModule {
   readonly tailSeconds = Infinity;
   readonly meterNames = ['step'] as const;
 
-  private readonly pitch = new Float32Array(SEQUENCER_STEPS);
-  private readonly on = new Uint8Array(SEQUENCER_STEPS);
+  /** All patterns after each other: pattern b, step s at b * 8 + s. */
+  private readonly pitch = new Float32Array(SEQUENCER_BANKS * SEQUENCER_STEPS);
+  private readonly on = new Uint8Array(SEQUENCER_BANKS * SEQUENCER_STEPS);
+  /** Offset of the chosen pattern (parameter "bank") in the arrays. */
+  private base = 0;
   /** Current step index, −1 before the first clock edge. */
   private step = -1;
   private clockHigh = false;
 
   setParam(name: string, value: number): void {
-    if (name.startsWith('pitch')) {
-      const s = Number(name.slice(5)) - 1;
-      if (s >= 0 && s < SEQUENCER_STEPS) this.pitch[s] = Math.round(value) / 12;
-    } else if (name.startsWith('on')) {
-      const s = Number(name.slice(2)) - 1;
-      if (s >= 0 && s < SEQUENCER_STEPS) this.on[s] = value >= 0.5 ? 1 : 0;
+    if (name === 'bank') {
+      const b = Math.round(value);
+      this.base = (b >= 0 && b < SEQUENCER_BANKS ? b : 0) * SEQUENCER_STEPS;
+      return;
     }
+    const p = parseStepParam(name);
+    if (!p) return;
+    const i = p.bank * SEQUENCER_STEPS + p.step;
+    if (p.kind === 'pitch') this.pitch[i] = Math.round(value) / 12;
+    else this.on[i] = value >= 0.5 ? 1 : 0;
   }
 
   process(inputs: readonly Float32Array[], _silent: readonly boolean[], outputs: readonly Float32Array[], frames: number): void {
@@ -55,7 +63,7 @@ export class Sequencer implements DspModule {
       } else if (high && c < LOW) {
         high = false;
       }
-      const s = step < 0 ? 0 : step;
+      const s = this.base + (step < 0 ? 0 : step);
       pitchOut[i] = this.pitch[s]!;
       gateOut[i] = high && step >= 0 && this.on[s] ? 1 : 0;
     }

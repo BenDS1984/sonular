@@ -113,6 +113,28 @@ describe('Sequencer', () => {
     expect(Math.max(...gate!)).toBe(0);
   });
 
+  it('plays the pattern chosen with "bank", and pattern A still has the old parameter names', () => {
+    const seq = sequencer(); // pattern A: C D E F G A B C
+    seq.setParam('b3pitch1', 12);
+    seq.setParam('b3on1', 1);
+    seq.setParam('bank', 2);
+    const period = 4800;
+    const [pitch, gate] = run(seq, (period * 2) / SR, (_c, i) => pulses(period)(i));
+    expect(pitch![0]).toBeCloseTo(1, 6); // pattern C, step 1: an octave up
+    expect(risingEdges(gate!)).toEqual([0]); // its other steps are off
+    // Switching back keeps the step going: the next step (3) is read from pattern A.
+    seq.setParam('bank', 0);
+    const [again] = run(seq, period / SR, (_c, i) => pulses(period)(i));
+    expect(again![0]).toBeCloseTo(NOTES[2]! / 12, 6);
+  });
+
+  it('ignores a pattern that does not exist', () => {
+    const seq = sequencer();
+    seq.setParam('bank', 99);
+    const [pitch] = run(seq, 0.1, (_c, i) => pulses(4800)(i));
+    expect(pitch![0]).toBeCloseTo(0, 6); // pattern A
+  });
+
   it('moves one step per clock pulse and wraps after eight', () => {
     const period = 4800;
     const [pitch, gate] = run(sequencer(), (period * 10) / SR, (_c, i) => pulses(period)(i));
