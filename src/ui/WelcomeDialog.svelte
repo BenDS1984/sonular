@@ -73,10 +73,6 @@
       <strong>Saving your sound:</strong> add a <strong>Recorder</strong> module, press Rec and
       then Play, and save the take as a WAV file.
     </p>
-    <p class="note">
-      <strong>Bluetooth:</strong> live sound in the browser can crackle or click on some Bluetooth
-      headphones and speakers. If you hear that, use wired headphones or your computer's speakers.
-    </p>
     <p class="small">
       Sonular is free and open source (GPL-3.0).
       <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Source on GitHub</a>
