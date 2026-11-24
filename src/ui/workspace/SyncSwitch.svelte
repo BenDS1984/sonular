@@ -1,5 +1,5 @@
 <!--
-  Top-left of the patch canvas: does this patch follow the timeline (Sync) or ignore it (Free)?
+  Bottom-left of the patch canvas: does this patch follow the timeline (Sync) or ignore it (Free)?
   The same setting as the Free button on the timeline and in the tab menu.
 -->
 <script lang="ts">
@@ -37,7 +37,7 @@
   .sync {
     position: absolute;
     left: var(--space-3);
-    top: var(--space-3);
+    bottom: var(--space-3);
     z-index: 150000;
     display: flex;
     padding: 2px;
