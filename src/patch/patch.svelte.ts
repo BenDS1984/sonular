@@ -17,6 +17,14 @@ export const patch = $state<Patch>({
   view: { x: 0, y: 0, zoom: 1 },
 });
 
+/**
+ * Whether the patch holds nothing to lose: no cables and no modules but (at most) Outputs, which a
+ * new patch starts with. Then "New patch" needs no confirmation and the hints for an empty patch show.
+ */
+export function isPatchEmpty(): boolean {
+  return patch.cables.length === 0 && patch.modules.every((m) => m.type === 'output');
+}
+
 /** Switch the master limiter on or off; on is the default and is not stored. */
 export function setLimiter(on: boolean) {
   if (on) delete patch.limiter;

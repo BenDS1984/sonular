@@ -5,7 +5,7 @@
   import IconButton from './components/IconButton.svelte';
   import TempoField from './components/TempoField.svelte';
   import CpuGraph from './CpuGraph.svelte';
-  import { DEFAULT_PATCH_NAME, patch, setLimiter } from '../patch/patch.svelte';
+  import { DEFAULT_PATCH_NAME, isPatchEmpty, patch, setLimiter } from '../patch/patch.svelte';
   import { historyState, redo, undo } from '../patch/history.svelte';
   import { choosePatchFile, newPatch, requestSave } from '../patch/fileActions';
   import { toggleBrowserPanel } from './browser/browserPanel.svelte';
@@ -17,7 +17,7 @@
   let confirmNew = $state(false);
 
   function askNew() {
-    if (patch.modules.length === 0) newPatch();
+    if (isPatchEmpty()) newPatch();
     else confirmNew = !confirmNew;
   }
 

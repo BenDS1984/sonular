@@ -7,6 +7,9 @@ import { getDefinition } from '../modules/registry';
 import { dialogs } from '../ui/dialogs.svelte';
 import { showToast } from '../ui/toast.svelte';
 import { FILE_EXTENSION, PatchFileError, fileNameFor, parsePatchFile, serializePatch } from './fileFormat';
+import { snap } from './geometry';
+import * as ops from './operations';
+import { prefs } from '../ui/prefs.svelte';
 import { canvasState, DEFAULT_PATCH_NAME, fitAll, patch, setLimiter } from './patch.svelte';
 import type { Patch } from './types';
 import welcomePreset from '../presets/welcome.sonular?raw';
@@ -93,4 +96,27 @@ export function newPatch() {
   patch.modules = [];
   patch.cables = [];
   patch.view = { x: 0, y: 0, zoom: 1 };
+  addDefaultOutput();
+}
+
+/** Room kept between the Output and the right edge of the canvas, in canvas pixels. */
+const OUTPUT_MARGIN = 56;
+/** About how tall the Output panel is (measured), to put it in the vertical middle. */
+const OUTPUT_HEIGHT = 340;
+
+/**
+ * Put an Output module at the right of the canvas, in the vertical middle, for a patch that starts
+ * empty: nearly every patch ends in one. The canvas is measured when it is on screen; at start-up,
+ * before it is drawn, its size is worked out from the window and the browser panel.
+ */
+export function addDefaultOutput() {
+  const def = getDefinition('output');
+  if (!def) return;
+  const w = canvasState.viewport.w || Math.max(600, window.innerWidth - (prefs.browserOpen ? prefs.browserWidth : 0));
+  const h = canvasState.viewport.h || Math.max(400, window.innerHeight - 56);
+  const view = patch.view;
+  // The canvas point at the right edge of the screen, with the view as it is.
+  const right = (w - view.x) / view.zoom;
+  const middle = (h / 2 - view.y) / view.zoom;
+  ops.addModule(patch, def, snap(right - def.width - OUTPUT_MARGIN), snap(Math.max(24, middle - OUTPUT_HEIGHT / 2)));
 }

@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   import { loadStarterPatch } from '../patch/fileActions';
-  import { patch } from '../patch/patch.svelte';
+  import { isPatchEmpty } from '../patch/patch.svelte';
   import { dialogs } from './dialogs.svelte';
   import { prefs } from './prefs.svelte';
 
@@ -17,7 +17,7 @@
 
   $effect(() => {
     if (!dialogs.welcome) return;
-    emptyAtOpen = patch.modules.length === 0;
+    emptyAtOpen = isPatchEmpty();
     queueMicrotask(() => dialog?.focus());
   });
 

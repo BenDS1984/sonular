@@ -16,7 +16,7 @@
   import ZoomControls from './workspace/ZoomControls.svelte';
   import Minimap from './workspace/Minimap.svelte';
   import { prefs } from './prefs.svelte';
-  import { canvasState, deleteSelection, fitAll, patch } from '../patch/patch.svelte';
+  import { canvasState, deleteSelection, fitAll, isPatchEmpty, patch } from '../patch/patch.svelte';
   import { loadStarterPatch } from '../patch/fileActions';
   import { GRID, toCanvas, zoomAt } from '../patch/geometry';
   import { getDefinition } from '../modules/registry';
@@ -242,7 +242,7 @@
     <CableLayer onjackpointerdown={startJackDrag} />
   </div>
 
-  {#if patch.modules.length === 0}
+  {#if isPatchEmpty()}
     <div class="empty">
       <p class="title">Your patch is empty</p>
       <p class="hint">Drag a module from the <strong>Browser</strong> on the left, or double-click here to search one.</p>
@@ -262,7 +262,7 @@
     <div class="drop-hint">Drop a .sonular file to open it</div>
   {/if}
 
-  {#if prefs.minimap && patch.modules.length > 0}
+  {#if prefs.minimap && !isPatchEmpty()}
     <Minimap />
   {/if}
 
