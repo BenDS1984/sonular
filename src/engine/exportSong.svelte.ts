@@ -37,6 +37,8 @@ export const exportState = $state({
 });
 
 let worker: Worker | null = null;
+/** Counts exports; Cancel moves it on, so an export still getting ready knows it was cancelled. */
+let exportRun = 0;
 
 /** The names of the Free patches: they ignore the timeline, so they are not exported. */
 export const freePatchNames = () => project.patches.filter((p) => p.free).map((p) => p.name);
@@ -52,6 +54,7 @@ export function exportFileName(name: string, what: ExportOptions['what']): strin
 
 export async function startExport(opts: ExportOptions): Promise<void> {
   if (exportState.phase === 'preparing' || exportState.phase === 'rendering') return;
+  const run = ++exportRun;
   Object.assign(exportState, { phase: 'preparing', progress: 0, fileName: '', seconds: 0, clipped: false, error: '' });
   // Playing stops while exporting (both would want the computer's full attention).
   if (engineState.playing) await togglePlay();
@@ -79,7 +82,7 @@ export async function startExport(opts: ExportOptions): Promise<void> {
       tailSeconds: song && opts.tail ? MAX_TAIL_SECONDS : 0,
     };
     const fileName = exportFileName(project.name, opts.what);
-    if (exportState.phase !== 'preparing') return; // cancelled meanwhile
+    if (run !== exportRun) return; // cancelled while getting ready
 
     worker = new Worker(new URL('./export/exportWorker.ts', import.meta.url), { type: 'module' });
     exportState.phase = 'rendering';
@@ -110,6 +113,7 @@ export async function startExport(opts: ExportOptions): Promise<void> {
 
 /** Stop an export that is running; nothing is saved. */
 export function cancelExport(): void {
+  exportRun++;
   stopWorker();
   exportState.phase = 'idle';
   exportState.progress = 0;

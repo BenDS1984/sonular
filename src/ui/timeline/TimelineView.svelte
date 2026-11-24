@@ -250,7 +250,6 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   let body: HTMLDivElement | undefined = $state();
   let viewW = $state(0);
   const ppb = $derived(timelineView.ppb);
-  const timeline = $derived(project.timeline);
   /** End of the song: the End marker, or the end of the last block or clip when that is later. */
   const end = $derived(songEnd(project));
   const loop = $derived(project.timeline.loop);
