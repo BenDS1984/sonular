@@ -122,6 +122,7 @@ export function groupSelection() {
   let n = groups.length + 1;
   while (groups.some((g) => g.id === `g${n}`)) n++;
   patch.groups = [...groups, { id: `g${n}`, name: `Group ${n}`, moduleIds: [...ids], collapsed: false }];
+  raiseModule(ids[0]!); // the new group covers whatever lies under it
 }
 
 /** Dissolve a group; its modules stay where they are. */
@@ -152,8 +153,28 @@ export function disconnect(cableId: string) {
   if (canvasState.selection?.kind === 'cable' && canvasState.selection.id === cableId) canvasState.selection = null;
 }
 
+/**
+ * Bring a module to the front. A module in a group brings its whole group along, so a group always
+ * covers (or is covered by) other modules as one piece.
+ */
 export function raiseModule(id: string) {
+  const group = groupOf(patch, id);
+  for (const member of group ? group.moduleIds.filter((x) => x !== id) : []) canvasState.zIndex[member] = ++zCounter;
   canvasState.zIndex[id] = ++zCounter;
+}
+
+/** Give every group its own stacking turn (after opening a patch, when nothing was raised yet). */
+export function raiseGroups() {
+  for (const g of patch.groups ?? []) if (g.moduleIds[0]) raiseModule(g.moduleIds[0]);
+}
+
+/**
+ * Stacking number on the canvas. Modules take even numbers; the frame of an expanded group sits just
+ * below its lowest member (an odd number), above everything underneath it.
+ */
+export const moduleLayer = (id: string) => 2 * (canvasState.zIndex[id] ?? 0);
+export function groupLayer(moduleIds: string[]) {
+  return Math.min(...moduleIds.map((id) => moduleLayer(id))) - 1;
 }
 
 export function selectModule(id: string) {

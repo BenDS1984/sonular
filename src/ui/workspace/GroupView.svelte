@@ -5,7 +5,7 @@
   group; double-click the name (or use the pencil) to rename it.
 -->
 <script lang="ts">
-  import { canvasState, patch, toggleGroupCollapsed, ungroup } from '../../patch/patch.svelte';
+  import { canvasState, groupLayer, patch, toggleGroupCollapsed, ungroup } from '../../patch/patch.svelte';
   import { barRect, frameRect, GROUP_HEADER } from '../../patch/groups';
   import { snap } from '../../patch/geometry';
   import type { ModuleGroup } from '../../patch/types';
@@ -75,6 +75,7 @@
     style:top={`${rect.y}px`}
     style:width={`${rect.w}px`}
     style:height={`${rect.h}px`}
+    style:z-index={group.collapsed ? undefined : groupLayer(group.moduleIds)}
   >
     <!-- svelte-ignore a11y_no_static_element_interactions (dragging by the bar is a mouse affordance, like a module header) -->
     <header
@@ -111,11 +112,11 @@
     box-sizing: border-box;
     border: 1px solid var(--border-default);
     border-radius: var(--radius-lg);
-    background: rgb(255 255 255 / 0.03);
+    /* Solid, so a module from outside the group that lies under it is not seen through it. */
+    background: color-mix(in srgb, var(--bg-canvas) 94%, white);
     box-shadow: var(--shadow-module);
     user-select: none;
-    /* Behind the modules and the cables' hit layer; only the grey bar takes the mouse. */
-    z-index: -2;
+    /* Just below its own modules (z-index is set from the modules' stacking); only the grey bar takes the mouse. */
     pointer-events: none;
   }
   .group-view.collapsed {

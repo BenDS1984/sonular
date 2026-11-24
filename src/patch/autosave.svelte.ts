@@ -5,7 +5,7 @@
 import { getDefinition } from '../modules/registry';
 import { browserStore, type KeyValueStore } from '../platform/storage';
 import { parsePatchFile, serializePatch } from './fileFormat';
-import { patch, setLimiter } from './patch.svelte';
+import { patch, raiseGroups, setLimiter } from './patch.svelte';
 
 const KEY = 'sonular.autosave';
 const SAVE_DELAY_MS = 400;
@@ -23,6 +23,7 @@ export function restoreAutosave(store: KeyValueStore = browserStore): boolean {
     patch.cables = saved.cables;
     patch.groups = saved.groups;
     patch.view = saved.view;
+    raiseGroups();
     return true;
   } catch {
     // A broken copy must never block start-up.

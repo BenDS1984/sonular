@@ -6,7 +6,7 @@
   import ModulePanel from '../components/ModulePanel.svelte';
   import Port from '../components/Port.svelte';
   import { getDefinition } from '../../modules/registry';
-  import { canvasState, isHidden, patch, raiseModule, removeModule, selectModule } from '../../patch/patch.svelte';
+  import { canvasState, isHidden, moduleLayer, patch, raiseModule, removeModule, selectModule } from '../../patch/patch.svelte';
   import { snap } from '../../patch/geometry';
   import { isPortConnected } from '../../patch/operations';
   import type { ModuleInstance } from '../../patch/types';
@@ -118,7 +118,7 @@
     bind:this={root}
     style:left={`${module.x}px`}
     style:top={`${module.y}px`}
-    style:z-index={canvasState.zIndex[module.id] ?? 0}
+    style:z-index={moduleLayer(module.id)}
     onpointerdown={() => {
       if (!selected || canvasState.selection?.kind !== 'modules') selectModule(module.id);
     }}

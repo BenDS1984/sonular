@@ -10,7 +10,7 @@ import { FILE_EXTENSION, PatchFileError, fileNameFor, parsePatchFile, serializeP
 import { snap } from './geometry';
 import * as ops from './operations';
 import { prefs } from '../ui/prefs.svelte';
-import { canvasState, DEFAULT_PATCH_NAME, fitAll, patch, setLimiter } from './patch.svelte';
+import { canvasState, DEFAULT_PATCH_NAME, fitAll, patch, raiseGroups, setLimiter } from './patch.svelte';
 import type { Patch } from './types';
 import welcomePreset from '../presets/welcome.sonular?raw';
 
@@ -64,6 +64,7 @@ function applyPatch(loaded: Patch) {
   patch.cables = loaded.cables;
   patch.groups = loaded.groups;
   patch.view = loaded.view;
+  raiseGroups();
 }
 
 /**
