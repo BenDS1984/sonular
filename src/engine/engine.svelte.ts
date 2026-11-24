@@ -10,6 +10,7 @@ import { getDefinition } from '../modules/registry';
 import { CHANNEL_TYPE } from '../patch/operations';
 import { patch, project } from '../patch/patch.svelte';
 import { usedSamples } from '../patch/audioTracks';
+import { songEnd } from '../patch/timeline';
 import { decodeLibrarySample } from '../samples/sampleBuffers';
 import {
   audibleAudioTracks,
@@ -80,6 +81,17 @@ export function currentBeat(): number {
     b = loop.start + ((b - loop.end) % (loop.end - loop.start));
   }
   return b;
+}
+
+/**
+ * Where the play marker shows a song position: with the loop off it stops at the end of the song
+ * when playing started before it. Only the marker stops: the engine plays on, so patches keep
+ * sounding (past the end there are no blocks or clips left to play anyway).
+ */
+export function shownPosition(beat: number): number {
+  if (project.timeline.loop.on) return beat;
+  const end = songEnd(project);
+  return transportState.start < end ? Math.min(beat, end) : beat;
 }
 
 /** Put the playhead somewhere; while playing, playback jumps there. */

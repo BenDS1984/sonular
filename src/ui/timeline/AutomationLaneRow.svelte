@@ -17,7 +17,7 @@
 -->
 <script lang="ts">
   import { bend, CURVE_K, curveForMidpoint } from '../../engine/core/automation';
-  import { currentBeat, engineState, transportState } from '../../engine/engine.svelte';
+  import { currentBeat, engineState, shownPosition, transportState } from '../../engine/engine.svelte';
   import { paramFormatter } from '../../modules/paramFormat';
   import type { ParamSpec } from '../../modules/types';
   import {
@@ -299,7 +299,7 @@
 
   /** Where Ctrl+V pastes: the playhead (where the song is while playing), on the grid. */
   function pasteAt() {
-    const beat = engineState.playing ? currentBeat() : transportState.start;
+    const beat = engineState.playing ? shownPosition(currentBeat()) : transportState.start;
     return Math.max(0, snap(beat, snapUnit(ppb)));
   }
 

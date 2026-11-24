@@ -32,7 +32,7 @@
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { engineState, meterValueIn, setPlayhead, transportState } from '../../engine/engine.svelte';
+  import { engineState, meterValueIn, setPlayhead, shownPosition, transportState } from '../../engine/engine.svelte';
 import { setControl, shownValue } from '../automation.svelte';
 import TrackLevel from '../components/TrackLevel.svelte';
   import { getDefinition } from '../../modules/registry';
@@ -61,6 +61,7 @@ import TrackLevel from '../components/TrackLevel.svelte';
     LANE_HEIGHT,
     laneHeight,
     setLaneHeight,
+    songEnd,
   } from '../../patch/timeline';
   import { overrideKey, overrides } from '../../engine/overrides.svelte';
   import {
@@ -250,11 +251,13 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   let viewW = $state(0);
   const ppb = $derived(timelineView.ppb);
   const timeline = $derived(project.timeline);
+  /** End of the song: the End marker, or the end of the last block or clip when that is later. */
+  const end = $derived(songEnd(project));
   const loop = $derived(project.timeline.loop);
 
   /** Width of the scrollable song area in beats: past the end, and at least the window. */
   const contentBeats = $derived(
-    Math.min(MAX_BEATS, Math.max(timeline.end + 8 * BEATS_PER_BAR, loop.end + 4 * BEATS_PER_BAR, Math.ceil(viewW / ppb))),
+    Math.min(MAX_BEATS, Math.max(end + 8 * BEATS_PER_BAR, loop.end + 4 * BEATS_PER_BAR, Math.ceil(viewW / ppb))),
   );
   const contentW = $derived(contentBeats * ppb);
 
@@ -335,7 +338,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
 
   /** Zoom so the whole song fits the window. */
   function fitSong() {
-    timelineView.ppb = clampPpb((viewW - 24) / Math.max(BEATS_PER_BAR, timeline.end));
+    timelineView.ppb = clampPpb((viewW - 24) / Math.max(BEATS_PER_BAR, end));
     requestAnimationFrame(() => {
       if (!body) return;
       body.scrollLeft = 0;
@@ -404,6 +407,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       let b = anchor.beat + (elapsed * project.tempo) / 60;
       const l = project.timeline.loop;
       if (l.on && anchor.beat < l.end && b >= l.end) b -= l.end - l.start;
+      b = shownPosition(b); // with the loop off the marker stops at the end (the sound plays on)
       shownBeat = b;
       follow(b);
       raf = requestAnimationFrame(frame);
@@ -454,7 +458,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       const b = beatAt(e);
       return b > loop.start && b < loop.end ? 'loop-move' : 'loop-new';
     }
-    return near(e, timeline.end) ? 'end' : 'playhead';
+    return near(e, end) ? 'end' : 'playhead';
   }
 
   let hover: Drag['kind'] | null = $state(null);
@@ -1366,7 +1370,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     tabindex="-1"
     aria-label="Playhead position"
     aria-valuemin={0}
-    aria-valuemax={timeline.end}
+    aria-valuemax={end}
     aria-valuenow={ariaBeat}
     aria-valuetext={formatPosition(ariaBeat)}
     style:cursor
@@ -1392,8 +1396,14 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       {#each visibleTimes as tm (tm.x)}
         <span class="time-label" style:left={`${tm.x}px`}>{tm.text}</span>
       {/each}
-      <div class="end-shade" style:left={`${timeline.end * ppb}px`}></div>
-      <div class="end-flag" style:left={`${timeline.end * ppb}px`} title={`End of the song: ${formatLength(timeline.end)}`}>End</div>
+      <div class="end-shade" style:left={`${end * ppb}px`}></div>
+      <div
+        class="end-flag"
+        style:left={`${end * ppb}px`}
+        title={`End of the song: ${formatLength(end)}. With the loop off, the play marker stops here (patches keep sounding). Drag to move; it moves along by itself when blocks or clips go past it.`}
+      >
+        End
+      </div>
       <div class="playhead-mark" style:transform={`translateX(${shownBeat * ppb}px)`}></div>
     </div>
   </div>
@@ -1790,7 +1800,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       {#if loop.on}
         <div class="loop-shade" style:left={`${loop.start * ppb}px`} style:width={`${(loop.end - loop.start) * ppb}px`}></div>
       {/if}
-      <div class="end-shade" style:left={`${timeline.end * ppb}px`}></div>
+      <div class="end-shade" style:left={`${end * ppb}px`}></div>
       <div class="playhead" style:transform={`translateX(${shownBeat * ppb}px)`}></div>
       {#if selectBox}
         <div class="select-box" style:left={`${selectBox.x}px`} style:top={`${selectBox.y}px`} style:width={`${selectBox.w}px`} style:height={`${selectBox.h}px`}></div>

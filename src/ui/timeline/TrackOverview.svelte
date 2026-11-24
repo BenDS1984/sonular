@@ -9,7 +9,7 @@
 -->
 <script lang="ts">
   import { project } from '../../patch/patch.svelte';
-  import { BEATS_PER_BAR } from '../../patch/timeline';
+  import { BEATS_PER_BAR, songEnd } from '../../patch/timeline';
   import { channelColor } from '../channelColors';
   import { MAX_PPB } from './timelineGeometry';
   import { timelineView } from './timelineScreen.svelte';
@@ -49,9 +49,7 @@
 
   /** The stretch of song the overview shows: the end of the song or the last block, whichever is later. */
   const songBeats = $derived.by(() => {
-    let end = project.timeline.end;
-    for (const t of tracks) for (const s of t.spans) end = Math.max(end, s.end);
-    return Math.max(end, 4 * BEATS_PER_BAR);
+    return Math.max(songEnd(project), 4 * BEATS_PER_BAR);
   });
 
   const lineH = $derived(Math.min(MAX_LINE, Math.max(MIN_LINE, (HEIGHT - 4) / Math.max(1, tracks.length))));
@@ -162,7 +160,7 @@
       style:width={`${px(project.timeline.loop.end - project.timeline.loop.start)}px`}
     ></div>
   {/if}
-  <div class="end" style:left={`${px(project.timeline.end)}px`}></div>
+  <div class="end" style:left={`${px(songEnd(project))}px`}></div>
   <div class="dim" style:left="0" style:width={`${winLeftPx}px`}></div>
   <div class="dim" style:left={`${winRightPx}px`} style:right="0"></div>
   <div class="window" style:left={`${winLeftPx}px`} style:width={`${Math.max(0, winRightPx - winLeftPx)}px`}></div>

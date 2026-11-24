@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ModuleDefinition } from '../modules/types';
 import { duplicatePatch, emptyPatch, emptyProject, removeModule } from './operations';
 import {
+  songEnd,
   defaultTitle,
   hasTimelineRow,
   addClip,
@@ -463,5 +464,19 @@ describe('rows on the timeline', () => {
     expect(defaultTitle(def({ gates: [{ meter: 'gate', label: 'Gate' }] }), { id: 'gen2', type: 'x' })).toBe('X 2');
     expect(defaultTitle(def({}), { id: 'osc2', type: 'x' })).toBe('X 2');
     expect(defaultTitle(def({ fixed: true }), { id: 'channel1', type: 'x' })).toBe('X');
+  });
+});
+
+describe('song end', () => {
+  it('is the End marker, or later when blocks or audio clips go past it', () => {
+    const project = emptyProject('x', 120);
+    project.timeline.end = 16;
+    expect(songEnd(project)).toBe(16);
+    project.patches[0]!.clips.push({ id: 'b1', module: 'seq1', start: 12, length: 8, bank: 0 });
+    expect(songEnd(project)).toBe(20);
+    project.audioTracks.push({ id: 'a1', name: 'A', color: 0, level: 1, pan: 0, send1: 0, send2: 0, mute: false, solo: false, clips: [{ id: 'c1', sample: 's', name: 's', start: 30, length: 2, offset: 0 }] } as never);
+    expect(songEnd(project)).toBe(32);
+    project.audioTracks[0]!.clips = [];
+    expect(songEnd(project)).toBe(20); // goes back when they do
   });
 });

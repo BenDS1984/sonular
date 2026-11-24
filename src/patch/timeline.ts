@@ -5,9 +5,21 @@
 import type { ModuleDefinition, ParamSpec } from '../modules/types';
 import { positionAt } from '../engine/core/automation';
 import { fromNormalized, quantize, toNormalized } from '../ui/scale';
-import type { AutomationLane, AutomationPoint, Clip, Patch, Timeline } from './types';
+import type { AutomationLane, AutomationPoint, Clip, Patch, Project, Timeline } from './types';
 
 export const BEATS_PER_BAR = 4;
+
+/**
+ * Where the song ends, in beats: the End marker, or later when blocks or audio clips go on past it
+ * (so End moves along with them without being dragged, and goes back when they do). With the loop
+ * off, the play marker stops here; the sound plays on.
+ */
+export function songEnd(project: Pick<Project, 'timeline' | 'patches' | 'audioTracks'>): number {
+  let end = project.timeline.end;
+  for (const p of project.patches) for (const c of p.clips) end = Math.max(end, c.start + c.length);
+  for (const t of project.audioTracks) for (const c of t.clips) end = Math.max(end, c.start + c.length);
+  return end;
+}
 /** Longest song: 999 bars. */
 export const MAX_BEATS = 999 * BEATS_PER_BAR;
 /** Shortest block: one sixteenth note. */
