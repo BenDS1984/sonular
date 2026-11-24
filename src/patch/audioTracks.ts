@@ -2,6 +2,7 @@
  * Audio tracks on the timeline: tracks that play samples from the library. Plain functions that
  * mutate in place, like ./timeline. Times are in beats; a sample's own positions are in seconds.
  */
+import { clampFadeBend, FADE_LINEAR } from '../engine/core/fadeCurve';
 import type { SampleInfo } from '../platform/sampleStore';
 import { MAX_BEATS, MIN_CLIP_LENGTH } from './timeline';
 import { PATCH_COLOR_COUNT } from './operations';
@@ -208,9 +209,35 @@ export function audioFades(clip: Pick<AudioClip, 'length' | 'fadeIn' | 'fadeOut'
 export function setAudioFade(clip: AudioClip, which: 'in' | 'out', beats: number): void {
   const other = which === 'in' ? audioFades(clip).fadeOut : audioFades(clip).fadeIn;
   const v = Math.min(Math.max(0, Number.isFinite(beats) ? beats : 0), clip.length - other);
-  const key = which === 'in' ? 'fadeIn' : 'fadeOut';
-  if (v < MIN_FADE) delete clip[key];
-  else clip[key] = v;
+  if (v < MIN_FADE) dropAudioFade(clip, which);
+  else clip[which === 'in' ? 'fadeIn' : 'fadeOut'] = v;
+}
+
+/** Remove a fade, with its bend. */
+function dropAudioFade(clip: AudioClip, which: 'in' | 'out'): void {
+  if (which === 'in') {
+    delete clip.fadeIn;
+    delete clip.fadeInBend;
+  } else {
+    delete clip.fadeOut;
+    delete clip.fadeOutBend;
+  }
+}
+
+/** How a clip's fades are bent: their levels halfway through (FADE_LINEAR: straight). */
+export function audioFadeBends(clip: Pick<AudioClip, 'fadeInBend' | 'fadeOutBend'>): { in: number; out: number } {
+  return {
+    in: clip.fadeInBend === undefined ? FADE_LINEAR : clampFadeBend(clip.fadeInBend),
+    out: clip.fadeOutBend === undefined ? FADE_LINEAR : clampFadeBend(clip.fadeOutBend),
+  };
+}
+
+/** Bend a fade (its level halfway through); close to straight snaps to straight, which is not stored. */
+export function setAudioFadeBend(clip: AudioClip, which: 'in' | 'out', bend: number): void {
+  const b = clampFadeBend(bend);
+  const key = which === 'in' ? 'fadeInBend' : 'fadeOutBend';
+  if (Math.abs(b - FADE_LINEAR) < 0.015) delete clip[key];
+  else clip[key] = b;
 }
 
 // ---------- Clip volume ----------
@@ -272,6 +299,7 @@ export function splitAudioClip(track: AudioTrack, id: string, at: number, tempo:
   const end = clip.start + clip.length;
   if (!(at - clip.start >= MIN_CLIP_LENGTH) || !(end - at >= MIN_CLIP_LENGTH)) return null;
   const { fadeIn, fadeOut } = audioFades(clip);
+  const outBend = clip.fadeOutBend;
   const second: AudioClip = {
     id: nextAudioClipId(track),
     sample: clip.sample,
@@ -282,9 +310,10 @@ export function splitAudioClip(track: AudioTrack, id: string, at: number, tempo:
     ...(clip.gain !== undefined ? { gain: clip.gain } : {}),
   };
   clip.length = at - clip.start;
-  delete clip.fadeOut;
+  dropAudioFade(clip, 'out');
   setAudioFade(clip, 'in', fadeIn);
   setAudioFade(second, 'out', fadeOut);
+  if (second.fadeOut !== undefined && outBend !== undefined) second.fadeOutBend = outBend;
   track.clips.push(second);
   return second;
 }
@@ -316,17 +345,18 @@ export function carveAudio(track: AudioTrack, start: number, end: number, keep: 
         ...(c.gain !== undefined ? { gain: c.gain } : {}),
       };
       if (c.fadeOut !== undefined) setAudioFade(right, 'out', c.fadeOut);
+      if (right.fadeOut !== undefined && c.fadeOutBend !== undefined) right.fadeOutBend = c.fadeOutBend;
       c.length = before;
-      delete c.fadeOut;
+      dropAudioFade(c, 'out');
       track.clips.push(right);
     } else if (before > eps) {
       c.length = before;
-      delete c.fadeOut;
+      dropAudioFade(c, 'out');
     } else if (after > eps) {
       c.offset += beatsToSeconds(end - c.start, tempo);
       c.start = end;
       c.length = after;
-      delete c.fadeIn;
+      dropAudioFade(c, 'in');
     } else {
       removeAudioClip(track, c.id);
       continue;

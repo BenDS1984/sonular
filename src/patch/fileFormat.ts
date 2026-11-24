@@ -5,6 +5,7 @@
  * are repaired or dropped with a warning, so a file never fails to open because of one bad
  * entry. Older versions are upgraded step by step through MIGRATIONS.
  */
+import { clampFadeBend, FADE_LINEAR } from '../engine/core/fadeCurve';
 import { clampTempo, DEFAULT_TEMPO } from '../engine/core/Transport';
 import type { ModuleDefinition } from '../modules/types';
 import { ensureChannel } from './operations';
@@ -116,6 +117,8 @@ export function serializeProject(project: Project, now = new Date()): string {
           offset: c.offset,
           ...(c.fadeIn ? { fadeIn: c.fadeIn } : {}),
           ...(c.fadeOut ? { fadeOut: c.fadeOut } : {}),
+          ...(c.fadeIn && c.fadeInBend !== undefined ? { fadeInBend: c.fadeInBend } : {}),
+          ...(c.fadeOut && c.fadeOutBend !== undefined ? { fadeOutBend: c.fadeOutBend } : {}),
           ...(c.gain !== undefined && c.gain !== 1 ? { gain: c.gain } : {}),
         })),
       })),
@@ -483,6 +486,8 @@ function validateAudioTracks(raw: unknown, warnings: string[]): AudioTrack[] {
         offset: isFiniteNumber(c['offset']) ? Math.max(0, c['offset']) : 0,
         ...(isFiniteNumber(c['fadeIn']) && c['fadeIn'] > 0 ? { fadeIn: Math.min(c['fadeIn'], MAX_BEATS) } : {}),
         ...(isFiniteNumber(c['fadeOut']) && c['fadeOut'] > 0 ? { fadeOut: Math.min(c['fadeOut'], MAX_BEATS) } : {}),
+        ...(isFiniteNumber(c['fadeInBend']) && c['fadeInBend'] !== FADE_LINEAR ? { fadeInBend: clampFadeBend(c['fadeInBend']) } : {}),
+        ...(isFiniteNumber(c['fadeOutBend']) && c['fadeOutBend'] !== FADE_LINEAR ? { fadeOutBend: clampFadeBend(c['fadeOutBend']) } : {}),
         ...(isFiniteNumber(c['gain']) && c['gain'] !== 1 ? { gain: clampClipGain(c['gain']) } : {}),
       });
     }

@@ -135,6 +135,9 @@ export interface AudioClip {
    */
   fadeIn?: number;
   fadeOut?: number;
+  /** How each fade is bent: its level halfway through (0.5 = straight, when left out). */
+  fadeInBend?: number;
+  fadeOutBend?: number;
   /** The clip's own volume, as a factor (0 = silent, up to +12 dB); 1 (0 dB) when left out. */
   gain?: number;
 }

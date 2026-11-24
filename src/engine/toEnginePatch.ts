@@ -4,7 +4,8 @@
  * "<patch id>/<module id>", and each patch's Channel is a sink on the master bus.
  */
 import type { ModuleDefinition } from '../modules/types';
-import { audioFades, audioGain } from '../patch/audioTracks';
+import { audioFadeBends, audioFades, audioGain } from '../patch/audioTracks';
+import { FADE_LINEAR, fadePower } from './core/fadeCurve';
 import { CHANNEL_TYPE } from '../patch/operations';
 import { holdsSteps } from '../patch/timeline';
 import type { AudioTrack, Patch, Project } from '../patch/types';
@@ -64,8 +65,15 @@ export function engineAudioClips(track: AudioTrack): EngineAudioClip[] {
     .map((c) => {
       const clip: EngineAudioClip = { sample: c.sample, start: c.start, end: c.start + c.length, offset: c.offset };
       const { fadeIn, fadeOut } = audioFades(c);
-      if (fadeIn > 0) clip.fadeIn = fadeIn;
-      if (fadeOut > 0) clip.fadeOut = fadeOut;
+      const bends = audioFadeBends(c);
+      if (fadeIn > 0) {
+        clip.fadeIn = fadeIn;
+        if (bends.in !== FADE_LINEAR) clip.fadeInPower = fadePower(bends.in);
+      }
+      if (fadeOut > 0) {
+        clip.fadeOut = fadeOut;
+        if (bends.out !== FADE_LINEAR) clip.fadeOutPower = fadePower(bends.out);
+      }
       const gain = audioGain(c);
       if (gain !== 1) clip.gain = gain;
       return clip;

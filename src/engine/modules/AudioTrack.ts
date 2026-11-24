@@ -1,6 +1,7 @@
 import { BLOCK_SIZE, type EngineAudioClip, type SinkModule } from '../core/types';
 import type { SampleBank, SampleData } from '../core/SampleBank';
 import type { Transport } from '../core/Transport';
+import { fadeGain } from '../core/fadeCurve';
 
 /** Fade at the edges of a clip (and when playing starts in the middle of one): no clicks. */
 const EDGE_FADE_SECONDS = 0.003;
@@ -155,11 +156,11 @@ export class AudioTrack implements SinkModule {
           if (s.age < fade) g = s.age / fade;
           const toEnd = (c.end - b) / bps;
           if (toEnd < fade) g *= toEnd / fade;
-          // The clip's own fades: straight lines over the song position.
+          // The clip's own fades over the song position, straight or bent.
           const fi = c.fadeIn;
-          if (fi !== undefined && b - c.start < fi) g *= (b - c.start) / fi;
+          if (fi !== undefined && b - c.start < fi) g *= fadeGain((b - c.start) / fi, c.fadeInPower);
           const fo = c.fadeOut;
-          if (fo !== undefined && c.end - b < fo) g *= (c.end - b) / fo;
+          if (fo !== undefined && c.end - b < fo) g *= fadeGain((c.end - b) / fo, c.fadeOutPower);
           const a = data.left[i0]!;
           l += (a + (data.left[i1]! - a) * frac) * g;
           const a2 = data.right[i0]!;

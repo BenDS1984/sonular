@@ -3,6 +3,7 @@ import { BLOCK_SIZE } from '../core/types';
 import { SampleBank } from '../core/SampleBank';
 import { Transport } from '../core/Transport';
 import { AudioTrack } from './AudioTrack';
+import { fadeGain, fadePower } from '../core/fadeCurve';
 
 const SR = 48000;
 
@@ -105,6 +106,15 @@ describe('AudioTrack fades', () => {
     expect(at(0.75)).toBeCloseTo(0.5, 5); // full
     expect(at(1.5)).toBeCloseTo(0.25, 2); // halfway the fade out
     expect(at(1.9)).toBeCloseTo(0.05, 2);
+  });
+
+  it('bends a fade the same way the timeline draws it', () => {
+    const t = setup(0.5);
+    const power = fadePower(0.8); // halfway the fade in at 80 %
+    t.track.setAudioClips([{ sample: 's', start: 0, end: 4, offset: 0, fadeIn: 1, fadeInPower: power }]);
+    const out = render(t, Math.ceil((1 * SR) / BLOCK_SIZE));
+    expect(out[Math.floor(0.25 * SR)]!).toBeCloseTo(0.5 * 0.8, 2);
+    expect(out[Math.floor(0.1 * SR)]!).toBeCloseTo(0.5 * fadeGain(0.2, power), 2);
   });
 
   it('plays a clip at its own volume', () => {

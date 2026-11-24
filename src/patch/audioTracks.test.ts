@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { FADE_LINEAR } from '../engine/core/fadeCurve';
 import {
+  audioFadeBends,
+  setAudioFadeBend,
   addAudioClip,
   addAudioTrack,
   audioFades,
@@ -198,6 +201,37 @@ describe('fades', () => {
     expect(audioFades(right!)).toEqual({ fadeIn: 0, fadeOut: 2 });
     carveAudio(t, 0, 1, [], 120); // cut the front off the left part
     expect(t.clips.find((c) => c.start === 1)?.fadeIn).toBeUndefined();
+  });
+});
+
+describe('fade bends', () => {
+  function setup() {
+    const t = addAudioTrack(emptyProject('x', 120));
+    const clip = addAudioClip(t, sample('s1', 4), 0, 120)!; // 0–8
+    setAudioFade(clip, 'in', 1);
+    setAudioFade(clip, 'out', 2);
+    return { t, clip };
+  }
+
+  it('start straight, stay within range, and straight is not stored', () => {
+    const { clip } = setup();
+    expect(audioFadeBends(clip)).toEqual({ in: FADE_LINEAR, out: FADE_LINEAR });
+    setAudioFadeBend(clip, 'in', 2);
+    expect(clip.fadeInBend).toBe(0.9);
+    setAudioFadeBend(clip, 'in', 0.505);
+    expect(clip.fadeInBend).toBeUndefined();
+  });
+
+  it('go with their fade: removed with it, kept on the outer edge when split', () => {
+    const { t, clip } = setup();
+    setAudioFadeBend(clip, 'in', 0.7);
+    setAudioFadeBend(clip, 'out', 0.3);
+    const second = splitAudioClip(t, clip.id, 4, 120)!;
+    expect(clip.fadeInBend).toBe(0.7);
+    expect(clip.fadeOutBend).toBeUndefined();
+    expect(second.fadeOutBend).toBe(0.3);
+    setAudioFade(clip, 'in', 0);
+    expect(clip.fadeInBend).toBeUndefined();
   });
 });
 

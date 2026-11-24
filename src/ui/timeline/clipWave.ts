@@ -2,7 +2,14 @@
  * The waveform of the part of a sample that a clip plays, as a mirrored filled shape
  * (width 100, height 20) for an SVG polygon, from the library's coarse overview peaks.
  */
-export function clipWavePoints(peaks: readonly number[], from: number, to: number, columns = 48): string {
+export function clipWavePoints(
+  peaks: readonly number[],
+  from: number,
+  to: number,
+  columns = 48,
+  /** Level by place across the shape (0 to 1), e.g. the clip's fades. */
+  scale?: (at: number) => number,
+): string {
   const n = peaks.length;
   if (n === 0 || !(to > from)) return '';
   const f = Math.min(1, Math.max(0, from));
@@ -16,7 +23,7 @@ export function clipWavePoints(peaks: readonly number[], from: number, to: numbe
     const i1 = Math.min(n, Math.max(i0 + 1, Math.ceil(hi * n)));
     let peak = 0;
     for (let i = i0; i < i1; i++) peak = Math.max(peak, peaks[i]!);
-    const h = Math.max(0.4, peak * 9.5);
+    const h = Math.max(0.4, peak * 9.5 * (scale ? scale((c + 0.5) / columns) : 1));
     const x = ((c + 0.5) / columns) * 100;
     top.push(`${x.toFixed(2)},${(10 - h).toFixed(2)}`);
     bottom.push(`${x.toFixed(2)},${(10 + h).toFixed(2)}`);

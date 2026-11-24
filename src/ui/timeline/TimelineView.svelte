@@ -14,7 +14,8 @@
     (on the same sequencers, at the first place from there where all fit)
   - audio clips: drag the name strip at the top to move them; over the waveform a dashed line shows
     where a cut would go, and a click there places the playhead (and selects the clip); the small
-    handles in the top corners of the waveform drag a fade in or out (double-click: none), and the
+    handles in the top corners of the waveform drag a fade in or out (double-click: none), the fade's
+    line bends it up or down (Ctrl+click: straight again; the waveform follows the fade), and the
     strip just under the name drags the clip's own volume up or down, the waveform growing and
     shrinking with it (double-click: 0 dB). S cuts the
     selected ones at the playhead (also in the right-click menu, which can cut at the dashed line);
@@ -74,7 +75,9 @@ import TrackLevel from '../components/TrackLevel.svelte';
     placeAudioClip,
     splitAudioClip,
     audioFades,
+    audioFadeBends,
     setAudioFade,
+    setAudioFadeBend,
     audioGain,
     setAudioGain,
     gainToLinePosition,
@@ -92,6 +95,7 @@ import TrackLevel from '../components/TrackLevel.svelte';
   import TrackOverview from './TrackOverview.svelte';
   import GateLed from './GateLed.svelte';
 import { waveColumns, waveShape } from '../../samples/waveform';
+import { fadeGain, fadePower } from '../../engine/core/fadeCurve';
 import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   import AutomationLaneRow from './AutomationLaneRow.svelte';
   import { placeMenu } from '../placeMenu';
@@ -529,7 +533,8 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     | { kind: 'resize-start' | 'resize-end'; patch: Patch; clip: Clip; lo: number; hi: number }
     | { kind: 'audio-start' | 'audio-end'; clip: AudioClip; lo: number; hi: number; duration: number | undefined }
     | { kind: 'audio-fade'; clip: AudioClip; which: 'in' | 'out' }
-    | { kind: 'audio-gain'; clip: AudioClip; y: number; pos: number; h: number };
+    | { kind: 'audio-gain'; clip: AudioClip; y: number; pos: number; h: number }
+    | { kind: 'audio-bend'; clip: AudioClip; which: 'in' | 'out'; y: number; bend: number; h: number };
   let blockDrag = $state<BlockDrag | null>(null);
   let content: HTMLDivElement | undefined = $state();
   /** A press that moves less than this (px) is a click, not a box. */
@@ -700,6 +705,18 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     if (part['fade'] === 'in' || part['fade'] === 'out') {
       selectClip(track.id, clip.id);
       blockDrag = { kind: 'audio-fade', clip, which: part['fade'] };
+    } else if (part['bend'] === 'in' || part['bend'] === 'out') {
+      // The fade's line: up and down bends it; Ctrl+click makes it straight again.
+      const which = part['bend'];
+      selectClip(track.id, clip.id);
+      if (e.ctrlKey || e.metaKey) {
+        setAudioFadeBend(clip, which, 0.5);
+        return;
+      }
+      const block = (e.target as Element).closest<HTMLElement>('.block');
+      const h = Math.max(20, (block?.clientHeight ?? 60) - CLIP_NAME_H);
+      const bends = audioFadeBends(clip);
+      blockDrag = { kind: 'audio-bend', clip, which, y: e.clientY, bend: which === 'in' ? bends.in : bends.out, h };
     } else if (part['gain'] !== undefined) {
       // The volume strip: up and down, the same feel whatever the track's height.
       selectClip(track.id, clip.id);
@@ -744,7 +761,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   /** Over the waveform (not the name strip or the edges), the dashed line follows the pointer. */
   function onaudiopointermove(e: PointerEvent, track: AudioTrack, clip: AudioClip) {
     const part = (e.target as HTMLElement).dataset;
-    if (blockDrag || part['grab'] !== undefined || part['edge'] !== undefined || part['fade'] !== undefined || part['gain'] !== undefined) {
+    if (blockDrag || part['grab'] !== undefined || part['edge'] !== undefined || part['fade'] !== undefined || part['gain'] !== undefined || part['bend'] !== undefined) {
       splitHover = null;
       return;
     }
@@ -810,6 +827,41 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
    * where it sits in the clip. The library's coarse overview stands in until the detailed one is
    * ready; null when there is nothing to draw (the sample is not in the library).
    */
+  /**
+   * The level of a clip's fades at a beat inside the clip (1 outside them), the same curve the
+   * engine plays; null when the clip has no fades.
+   */
+  function fadeEnvelope(clip: AudioClip): ((beat: number) => number) | null {
+    const { fadeIn, fadeOut } = audioFades(clip);
+    if (!(fadeIn > 0) && !(fadeOut > 0)) return null;
+    const bends = audioFadeBends(clip);
+    const pIn = fadePower(bends.in);
+    const pOut = fadePower(bends.out);
+    return (beat) => {
+      let g = 1;
+      if (fadeIn > 0 && beat < fadeIn) g *= fadeGain(beat / fadeIn, pIn);
+      if (fadeOut > 0 && clip.length - beat < fadeOut) g *= fadeGain((clip.length - beat) / fadeOut, pOut);
+      return g;
+    };
+  }
+
+  /**
+   * A fade drawn in a box of 1 by 1 (y down): its line, and the shaded part above it. `which` says
+   * whether the level rises (fade in) or falls (fade out) from left to right.
+   */
+  function fadeCurve(which: 'in' | 'out', bend: number): { line: string; shade: string } {
+    const power = fadePower(bend);
+    const pts: string[] = [];
+    const STEPS = 32;
+    for (let i = 0; i <= STEPS; i++) {
+      const x = i / STEPS;
+      const g = fadeGain(which === 'in' ? x : 1 - x, power);
+      pts.push(`${x.toFixed(4)},${(1 - g).toFixed(4)}`);
+    }
+    const line = pts.join(' ');
+    return { line, shade: `0,0 1,0 ${[...pts].reverse().join(' ')}` };
+  }
+
   function clipWave(clip: AudioClip): { points: string; viewBox: string; x: number; w: number } | null {
     const widthPx = clip.length * ppb;
     const left = clip.start * ppb;
@@ -819,14 +871,24 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     const secondsPerPx = 60 / project.tempo / ppb;
     const from = clip.offset + x0 * secondsPerPx;
     const to = clip.offset + x1 * secondsPerPx;
+    const envelope = fadeEnvelope(clip);
     const wave = waveformOf(clip.sample);
     if (wave) {
       const columns = Math.max(1, Math.round((x1 - x0) / WAVE_COLUMN_PX));
-      return { points: waveShape(waveColumns(wave, from, to, columns)), viewBox: `0 -1 ${columns} 2`, x: x0, w: x1 - x0 };
+      const cols = waveColumns(wave, from, to, columns);
+      if (envelope) {
+        for (let c = 0; c < columns; c++) {
+          const g = envelope((x0 + ((c + 0.5) * (x1 - x0)) / columns) / ppb);
+          cols.min[c]! *= g;
+          cols.max[c]! *= g;
+        }
+      }
+      return { points: waveShape(cols), viewBox: `0 -1 ${columns} 2`, x: x0, w: x1 - x0 };
     }
     const s = sampleOf(clip.sample);
     if (!s || !(s.duration > 0)) return null;
-    return { points: clipWavePoints(s.peaks, from / s.duration, to / s.duration), viewBox: '0 0 100 20', x: x0, w: x1 - x0 };
+    const scale = envelope ? (f: number) => envelope((x0 + f * (x1 - x0)) / ppb) : undefined;
+    return { points: clipWavePoints(s.peaks, from / s.duration, to / s.duration, 48, scale), viewBox: '0 0 100 20', x: x0, w: x1 - x0 };
   }
 
   function onrowdblclick(e: MouseEvent, patch: Patch, moduleId: string) {
@@ -883,7 +945,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   function startBlockDrag() {
     const k = blockDrag?.kind;
     const resizing = k === 'resize-start' || k === 'resize-end' || k === 'audio-start' || k === 'audio-end' || k === 'audio-fade';
-    startDragLook(resizing ? 'ew-resize' : k === 'audio-gain' ? GAIN_CURSOR : k === 'move' ? 'grabbing' : 'default');
+    startDragLook(resizing ? 'ew-resize' : k === 'audio-gain' ? GAIN_CURSOR : k === 'audio-bend' ? 'ns-resize' : k === 'move' ? 'grabbing' : 'default');
     window.addEventListener('pointermove', onblockdragmove);
     window.addEventListener('pointerup', onblockdragend);
     window.addEventListener('pointercancel', onblockdragend);
@@ -946,6 +1008,14 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
         // Free, not on the grid; dragged back to the edge (a few pixels) it is gone.
         const beats = d.which === 'in' ? at - d.clip.start : d.clip.start + d.clip.length - at;
         setAudioFade(d.clip, d.which, beats * timelineView.ppb < 3 ? 0 : beats);
+        break;
+      }
+      case 'audio-bend': {
+        // Up: the fade bulges (stays loud longer); down: it sags. Shift: five times finer.
+        d.bend += ((d.y - e.clientY) / d.h) * (e.shiftKey ? 0.2 : 1);
+        d.bend = Math.min(0.9, Math.max(0.1, d.bend));
+        d.y = e.clientY;
+        setAudioFadeBend(d.clip, d.which, d.bend);
         break;
       }
       case 'audio-gain': {
@@ -1546,6 +1616,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
               {@const missing = library.loaded && !sampleOf(c.sample)}
               {@const cutAt = splitLineAt(t, c)}
               {@const fades = audioFades(c)}
+              {@const bends = audioFadeBends(c)}
               {@const gain = audioGain(c)}
               {@const gainDrag = blockDrag?.kind === 'audio-gain' && blockDrag.clip === c}
               <div
@@ -1595,15 +1666,19 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                   <span class="split-line" style:left={`${(cutAt - c.start) * ppb}px`}></span>
                 {/if}
                 {#if fades.fadeIn > 0}
+                  {@const curve = fadeCurve('in', bends.in)}
                   <svg class="fade" style:left="0" style:width={`${fades.fadeIn * ppb}px`} viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
-                    <polygon points="0,0 1,0 0,1" />
-                    <line x1="0" y1="1" x2="1" y2="0" />
+                    <polygon points={curve.shade} />
+                    <polyline class="fade-line" points={curve.line} />
+                    <polyline class="bend-hit" data-bend="in" points={curve.line}><title>Drag up or down to bend the fade (Shift: finer), Ctrl+click: straight</title></polyline>
                   </svg>
                 {/if}
                 {#if fades.fadeOut > 0}
+                  {@const curve = fadeCurve('out', bends.out)}
                   <svg class="fade" style:right="0" style:width={`${fades.fadeOut * ppb}px`} viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
-                    <polygon points="0,0 1,0 1,1" />
-                    <line x1="0" y1="0" x2="1" y2="1" />
+                    <polygon points={curve.shade} />
+                    <polyline class="fade-line" points={curve.line} />
+                    <polyline class="bend-hit" data-bend="out" points={curve.line}><title>Drag up or down to bend the fade (Shift: finer), Ctrl+click: straight</title></polyline>
                   </svg>
                 {/if}
                 <span
@@ -2410,10 +2485,23 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   .block.audio .fade polygon {
     fill: rgb(0 0 0 / 0.4);
   }
-  .block.audio .fade line {
+  .block.audio .fade .fade-line {
+    fill: none;
     stroke: var(--text-strong);
     stroke-width: 1;
     vector-effect: non-scaling-stroke;
+  }
+  /* A wider, invisible line over the fade's line, to grab and bend it. */
+  .block.audio .fade .bend-hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 10;
+    vector-effect: non-scaling-stroke;
+    pointer-events: stroke;
+    cursor: ns-resize;
+  }
+  :global(html:not(.dragging)) .block.audio .fade:has(.bend-hit:hover) .fade-line {
+    stroke-width: 2;
   }
   /* The fade handles: just under the name strip, at the end of each fade. Shown when the pointer is
      on the clip or the clip is selected; a set fade also shows by its line. */
