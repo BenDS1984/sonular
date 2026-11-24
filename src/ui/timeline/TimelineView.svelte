@@ -15,7 +15,8 @@
   - audio clips: drag the name strip at the top to move them; over the waveform a dashed line shows
     where a cut would go, and a click there places the playhead (and selects the clip); the small
     handles in the top corners of the waveform drag a fade in or out (double-click: none), and the
-    level line drags the clip's own volume up or down (double-click: 0 dB). S cuts the
+    strip just under the name drags the clip's own volume up or down, the waveform growing and
+    shrinking with it (double-click: 0 dB). S cuts the
     selected ones at the playhead (also in the right-click menu, which can cut at the dashed line);
     a clip dropped or moved onto other clips replaces the part under it
   - ruler: click or drag to place the playhead (Play starts there; while playing it jumps)
@@ -700,11 +701,10 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
       selectClip(track.id, clip.id);
       blockDrag = { kind: 'audio-fade', clip, which: part['fade'] };
     } else if (part['gain'] !== undefined) {
-      // The volume line: up and down over the height of the waveform.
+      // The volume strip: up and down, the same feel whatever the track's height.
       selectClip(track.id, clip.id);
-      const block = (e.target as HTMLElement).closest<HTMLElement>('.block');
-      const h = Math.max(20, (block?.clientHeight ?? 60) - CLIP_NAME_H);
-      blockDrag = { kind: 'audio-gain', clip, y: e.clientY, pos: gainToLinePosition(audioGain(clip)), h };
+      blockDrag = { kind: 'audio-gain', clip, y: e.clientY, pos: gainToLinePosition(audioGain(clip)), h: GAIN_DRAG_PX };
+      gainTip = { x: e.clientX, y: e.clientY };
     } else if (part['edge'] === 'start' || part['edge'] === 'end') {
       selectClip(track.id, clip.id);
       const { lo, hi } = audioFreeRange(track, clip.start, clip.id);
@@ -725,6 +725,18 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
 
   /** Height of the name strip at the top of an audio clip, in pixels (as in the styles). */
   const CLIP_NAME_H = 15;
+
+  /** The pointer over a clip's volume strip: arrows up and down with a speaker. */
+  const GAIN_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='20' viewBox='0 0 24 20'>" +
+      "<g fill='white' stroke='black' stroke-width='1' stroke-linejoin='round'>" +
+      "<path d='M6 1.5 10 6.5H2Z'/><path d='M2 13.5h8L6 18.5Z'/>" +
+      "<path d='M13 7.5h3l5-4v13l-5-4h-3Z'/></g></svg>",
+  )}") 6 10, ns-resize`;
+  /** Pixels of dragging for the whole clip volume range (silence to +12 dB; 0 dB about 3/5 up). */
+  const GAIN_DRAG_PX = 200;
+  /** Where the dB readout follows the pointer while a clip's volume is dragged. */
+  let gainTip: { x: number; y: number } | null = $state(null);
 
   /** Where the dashed cut line is drawn on an audio clip: the clip's key and the beat. */
   let splitHover: { key: string; at: number } | null = $state(null);
@@ -871,7 +883,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   function startBlockDrag() {
     const k = blockDrag?.kind;
     const resizing = k === 'resize-start' || k === 'resize-end' || k === 'audio-start' || k === 'audio-end' || k === 'audio-fade';
-    startDragLook(resizing ? 'ew-resize' : k === 'audio-gain' ? 'ns-resize' : k === 'move' ? 'grabbing' : 'default');
+    startDragLook(resizing ? 'ew-resize' : k === 'audio-gain' ? GAIN_CURSOR : k === 'move' ? 'grabbing' : 'default');
     window.addEventListener('pointermove', onblockdragmove);
     window.addEventListener('pointerup', onblockdragend);
     window.addEventListener('pointercancel', onblockdragend);
@@ -940,6 +952,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
         // Shift: five times finer. Close to 0 dB it stays there, so getting back to it is easy.
         d.pos = Math.min(1, Math.max(0, d.pos + ((d.y - e.clientY) / d.h) * (e.shiftKey ? 0.2 : 1)));
         d.y = e.clientY;
+        gainTip = { x: e.clientX, y: e.clientY };
         const g = linePositionToGain(d.pos);
         setAudioGain(d.clip, Math.abs(20 * Math.log10(g)) < 0.3 ? 1 : g);
         break;
@@ -959,6 +972,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   function onblockdragend() {
     const d = blockDrag;
     blockDrag = null;
+    gainTip = null;
     if (d) endDragLook();
     window.removeEventListener('pointermove', onblockdragmove);
     window.removeEventListener('pointerup', onblockdragend);
@@ -1593,19 +1607,14 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                   </svg>
                 {/if}
                 <span
-                  class="gain-line"
-                  class:set={gain !== 1}
+                  class="gain-strip"
                   class:active={gainDrag}
                   data-gain
-                  style:top={`calc(${CLIP_NAME_H}px + (100% - ${CLIP_NAME_H}px) * ${1 - gainToLinePosition(gain)})`}
+                  style:top={`${CLIP_NAME_H}px`}
+                  style:cursor={GAIN_CURSOR}
                   title={`Clip volume ${formatGainDb(gain)}: drag up or down (Shift: finer), double-click for 0 dB`}
-                >
-                  {#if gainDrag}<span class="gain-label">{formatGainDb(gain)}</span>{/if}
-                </span>
+                ></span>
                 <span class="clip-name" data-grab>{missing ? `${c.name} (missing)` : c.name}</span>
-                {#if gain !== 1}
-                  <span class="clip-db">{formatGainDb(gain)}</span>
-                {/if}
                 <span class="edge start" data-edge="start"></span>
                 <span class="edge end" data-edge="end"></span>
                 <span
@@ -1650,6 +1659,12 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   <div class="overview-label">Overview</div>
   <TrackOverview {viewW} {shownBeat} onview={setView} onfit={fitSong} />
 </main>
+
+{#if gainTip && blockDrag?.kind === 'audio-gain'}
+  <div class="gain-tip" style:left={`${gainTip.x + 16}px`} style:top={`${gainTip.y - 8}px`}>
+    {formatGainDb(audioGain(blockDrag.clip))}
+  </div>
+{/if}
 
 {#if menu}
   {@const m = menu}
@@ -2426,65 +2441,30 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   .fade-handle:hover {
     background: var(--text-strong);
   }
-  /* The clip volume line: a strip a few pixels high to grab, with a thin line in the middle. Shown
-     when the pointer is on the clip or the clip is selected, and always once it is not at 0 dB. */
-  .gain-line {
+  /* The clip volume strip, just under the name: grab it and drag up or down (as in other DAWs, the
+     waveform shows the volume, there is no line). It lights up a little under the pointer. */
+  .gain-strip {
     position: absolute;
-    left: 6px;
-    right: 6px;
-    height: 7px;
-    margin-top: -3px;
+    left: 8px;
+    right: 8px;
+    height: 8px;
     z-index: 2;
-    cursor: ns-resize;
-    opacity: 0;
   }
-  .gain-line::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 3px;
-    height: 1px;
-    background: var(--text-strong);
-    pointer-events: none;
+  .block.audio:hover .gain-strip:hover,
+  .gain-strip.active {
+    background: rgb(255 255 255 / 0.14);
   }
-  .gain-line.set {
-    opacity: 0.7;
-  }
-  .block.audio:hover .gain-line,
-  .block.audio.selected .gain-line,
-  .gain-line.active {
-    opacity: 1;
-  }
-  .gain-line:hover::after,
-  .gain-line.active::after {
-    top: 2px;
-    height: 3px;
-  }
-  .gain-label {
-    position: absolute;
-    left: 4px;
-    bottom: 6px;
-    padding: 0 4px;
+  /* The clip volume in dB next to the pointer, while it is dragged. */
+  .gain-tip {
+    position: fixed;
+    z-index: 100000;
+    padding: 0 5px;
     border-radius: 3px;
-    background: rgb(0 0 0 / 0.7);
+    background: rgb(0 0 0 / 0.75);
     color: var(--text-strong);
+    font-family: var(--font-mono);
     font-size: var(--text-xs);
-    line-height: 15px;
-    white-space: nowrap;
-    pointer-events: none;
-  }
-  /* A clip volume other than 0 dB, at the right of the name strip. */
-  .clip-db {
-    position: absolute;
-    top: 0;
-    right: 0;
-    height: 15px;
-    padding: 0 6px;
-    background: rgb(0 0 0 / 0.5);
-    color: var(--text-strong);
-    font-size: var(--text-xs);
-    line-height: 15px;
+    line-height: 16px;
     white-space: nowrap;
     pointer-events: none;
   }
