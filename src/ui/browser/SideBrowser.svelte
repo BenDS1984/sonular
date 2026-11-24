@@ -1,6 +1,7 @@
 <!--
-  The browser on the left of the patch: a search field and the modules
-  by family (each family can be folded).
+  The browser on the left of the patch, with two tabs:
+  - Modules: a search field and the modules by family (each family can be folded)
+  - Samples: the sample library on this computer (SamplesTab.svelte)
   - drag a module onto the canvas to put it where it is dropped
   - double-click a module (or choose it with ↑/↓ and press Enter in the search field) to add it
     where the canvas was double-clicked last, else in the middle of the view
@@ -13,6 +14,9 @@
   import { endDragLook, startDragLook } from '../dragLook';
   import { placeModule } from '../workspace/placeModule';
   import { clampBrowserWidth, MODULE_DRAG_TYPE, sideBrowser } from './browserPanel.svelte';
+  import SamplesTab from './SamplesTab.svelte';
+
+  const tab = $derived(prefs.browserTab);
 
   let query = $state('');
   let activeIndex = $state(-1);
@@ -57,9 +61,10 @@
     activeIndex = searching ? 0 : -1;
   });
 
-  // A double-click on the canvas asks for the search field.
+  // A double-click on the canvas asks for the module search field.
   $effect(() => {
     if (sideBrowser.focusTick > 0) {
+      prefs.browserTab = 'modules';
       input?.focus();
       input?.select();
     }
@@ -121,9 +126,26 @@
 </script>
 
 <aside class="side-browser" style:width={`${clampBrowserWidth(prefs.browserWidth)}px`} aria-label="Browser">
-  <div class="title">Browser</div>
+  <div class="tabs" role="tablist" aria-label="Browser">
+    <button
+      type="button"
+      role="tab"
+      aria-selected={tab === 'modules'}
+      class:on={tab === 'modules'}
+      onclick={() => (prefs.browserTab = 'modules')}>Modules</button
+    >
+    <button
+      type="button"
+      role="tab"
+      aria-selected={tab === 'samples'}
+      class:on={tab === 'samples'}
+      onclick={() => (prefs.browserTab = 'samples')}>Samples</button
+    >
+  </div>
+  {#if tab === 'samples'}
+    <SamplesTab />
+  {:else}
   <section class="section" aria-label="Modules">
-    <div class="section-title">Modules</div>
     <input
       bind:this={input}
       bind:value={query}
@@ -180,6 +202,7 @@
       {/each}
     </div>
   </section>
+  {/if}
   <div
     class="resize"
     class:active={!!resizing}
@@ -204,24 +227,37 @@
     background: var(--surface-bar);
     border-right: 1px solid var(--border-default);
   }
-  .title {
-    padding: var(--space-2) var(--space-3) 0;
-    font-size: var(--text-xs);
+  .tabs {
+    display: flex;
+    gap: 2px;
+    margin: var(--space-2) var(--space-2) 0;
+    padding: 2px;
+    background: var(--surface-inset);
+    border-radius: var(--radius-md);
+  }
+  .tabs button {
+    flex: 1;
+    height: 26px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
     font-weight: var(--weight-medium);
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+  .tabs button:hover {
+    color: var(--text-strong);
+  }
+  .tabs button.on {
+    background: var(--surface-control);
+    color: var(--text-strong);
   }
   .section {
     display: flex;
     flex-direction: column;
     min-height: 0;
     flex: 1;
-  }
-  .section-title {
-    padding: var(--space-2) var(--space-3) 0;
-    color: var(--text-strong);
-    font-weight: var(--weight-medium);
   }
   input {
     margin: var(--space-2);

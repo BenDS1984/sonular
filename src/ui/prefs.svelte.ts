@@ -15,6 +15,12 @@ interface Prefs {
   browserWidth: number;
   /** Module families folded in the browser. */
   browserFolded: string[];
+  /** The browser's open tab. */
+  browserTab: 'modules' | 'samples';
+  /** Volume for listening to samples in the browser, 0..1 (not the patch's sound). */
+  sampleVolume: number;
+  /** Listening to samples is muted. */
+  sampleMuted: boolean;
   /** Cables are drawn on the canvas (hidden ones still connect). */
   cablesVisible: boolean;
   /** How opaque cables are drawn, 0.1..1 (a cable pointed at or selected is always fully shown). */
@@ -28,6 +34,9 @@ const DEFAULTS: Prefs = {
   browserOpen: true,
   browserWidth: 240,
   browserFolded: [],
+  browserTab: 'modules',
+  sampleVolume: 0.7,
+  sampleMuted: false,
   cablesVisible: true,
   cableOpacity: 1,
 };

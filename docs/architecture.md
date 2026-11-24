@@ -125,10 +125,15 @@ Each item lists when it becomes worth doing. Several are inspired by openDAW (se
 - **When:** export → soon after the first sequencing modules; samples → with the sampler.
 
 ### 4. Sample storage
-- Samples go into **IndexedDB** (or OPFS), referenced from the patch by id; request persistent
-  storage (`navigator.storage.persist()`) so the browser doesn't evict them.
-- `.sonular` files need a way to carry or reference samples (e.g. a zipped bundle).
-- **When:** with the sampler.
+- **Built (2026-11-24): the sample library.** The browser's Samples tab keeps the user's audio files
+  unchanged in **IndexedDB** (`src/platform/sampleStore.ts`: a small `info` store read as a whole
+  for the list, and a `files` store read one file at a time), per computer and apart from
+  patches. Each sample has a name, length, channels, a 64-part peak overview and a SHA-256 hash
+  (the same file is not added twice). Adding asks for persistent storage
+  (`navigator.storage.persist()`). Listening plays the file through an `<audio>` element, apart
+  from the engine. `src/samples/library.svelte.ts` is the app's view of it.
+- Still to do, with the sampler: samples referenced from a patch by id, and `.sonular` files that
+  carry the samples they use (e.g. a zipped bundle), so a patch opens complete elsewhere.
 
 ### 5. Audio device and latency settings
 - A settings panel for buffer size (the `?buffer=` URL switch today) and, where supported, the

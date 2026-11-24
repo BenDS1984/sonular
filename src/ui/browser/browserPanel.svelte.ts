@@ -1,5 +1,5 @@
 /**
- * The browser panel on the left of the patch (the modules): open or closed and its
+ * The browser panel on the left of the patch (modules and samples): open or closed and its
  * width are remembered per computer (prefs); where a module picked next goes is screen state.
  */
 import type { Point } from '../../patch/geometry';
