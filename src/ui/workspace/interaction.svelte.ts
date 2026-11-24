@@ -21,12 +21,6 @@ export interface CableDrag {
 
 export const interaction = $state({
   cable: null as CableDrag | null,
-  browser: null as null | {
-    /** Where the popup appears, relative to the canvas element (screen px). */
-    screen: Point;
-    /** Where a picked module is placed (canvas px). */
-    place: Point;
-  },
 });
 
 /** Canvas position of a port's jack centre, or null if not measured yet. */
@@ -115,10 +109,3 @@ export function cancelCableDrag() {
   interaction.cable = null;
 }
 
-export function openBrowser(screen: Point, place: Point) {
-  interaction.browser = { screen, place };
-}
-
-export function closeBrowser() {
-  interaction.browser = null;
-}

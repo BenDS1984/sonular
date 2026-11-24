@@ -10,6 +10,8 @@ export interface ModuleInstance {
   y: number;
   /** Parameter values by parameter id. All numeric, so they map 1:1 onto the engine. */
   params: Record<string, number>;
+  /** The user's own name for the module (shown instead of "Oscillator 2"). */
+  name?: string;
 }
 
 export interface PortRef {

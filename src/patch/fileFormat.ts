@@ -36,7 +36,7 @@ export function serializePatch(patch: Patch, now = new Date()): string {
     patch: {
       name: patch.name,
       tempo: patch.tempo,
-      modules: patch.modules.map((m) => ({ id: m.id, type: m.type, x: m.x, y: m.y, params: { ...m.params } })),
+      modules: patch.modules.map((m) => ({ id: m.id, type: m.type, x: m.x, y: m.y, params: { ...m.params }, ...(m.name ? { name: m.name } : {}) })),
       cables: patch.cables.map((c) => ({ id: c.id, from: { ...c.from }, to: { ...c.to } })),
       view: { ...patch.view },
     },
@@ -115,6 +115,7 @@ export function validatePatch(raw: unknown, getDef: DefinitionLookup, fallbackNa
       x: isFiniteNumber(m['x']) ? m['x'] : 0,
       y: isFiniteNumber(m['y']) ? m['y'] : 0,
       params,
+      ...(typeof m['name'] === 'string' && m['name'].trim() ? { name: m['name'].trim().slice(0, 40) } : {}),
     });
   }
   for (const t of unknownTypes) warnings.push(`Skipped modules of unknown type "${t}".`);

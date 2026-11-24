@@ -29,8 +29,9 @@ export const sequencer: ModuleDefinition = {
         format: 'note',
       }),
     ),
+    // A new sequencer starts silent: the user switches on the steps they want.
     ...STEPS.map(
-      (n): ParamSpec => ({ id: `on${n}`, label: `Step ${n}`, min: 0, max: 1, default: 1, step: 1, format: 'toggle' }),
+      (n): ParamSpec => ({ id: `on${n}`, label: `Step ${n}`, min: 0, max: 1, default: 0, step: 1, format: 'toggle' }),
     ),
   ],
   panel: SequencerPanel,

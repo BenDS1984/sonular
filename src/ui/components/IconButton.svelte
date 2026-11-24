@@ -1,6 +1,6 @@
 <!-- Square toolbar button with a line icon. -->
 <script lang="ts">
-  type IconName = 'new' | 'open' | 'save' | 'undo' | 'redo' | 'fullscreen' | 'exit-fullscreen';
+  type IconName = 'new' | 'open' | 'save' | 'undo' | 'redo' | 'fullscreen' | 'exit-fullscreen' | 'browser';
 
   interface Props {
     icon: IconName;
@@ -41,6 +41,8 @@
       <path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />
     {:else if icon === 'exit-fullscreen'}
       <path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5" />
+    {:else if icon === 'browser'}
+      <path d="M2.75 2.75h10.5v10.5H2.75zM6.25 2.75v10.5" />
     {/if}
   </svg>
 </button>

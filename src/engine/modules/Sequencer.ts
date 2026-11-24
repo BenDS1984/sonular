@@ -26,7 +26,7 @@ export class Sequencer implements DspModule {
   readonly meterNames = ['step'] as const;
 
   private readonly pitch = new Float32Array(SEQUENCER_STEPS);
-  private readonly on = new Uint8Array(SEQUENCER_STEPS).fill(1);
+  private readonly on = new Uint8Array(SEQUENCER_STEPS);
   /** Current step index, −1 before the first clock edge. */
   private step = -1;
   private clockHigh = false;

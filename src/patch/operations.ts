@@ -7,11 +7,19 @@ import type { Cable, ModuleInstance, Patch, PortRef } from './types';
 
 export type DefinitionLookup = (type: string) => ModuleDefinition | undefined;
 
-/** Short readable ids: osc1, osc2, mixer1, ... (never reused within a patch). */
+/**
+ * Short readable ids: osc1, osc2, mixer1, ... One past the highest number in use for that prefix,
+ * so a removed module's number is not handed out again while higher ones exist (the number is
+ * shown in the module's name and must not jump to another module).
+ */
 export function nextModuleId(patch: Patch, prefix: string): string {
-  let n = 1;
-  while (patch.modules.some((m) => m.id === `${prefix}${n}`)) n++;
-  return `${prefix}${n}`;
+  let max = 0;
+  for (const m of patch.modules) {
+    if (!m.id.startsWith(prefix)) continue;
+    const rest = m.id.slice(prefix.length);
+    if (/^\d+$/.test(rest)) max = Math.max(max, Number(rest));
+  }
+  return `${prefix}${max + 1}`;
 }
 
 export function nextCableId(patch: Patch): string {

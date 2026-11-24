@@ -9,9 +9,28 @@ interface Prefs {
   welcomed: boolean;
   /** Seconds shown in the CPU graph. */
   cpuSpan: 30 | 120 | 600;
+  /** The browser panel on the left of a patch is shown. */
+  browserOpen: boolean;
+  /** Width of the browser panel in pixels. */
+  browserWidth: number;
+  /** Module families folded in the browser. */
+  browserFolded: string[];
+  /** Cables are drawn on the canvas (hidden ones still connect). */
+  cablesVisible: boolean;
+  /** How opaque cables are drawn, 0.1..1 (a cable pointed at or selected is always fully shown). */
+  cableOpacity: number;
 }
 
-const DEFAULTS: Prefs = { minimap: true, welcomed: false, cpuSpan: 30 };
+const DEFAULTS: Prefs = {
+  minimap: true,
+  welcomed: false,
+  cpuSpan: 30,
+  browserOpen: true,
+  browserWidth: 240,
+  browserFolded: [],
+  cablesVisible: true,
+  cableOpacity: 1,
+};
 
 function load(): Prefs {
   try {

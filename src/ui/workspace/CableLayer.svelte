@@ -5,6 +5,9 @@
   second layer *below* the modules: wherever a cable crosses a module, the module's knobs,
   buttons and jacks work as if the cable were not there. Cables are picked up where they run
   over empty canvas. Pressing on a cable end that sits on a jack starts a jack drag.
+
+  Cables can be hidden (they stay connected; a cable being dragged is still shown) or drawn more
+  transparent; the cable pointed at or selected is always fully shown (prefs).
 -->
 <script lang="ts">
   import { canvasState, patch } from '../../patch/patch.svelte';
@@ -13,6 +16,7 @@
   import type { Cable } from '../../patch/types';
   import type { SignalType } from '../signals';
   import { interaction, portPosition } from './interaction.svelte';
+  import { prefs } from '../prefs.svelte';
 
   interface Props {
     /** Called when a press on a cable actually lands on a jack underneath it. */
@@ -62,7 +66,7 @@
 </script>
 
 <svg class="cables hits" aria-hidden="true">
-  {#each drawn as { cable, d } (cable.id)}
+  {#each prefs.cablesVisible ? drawn : [] as { cable, d } (cable.id)}
     <path
       class="hit"
       {d}
@@ -75,13 +79,15 @@
 </svg>
 
 <svg class="cables" aria-hidden="true">
-  {#each drawn as { cable, d, signal } (cable.id)}
+  {#each prefs.cablesVisible ? drawn : [] as { cable, d, signal } (cable.id)}
     {@const selected = canvasState.selection?.kind === 'cable' && canvasState.selection.id === cable.id}
+    {@const full = selected || hovered === cable.id}
     <g
       class="cable"
       class:hover={hovered === cable.id}
       class:selected
       style:--cable-color={`var(--signal-${signal})`}
+      opacity={full ? 1 : prefs.cableOpacity}
     >
       <path class="shadow" {d} />
       <path class="line" {d} />
