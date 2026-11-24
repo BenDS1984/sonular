@@ -59,6 +59,10 @@ function restore(state: string) {
   const sel = canvasState.selection;
   if (sel?.kind === 'module' && !content.modules.some((m) => m.id === sel.id)) canvasState.selection = null;
   if (sel?.kind === 'cable' && !content.cables.some((c) => c.id === sel.id)) canvasState.selection = null;
+  if (sel?.kind === 'modules') {
+    const left = sel.ids.filter((id) => content.modules.some((m) => m.id === id));
+    if (left.length !== sel.ids.length) canvasState.selection = left.length === 0 ? null : left.length === 1 ? { kind: 'module', id: left[0]! } : { kind: 'modules', ids: left };
+  }
   updateFlags();
 }
 

@@ -6,7 +6,7 @@
   import ModulePanel from '../components/ModulePanel.svelte';
   import Port from '../components/Port.svelte';
   import { getDefinition } from '../../modules/registry';
-  import { canvasState, patch, removeModule, selectModule } from '../../patch/patch.svelte';
+  import { canvasState, patch, raiseModule, removeModule, selectModule } from '../../patch/patch.svelte';
   import { snap } from '../../patch/geometry';
   import { isPortConnected } from '../../patch/operations';
   import type { ModuleInstance } from '../../patch/types';
@@ -21,7 +21,10 @@
   let { module }: Props = $props();
 
   const def = $derived(getDefinition(module.type));
-  const selected = $derived(canvasState.selection?.kind === 'module' && canvasState.selection.id === module.id);
+  const selected = $derived(
+    (canvasState.selection?.kind === 'module' && canvasState.selection.id === module.id) ||
+      (canvasState.selection?.kind === 'modules' && canvasState.selection.ids.includes(module.id)),
+  );
 
   let root: HTMLDivElement | undefined = $state();
 
@@ -52,13 +55,24 @@
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    selectModule(module.id);
+    // Dragging a module of a selected group moves the whole group; otherwise just this module.
+    const sel = canvasState.selection;
+    const inGroup = sel?.kind === 'modules' && sel.ids.includes(module.id);
+    if (inGroup) raiseModule(module.id);
+    else selectModule(module.id);
     const header = e.currentTarget as HTMLElement;
     header.setPointerCapture(e.pointerId);
     const startX = e.clientX;
     const startY = e.clientY;
     const origX = module.x;
     const origY = module.y;
+    const others = (inGroup ? sel.ids : [])
+      .filter((id) => id !== module.id)
+      .flatMap((id) => {
+        const m = patch.modules.find((x) => x.id === id);
+        return m ? [{ m, x: m.x, y: m.y }] : [];
+      });
+    let moved = false;
     // Where the canvas was: when it scrolls along at an edge, the module keeps up with it.
     const viewX = patch.view.x;
     const viewY = patch.view.y;
@@ -67,6 +81,11 @@
       const zoom = patch.view.zoom;
       module.x = snap(origX + (last.clientX - startX - (patch.view.x - viewX)) / zoom);
       module.y = snap(origY + (last.clientY - startY - (patch.view.y - viewY)) / zoom);
+      if (module.x !== origX || module.y !== origY) moved = true;
+      for (const o of others) {
+        o.m.x = o.x + module.x - origX;
+        o.m.y = o.y + module.y - origY;
+      }
     };
     const pan = startAutoPan(() => header.closest<HTMLElement>('.workspace'), place);
     const move = (ev: PointerEvent) => {
@@ -76,6 +95,7 @@
     };
     const up = () => {
       pan.stop();
+      if (inGroup && !moved) selectModule(module.id); // a plain click inside a group selects just this one
       header.removeEventListener('pointermove', move);
       header.removeEventListener('pointerup', up);
       header.removeEventListener('pointercancel', up);
@@ -98,7 +118,9 @@
     style:left={`${module.x}px`}
     style:top={`${module.y}px`}
     style:z-index={canvasState.zIndex[module.id] ?? 0}
-    onpointerdown={() => selectModule(module.id)}
+    onpointerdown={() => {
+      if (!selected || canvasState.selection?.kind !== 'modules') selectModule(module.id);
+    }}
     role="group"
     aria-label={`${def.title} ${module.id}`}
   >

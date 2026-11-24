@@ -3,6 +3,8 @@
 
   Mouse:
   - drag empty space (or middle mouse anywhere) to pan; scroll to pan, Ctrl + scroll to zoom
+  - Shift + drag on empty space draws a frame that selects every module it touches; dragging one
+    of them by its header moves them all, Delete removes them all
   - drag a module by its header; click to select
   - drag from a jack to patch a cable; drag a connected input to move/remove its cable
   - while dragging a module or a cable near an edge, the canvas scrolls along
@@ -16,7 +18,7 @@
   import ZoomControls from './workspace/ZoomControls.svelte';
   import Minimap from './workspace/Minimap.svelte';
   import { prefs } from './prefs.svelte';
-  import { canvasState, deleteSelection, fitAll, isPatchEmpty, patch } from '../patch/patch.svelte';
+  import { canvasState, deleteSelection, fitAll, isPatchEmpty, patch, selectModules } from '../patch/patch.svelte';
   import { loadStarterPatch } from '../patch/fileActions';
   import { GRID, toCanvas, zoomAt } from '../patch/geometry';
   import { getDefinition } from '../modules/registry';
@@ -118,11 +120,51 @@
     el!.addEventListener('pointercancel', up);
   }
 
+  // ---------- Frame selection (Shift + drag on empty space) ----------
+
+  /** The frame being dragged, in canvas-element pixels. */
+  let frame = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+
+  function startFrame(e: PointerEvent) {
+    const p0 = local(e);
+    frame = { x0: p0.x, y0: p0.y, x1: p0.x, y1: p0.y };
+    canvasState.selection = null;
+    el!.setPointerCapture(e.pointerId);
+    const move = (ev: PointerEvent) => {
+      const p = local(ev);
+      frame = { x0: p0.x, y0: p0.y, x1: p.x, y1: p.y };
+      // Live: the modules the frame touches light up while dragging.
+      const a = toCanvas(patch.view, Math.min(frame.x0, frame.x1), Math.min(frame.y0, frame.y1));
+      const b = toCanvas(patch.view, Math.max(frame.x0, frame.x1), Math.max(frame.y0, frame.y1));
+      const ids = patch.modules
+        .filter((m) => {
+          const s = canvasState.moduleSizes[m.id] ?? { w: 200, h: 240 };
+          return m.x < b.x && m.x + s.w > a.x && m.y < b.y && m.y + s.h > a.y;
+        })
+        .map((m) => m.id);
+      selectModules(ids);
+    };
+    const end = () => {
+      el!.removeEventListener('pointermove', move);
+      el!.removeEventListener('pointerup', end);
+      el!.removeEventListener('pointercancel', end);
+      frame = null;
+    };
+    el!.addEventListener('pointermove', move);
+    el!.addEventListener('pointerup', end);
+    el!.addEventListener('pointercancel', end);
+  }
+
   function onpointerdown(e: PointerEvent) {
     const target = e.target as HTMLElement;
     const jack = target.closest<HTMLElement>('[data-port]');
     if (jack && e.button === 0) {
       startJackDrag(jack, e);
+      return;
+    }
+    if (e.button === 0 && e.shiftKey && (target === el || target.classList.contains('world'))) {
+      e.preventDefault();
+      startFrame(e);
       return;
     }
     if (e.button === 1 || (e.button === 0 && (target === el || target.classList.contains('world')))) {
@@ -242,6 +284,16 @@
     <CableLayer onjackpointerdown={startJackDrag} />
   </div>
 
+  {#if frame}
+    <div
+      class="frame"
+      style:left={`${Math.min(frame.x0, frame.x1)}px`}
+      style:top={`${Math.min(frame.y0, frame.y1)}px`}
+      style:width={`${Math.abs(frame.x1 - frame.x0)}px`}
+      style:height={`${Math.abs(frame.y1 - frame.y0)}px`}
+    ></div>
+  {/if}
+
   {#if isPatchEmpty()}
     <div class="empty">
       <p class="title">Your patch is empty</p>
@@ -301,6 +353,13 @@
     width: 0;
     height: 0;
     transform-origin: 0 0;
+  }
+  .frame {
+    position: absolute;
+    z-index: 190000;
+    border: 1px solid var(--border-focus);
+    background: rgb(255 255 255 / 0.06);
+    pointer-events: none;
   }
   .empty {
     position: absolute;

@@ -31,7 +31,28 @@ export function setLimiter(on: boolean) {
   else patch.limiter = false;
 }
 
-export type Selection = { kind: 'module'; id: string } | { kind: 'cable'; id: string } | null;
+/** `modules` is a group of two or more modules, selected by dragging a frame (Shift + drag). */
+export type Selection =
+  | { kind: 'module'; id: string }
+  | { kind: 'modules'; ids: string[] }
+  | { kind: 'cable'; id: string }
+  | null;
+
+/** The ids of the selected modules (none, one or a group). */
+export function selectedModuleIds(): string[] {
+  const sel = canvasState.selection;
+  if (sel?.kind === 'module') return [sel.id];
+  if (sel?.kind === 'modules') return sel.ids;
+  return [];
+}
+
+/** Select these modules: a group when there are several. */
+export function selectModules(ids: string[]) {
+  if (ids.length === 0) canvasState.selection = null;
+  else if (ids.length === 1) canvasState.selection = { kind: 'module', id: ids[0]! };
+  else canvasState.selection = { kind: 'modules', ids };
+  for (const id of ids) raiseModule(id);
+}
 
 export const canvasState = $state({
   selection: null as Selection,
@@ -70,7 +91,9 @@ export function removeModule(id: string) {
   }
   delete canvasState.moduleSizes[id];
   delete canvasState.zIndex[id];
-  if (canvasState.selection?.id === id) canvasState.selection = null;
+  const sel = canvasState.selection;
+  if (sel?.kind === 'modules') selectModules(sel.ids.filter((x) => x !== id));
+  else if (sel?.id === id) canvasState.selection = null;
 }
 
 export function connect(from: PortRef, to: PortRef) {
@@ -95,6 +118,7 @@ export function deleteSelection() {
   const sel = canvasState.selection;
   if (!sel) return;
   if (sel.kind === 'module') removeModule(sel.id);
+  else if (sel.kind === 'modules') for (const id of [...sel.ids]) removeModule(id);
   else disconnect(sel.id);
 }
 
