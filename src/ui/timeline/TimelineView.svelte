@@ -2438,6 +2438,12 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   .block.audio.selected .fade-handle {
     opacity: 1;
   }
+  /* A slightly larger area to grab than the square shows, so the volume strip beside it is not hit. */
+  .fade-handle::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+  }
   .fade-handle:hover {
     background: var(--text-strong);
   }
@@ -2450,7 +2456,7 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     height: 8px;
     z-index: 2;
   }
-  .block.audio:hover .gain-strip:hover,
+  :global(html:not(.dragging)) .block.audio:not(:has(.fade-handle:hover)) .gain-strip:hover,
   .gain-strip.active {
     background: rgb(255 255 255 / 0.14);
   }
