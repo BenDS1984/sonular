@@ -3,7 +3,7 @@
  * the user (file picker or drag and drop). Both are undoable like any other edit.
  */
 import { DEFAULT_TEMPO } from '../engine/core/Transport';
-import { getDefinition } from '../modules/registry';
+import { CATEGORY_ORDER, getDefinition } from '../modules/registry';
 import { dialogs } from '../ui/dialogs.svelte';
 import { showToast } from '../ui/toast.svelte';
 import { FILE_EXTENSION, PatchFileError, fileNameFor, parsePatchFile, serializePatch } from './fileFormat';
@@ -97,6 +97,12 @@ export function newPatch() {
   patch.cables = [];
   patch.view = { x: 0, y: 0, zoom: 1 };
   addDefaultOutput();
+  foldAllFamilies();
+}
+
+/** Close every module family in the browser panel, so a new patch starts with a short list. */
+export function foldAllFamilies() {
+  prefs.browserFolded = [...CATEGORY_ORDER];
 }
 
 /** Room kept between the Output and the right edge of the canvas, in canvas pixels. */
