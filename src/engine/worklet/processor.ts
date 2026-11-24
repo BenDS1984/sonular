@@ -4,6 +4,7 @@
  */
 import { Engine, type MasterMeters } from '../core/Engine';
 import { StallMeter } from '../core/StallMeter';
+import { WakeTone } from '../core/WakeTone';
 import type { ModuleFactory, RecordedAudio } from '../core/types';
 import { FaustDsp, declaredSink } from '../faust/FaustDsp';
 import { FaustSink } from '../faust/FaustSink';
@@ -31,6 +32,8 @@ class SonularProcessor extends AudioWorkletProcessor {
   private busyMs = 0;
   /** Notices when the sound card calls late, so what is heard hangs for a moment. */
   private readonly stalls = new StallMeter();
+  /** A soft warm-up tone before the sound starts after a long silence (see WakeTone). */
+  private readonly wake = new WakeTone(sampleRate);
   private cpu = 0;
   private renderedFrames = 0;
   private readonly statsFrames = Math.round(STATS_INTERVAL_SECONDS * sampleRate);
@@ -118,9 +121,16 @@ class SonularProcessor extends AudioWorkletProcessor {
         this.engine?.setLimiter(msg.on);
         break;
       case 'run':
-        // Starting from silence (not while a stop is still fading out): begin at the top.
         if (msg.running && !this.running) this.stalls.reset();
-        if (msg.running && !this.running && this.gain === 0) this.engine?.restart();
+        // Starting from silence (not while a stop is still fading out): begin at the top. When the
+        // output has been silent for long (the device may be asleep) a soft warm-up tone comes
+        // first; the engine only starts to play once it is over.
+        if (msg.running && !this.running && this.gain === 0) {
+          this.engine?.restart();
+          this.wake.begin(now());
+        }
+        // Stop during the warm-up: the sound never started.
+        if (!msg.running) this.wake.cancel();
         this.running = msg.running;
         break;
     }
@@ -134,6 +144,15 @@ class SonularProcessor extends AudioWorkletProcessor {
     const L = out[0];
     const R = out[1] ?? L;
     const frames = L.length;
+
+    // Warm-up tone before the sound (the engine waits at the start): the song starts when it is over.
+    if (this.wake.active) {
+      this.wake.heard(now());
+      this.wake.fill(L, R, frames);
+      this.tickStats(engine, frames, 0);
+      return true;
+    }
+    if (this.running || this.gain > 0) this.wake.heard(now());
 
     // Idle: fully silent and faded out. Outputs are already zero-filled by the browser.
     if (!this.running && this.gain === 0) {
