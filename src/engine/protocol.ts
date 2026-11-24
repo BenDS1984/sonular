@@ -27,6 +27,10 @@ export interface EngineStats {
   clipped: boolean;
   /** Lowest gain the master limiter applied since the previous stats (1: it did nothing). */
   limiterGain: number;
+  /** Times the audio thread was called late since Play (the sound hung for a moment). */
+  stalls: number;
+  /** The longest of those, in ms (0: none). */
+  longestStallMs: number;
   faulted: boolean;
   processed: number;
   sleeping: number;

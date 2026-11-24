@@ -20,6 +20,9 @@ export const engineState = $state({
   clipped: false,
   /** Lowest gain the master limiter applied lately (1: it did nothing). */
   limiterGain: 1,
+  /** Times the sound hung for a moment since Play (the sound card called late), and the longest in ms. */
+  stalls: 0,
+  longestStallMs: 0,
   processed: 0,
   sleeping: 0,
   /** Transport position in beats since Play was pressed. */
@@ -69,6 +72,8 @@ export const audio = new AudioEngine(
       engineState.peakR = s.peakR;
       engineState.clipped = s.clipped;
       engineState.limiterGain = s.limiterGain;
+      engineState.stalls = s.stalls;
+      engineState.longestStallMs = s.longestStallMs;
       engineState.processed = s.processed;
       engineState.sleeping = s.sleeping;
       engineState.beat = s.beat;

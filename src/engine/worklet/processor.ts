@@ -3,6 +3,7 @@
  * Bundled separately by Vite (imported with `?worker&url`) and loaded via audioWorklet.addModule.
  */
 import { Engine, type MasterMeters } from '../core/Engine';
+import { StallMeter } from '../core/StallMeter';
 import type { ModuleFactory, RecordedAudio } from '../core/types';
 import { FaustDsp, declaredSink } from '../faust/FaustDsp';
 import { FaustSink } from '../faust/FaustSink';
@@ -28,6 +29,8 @@ class SonularProcessor extends AudioWorkletProcessor {
   private gain = 0;
   private readonly fadeStep = 1 / Math.max(1, FADE_SECONDS * sampleRate);
   private busyMs = 0;
+  /** Notices when the sound card calls late, so what is heard hangs for a moment. */
+  private readonly stalls = new StallMeter();
   private cpu = 0;
   private renderedFrames = 0;
   private readonly statsFrames = Math.round(STATS_INTERVAL_SECONDS * sampleRate);
@@ -40,6 +43,8 @@ class SonularProcessor extends AudioWorkletProcessor {
     clipped: false,
     faulted: false,
     limiterGain: 1,
+    stalls: 0,
+    longestStallMs: 0,
     processed: 0,
     sleeping: 0,
     unreachable: 0,
@@ -114,6 +119,7 @@ class SonularProcessor extends AudioWorkletProcessor {
         break;
       case 'run':
         // Starting from silence (not while a stop is still fading out): begin at the top.
+        if (msg.running && !this.running) this.stalls.reset();
         if (msg.running && !this.running && this.gain === 0) this.engine?.restart();
         this.running = msg.running;
         break;
@@ -121,6 +127,7 @@ class SonularProcessor extends AudioWorkletProcessor {
   }
 
   process(_inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
+    this.stalls.tick(now(), this.running || this.gain > 0);
     const out = outputs[0];
     const engine = this.engine;
     if (!out || !out[0] || !engine) return true;
@@ -164,6 +171,8 @@ class SonularProcessor extends AudioWorkletProcessor {
     st.peakR = meters.peakR;
     st.clipped = meters.clipped;
     st.limiterGain = meters.limiterGain;
+    st.stalls = this.stalls.count;
+    st.longestStallMs = this.stalls.longestMs;
     st.faulted = meters.faulted;
     st.processed = engine.stats.processed;
     st.sleeping = engine.stats.sleeping;
