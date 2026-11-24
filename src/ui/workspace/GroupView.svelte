@@ -1,13 +1,15 @@
 <!--
-  One group of modules on the canvas (see ModuleGroup). Expanded: a frame with a title strip around
-  its modules. Collapsed: one small bar; its modules are hidden and the cables that come in or go
-  out attach to the bar. Dragging the title strip or the bar moves the whole group.
+  One group of modules on the canvas (see ModuleGroup). Expanded: a frame around its modules with a
+  grey bar on top (like the header of the Output module). Collapsed: that bar alone; its modules
+  are hidden and the cables that come in or go out attach to it. Dragging the bar moves the whole
+  group; double-click the name (or use the pencil) to rename it.
 -->
 <script lang="ts">
   import { canvasState, patch, toggleGroupCollapsed, ungroup } from '../../patch/patch.svelte';
   import { barRect, frameRect, GROUP_HEADER } from '../../patch/groups';
   import { snap } from '../../patch/geometry';
   import type { ModuleGroup } from '../../patch/types';
+  import EditableName from '../components/EditableName.svelte';
 
   interface Props {
     group: ModuleGroup;
@@ -19,10 +21,18 @@
   const bar = $derived(barRect(patch, group, canvasState.moduleSizes));
   const rect = $derived(group.collapsed ? bar : frame);
 
+  let nameField: EditableName | undefined = $state();
+
+  /** An empty name goes back to the default one. */
+  function rename(name: string) {
+    const n = (patch.groups ?? []).findIndex((g) => g.id === group.id) + 1;
+    group.name = name.slice(0, 40) || `Group ${n}`;
+  }
+
   function ondragstart(e: PointerEvent) {
     if (e.button !== 0) return;
-    const t = e.target as HTMLElement;
-    if (t.closest('button, input')) return;
+    // Buttons and the name field (while it is being edited) keep their own clicks.
+    if ((e.target as HTMLElement).closest('button, input')) return;
     e.preventDefault();
     e.stopPropagation();
     const head = e.currentTarget as HTMLElement;
@@ -52,11 +62,6 @@
     head.addEventListener('pointerup', up);
     head.addEventListener('pointercancel', up);
   }
-
-  const title = (e: Event) => {
-    const name = (e.currentTarget as HTMLInputElement).value;
-    group.name = name.slice(0, 40);
-  };
 </script>
 
 {#if rect}
@@ -71,15 +76,32 @@
     style:width={`${rect.w}px`}
     style:height={`${rect.h}px`}
   >
-    <div class="head" style:height={`${GROUP_HEADER}px`} onpointerdown={ondragstart} role="presentation">
-      <input class="name" value={group.name} oninput={title} maxlength="40" aria-label="Group name" spellcheck="false" />
+    <!-- svelte-ignore a11y_no_static_element_interactions (dragging by the bar is a mouse affordance, like a module header) -->
+    <header
+      class="head"
+      style:height={group.collapsed ? '100%' : `${GROUP_HEADER}px`}
+      onpointerdown={ondragstart}
+      ondblclick={() => nameField?.start()}
+    >
+      <h3 class="title">
+        <EditableName
+          bind:this={nameField}
+          text={group.name}
+          value={group.name}
+          placeholder="Group name"
+          label="Group name"
+          title="Drag the bar to move the group; double-click to rename"
+          onrename={rename}
+        />
+      </h3>
+      <span class="spacer"></span>
       <button type="button" onclick={() => toggleGroupCollapsed(group.id)} title={group.collapsed ? 'Show the modules' : 'Hide the modules'}>
         {group.collapsed ? 'Expand' : 'Collapse'}
       </button>
       <button type="button" onclick={() => ungroup(group.id)} title="Dissolve the group; the modules stay where they are">
         Ungroup
       </button>
-    </div>
+    </header>
   </div>
 {/if}
 
@@ -87,54 +109,64 @@
   .group-view {
     position: absolute;
     box-sizing: border-box;
-    border: 1px solid var(--border-strong);
+    border: 1px solid var(--border-default);
     border-radius: var(--radius-lg);
     background: rgb(255 255 255 / 0.03);
-    /* Behind the modules and the cables' hit layer; only the title strip takes the mouse. */
+    box-shadow: var(--shadow-module);
+    user-select: none;
+    /* Behind the modules and the cables' hit layer; only the grey bar takes the mouse. */
     z-index: -2;
     pointer-events: none;
   }
   .group-view.collapsed {
     z-index: 100001;
-    background: var(--surface-control);
-    box-shadow: var(--shadow-recess);
+    background: var(--surface-module);
   }
   .head {
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    padding: 0 var(--space-2);
     box-sizing: border-box;
+    padding: 0 var(--space-2) 0 var(--space-3);
+    background: var(--sheen-header), var(--family-output);
+    border-bottom: 1px solid rgb(0 0 0 / 0.25);
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.15) inset;
+    border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
     cursor: grab;
+    touch-action: none;
     pointer-events: auto;
   }
-  .name {
-    flex: 1;
-    min-width: 60px;
-    height: 20px;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-strong);
-    font: inherit;
-    font-size: var(--text-sm);
+  .collapsed .head {
+    border-bottom: 0;
+    border-radius: calc(var(--radius-lg) - 1px);
   }
-  .name:hover,
-  .name:focus {
-    border-color: var(--border-strong);
-    background: var(--bg-canvas);
+  .head:active {
+    cursor: grabbing;
+  }
+  .title {
+    margin: 0;
+    min-width: 0;
+    display: flex;
+    overflow: hidden;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--text-strong);
+    letter-spacing: 0.01em;
+  }
+  .spacer {
+    flex: 1;
   }
   button {
     height: 20px;
     padding: 0 var(--space-2);
-    border: 1px solid var(--border-strong);
+    border: 1px solid rgb(0 0 0 / 0.3);
     border-radius: var(--radius-sm);
-    background: var(--surface-control);
-    color: var(--text-default);
+    background: rgb(0 0 0 / 0.2);
+    color: var(--text-strong);
     font-size: var(--text-xs);
     cursor: pointer;
   }
   button:hover {
-    background: var(--surface-control-hover);
+    background: rgb(0 0 0 / 0.35);
   }
 </style>

@@ -17,7 +17,7 @@ export interface Point {
 
 /** Space between the modules and the group frame, and the height of the frame's title strip. */
 export const GROUP_PAD = 14;
-export const GROUP_HEADER = 30;
+export const GROUP_HEADER = 32;
 /** Width of a collapsed group's bar, and the room per attached cable. */
 export const BAR_WIDTH = 230;
 const BAR_BASE = 34;
