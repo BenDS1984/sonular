@@ -121,6 +121,11 @@ export interface EngineAudioClip {
   fadeOutPower?: number;
   /** The clip's own volume as a factor (1 when left out). */
   gain?: number;
+  /** Plays the sample backwards: `offset` and the loop count from the sample's end. */
+  reverse?: boolean;
+  /** Repeats the sample from `loopStart` up to `loopEnd` (seconds) for as long as the clip lasts. */
+  loopStart?: number;
+  loopEnd?: number;
 }
 
 export interface PatchNode {

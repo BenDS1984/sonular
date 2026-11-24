@@ -76,6 +76,11 @@ export function engineAudioClips(track: AudioTrack): EngineAudioClip[] {
       }
       const gain = audioGain(c);
       if (gain !== 1) clip.gain = gain;
+      if (c.reverse) clip.reverse = true;
+      if (c.loop) {
+        clip.loopStart = c.loop.start;
+        clip.loopEnd = c.loop.end;
+      }
       return clip;
     })
     .sort((a, b) => a.start - b.start);

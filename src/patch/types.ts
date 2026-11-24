@@ -127,8 +127,18 @@ export interface AudioClip {
   name: string;
   start: number;
   length: number;
-  /** Where in the sample the clip starts, in seconds. */
+  /**
+   * Where in the sample the clip starts, in seconds. For a reversed clip this, and `loop`, count
+   * from the end of the sample (as if the sample itself were reversed).
+   */
   offset: number;
+  /** Plays the sample backwards. */
+  reverse?: true;
+  /**
+   * Repeats a part of the sample (seconds, from `start` up to `end`) for as long as the clip lasts:
+   * the clip plays from `offset` on and goes round to `start` whenever it reaches `end`.
+   */
+  loop?: { start: number; end: number };
   /**
    * Fade in and fade out, in beats (straight lines; none when left out). They may be longer than a
    * shortened clip has room for: `audioFades` gives the part that applies.

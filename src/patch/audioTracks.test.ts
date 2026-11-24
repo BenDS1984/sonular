@@ -3,6 +3,9 @@ import { FADE_LINEAR } from '../engine/core/fadeCurve';
 import {
   audioFadeBends,
   setAudioFadeBend,
+  setAudioReverse,
+  setAudioLoop,
+  loopedPosition,
   addAudioClip,
   addAudioTrack,
   audioFades,
@@ -232,6 +235,49 @@ describe('fade bends', () => {
     expect(second.fadeOutBend).toBe(0.3);
     setAudioFade(clip, 'in', 0);
     expect(clip.fadeInBend).toBeUndefined();
+  });
+});
+
+describe('reverse and loop', () => {
+  function setup() {
+    const t = addAudioTrack(emptyProject('x', 120));
+    const clip = addAudioClip(t, sample('s1', 4), 0, 120)!; // 4 s sample, 0–8 beats
+    return { t, clip };
+  }
+
+  it('keeps playing the same part of the sample when reversed, and back', () => {
+    const { clip } = setup();
+    clip.offset = 1;
+    clip.length = 2; // 1 s: the part 1 s – 2 s
+    setAudioReverse(clip, true, 4, 120);
+    expect(clip.reverse).toBe(true);
+    expect(clip.offset).toBeCloseTo(2); // that part, counted from the end: 2 s – 3 s
+    setAudioReverse(clip, false, 4, 120);
+    expect(clip.reverse).toBeUndefined();
+    expect(clip.offset).toBeCloseTo(1);
+  });
+
+  it('loops from where the clip starts to the end of the sample, and can then be any length', () => {
+    const { clip } = setup();
+    clip.offset = 1;
+    expect(maxAudioLength(clip, 4, 120)).toBeCloseTo(6);
+    setAudioLoop(clip, true, 4, 120);
+    expect(clip.loop).toEqual({ start: 1, end: 4 });
+    expect(maxAudioLength(clip, 4, 120)).toBe(Infinity);
+    clip.length = 20;
+    setAudioLoop(clip, false, 4, 120);
+    expect(clip.loop).toBeUndefined();
+    expect(clip.length).toBeCloseTo(6); // back to where the sample ends
+  });
+
+  it('keeps the loop when split, the second part starting where the loop has got to', () => {
+    const { t, clip } = setup();
+    setAudioLoop(clip, true, 4, 120);
+    clip.length = 20; // 10 s: round the 4 s loop
+    const second = splitAudioClip(t, clip.id, 10, 120)!; // 5 s in: 1 s into the second pass
+    expect(second.loop).toEqual({ start: 0, end: 4 });
+    expect(second.offset).toBeCloseTo(1);
+    expect(loopedPosition(clip, 9)).toBeCloseTo(1);
   });
 });
 

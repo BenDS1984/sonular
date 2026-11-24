@@ -30,6 +30,13 @@ export type DefinitionLookup = (type: string) => ModuleDefinition | undefined;
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isFiniteNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/** A clip's loop from a file: a part of the sample in seconds, or nothing when it is not valid. */
+function readLoop(v: unknown): { loop?: { start: number; end: number } } {
+  if (!isObject(v) || !isFiniteNumber(v['start']) || !isFiniteNumber(v['end'])) return {};
+  const start = Math.max(0, v['start']);
+  return v['end'] > start ? { loop: { start, end: v['end'] } } : {};
+}
 const asString = (v: unknown, fallback: string) => (typeof v === 'string' && v.trim() ? v : fallback);
 
 /**
@@ -120,6 +127,8 @@ export function serializeProject(project: Project, now = new Date()): string {
           ...(c.fadeIn && c.fadeInBend !== undefined ? { fadeInBend: c.fadeInBend } : {}),
           ...(c.fadeOut && c.fadeOutBend !== undefined ? { fadeOutBend: c.fadeOutBend } : {}),
           ...(c.gain !== undefined && c.gain !== 1 ? { gain: c.gain } : {}),
+          ...(c.reverse ? { reverse: true } : {}),
+          ...(c.loop ? { loop: { start: c.loop.start, end: c.loop.end } } : {}),
         })),
       })),
       patches: project.patches.map((p) => ({
@@ -489,6 +498,8 @@ function validateAudioTracks(raw: unknown, warnings: string[]): AudioTrack[] {
         ...(isFiniteNumber(c['fadeInBend']) && c['fadeInBend'] !== FADE_LINEAR ? { fadeInBend: clampFadeBend(c['fadeInBend']) } : {}),
         ...(isFiniteNumber(c['fadeOutBend']) && c['fadeOutBend'] !== FADE_LINEAR ? { fadeOutBend: clampFadeBend(c['fadeOutBend']) } : {}),
         ...(isFiniteNumber(c['gain']) && c['gain'] !== 1 ? { gain: clampClipGain(c['gain']) } : {}),
+        ...(c['reverse'] === true ? { reverse: true as const } : {}),
+        ...readLoop(c['loop']),
       });
     }
     candidates.sort((a, b) => a.start - b.start);

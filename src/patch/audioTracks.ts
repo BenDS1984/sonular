@@ -161,9 +161,56 @@ export function audioFreeRange(track: Pick<AudioTrack, 'clips'>, at: number, ign
   return { lo, hi };
 }
 
-/** The longest a clip can be before it runs past the end of its sample, in beats. */
-export function maxAudioLength(clip: Pick<AudioClip, 'offset'>, duration: number, tempo: number): number {
+/** The longest a clip can be before it runs past the end of its sample, in beats (a looping clip: no end). */
+export function maxAudioLength(clip: Pick<AudioClip, 'offset' | 'loop'>, duration: number, tempo: number): number {
+  if (clip.loop) return Infinity;
   return secondsToBeats(Math.max(0, duration - clip.offset), tempo);
+}
+
+/**
+ * Where in the sample a clip is (seconds, as `offset` counts them) at `seconds` from the clip's
+ * own start of the sample: a looping clip goes round when it reaches the end of its loop.
+ */
+export function loopedPosition(clip: Pick<AudioClip, 'loop'>, seconds: number): number {
+  const l = clip.loop;
+  if (!l || seconds < l.end) return seconds;
+  const len = l.end - l.start;
+  return len > 0 ? l.start + ((seconds - l.start) % len) : seconds;
+}
+
+// ---------- Reverse and loop ----------
+
+/** Shortest loop, in seconds. */
+const MIN_LOOP_SECONDS = 0.005;
+
+/**
+ * Play a clip backwards (or forwards again). It keeps playing the same part of the sample, now
+ * from the other end; `duration` is the sample's length in seconds.
+ */
+export function setAudioReverse(clip: AudioClip, on: boolean, duration: number, tempo: number): void {
+  if (!!clip.reverse === on || !(duration > 0)) return;
+  // The first pass through the sample (up to the loop's end, or the clip's end) is mirrored.
+  const passEnd = Math.min(clip.loop ? clip.loop.end : duration, clip.offset + beatsToSeconds(clip.length, tempo));
+  clip.offset = Math.min(duration, Math.max(0, duration - passEnd));
+  if (clip.loop) clip.loop = { start: Math.max(0, duration - clip.loop.end), end: Math.min(duration, duration - clip.loop.start) };
+  if (on) clip.reverse = true;
+  else delete clip.reverse;
+}
+
+/**
+ * Switch a clip's loop on (it repeats from where it starts in the sample to the sample's end, and
+ * can be made as long as wanted) or off (it is cut back to where the sample ends).
+ */
+export function setAudioLoop(clip: AudioClip, on: boolean, duration: number, tempo: number): void {
+  if (on) {
+    if (clip.loop || !(duration - clip.offset >= MIN_LOOP_SECONDS)) return;
+    clip.loop = { start: clip.offset, end: duration };
+  } else if (clip.loop) {
+    delete clip.loop;
+    if (!(duration > 0)) return;
+    clip.offset = Math.min(clip.offset, Math.max(0, duration - beatsToSeconds(MIN_CLIP_LENGTH, tempo)));
+    clip.length = Math.max(MIN_CLIP_LENGTH, Math.min(clip.length, maxAudioLength(clip, duration, tempo)));
+  }
 }
 
 /**
@@ -174,7 +221,7 @@ export function trimAudioStart(clip: AudioClip, start: number, tempo: number, mi
   const end = clip.start + clip.length;
   const back = secondsToBeats(clip.offset, tempo); // beats of sample before the clip
   const s = Math.min(end - MIN_CLIP_LENGTH, Math.max(minStart, clip.start - back, start));
-  clip.offset = Math.max(0, clip.offset + beatsToSeconds(s - clip.start, tempo));
+  clip.offset = Math.max(0, loopedPosition(clip, clip.offset + beatsToSeconds(s - clip.start, tempo)));
   clip.start = s;
   clip.length = end - s;
 }
@@ -185,7 +232,7 @@ export function duplicateAudioClip(track: AudioTrack, id: string): AudioClip | n
   if (!clip) return null;
   const start = nearestFreeAudioStart(track, clip.start + clip.length, clip.length);
   if (start + clip.length > MAX_BEATS + 1e-9 || audioOverlaps(track, start, clip.length)) return null;
-  const copy: AudioClip = { ...clip, id: nextAudioClipId(track), start };
+  const copy: AudioClip = { ...clip, id: nextAudioClipId(track), start, ...(clip.loop ? { loop: { ...clip.loop } } : {}) };
   track.clips.push(copy);
   return copy;
 }
@@ -306,8 +353,10 @@ export function splitAudioClip(track: AudioTrack, id: string, at: number, tempo:
     name: clip.name,
     start: at,
     length: end - at,
-    offset: clip.offset + beatsToSeconds(at - clip.start, tempo),
+    offset: loopedPosition(clip, clip.offset + beatsToSeconds(at - clip.start, tempo)),
     ...(clip.gain !== undefined ? { gain: clip.gain } : {}),
+    ...(clip.reverse ? { reverse: true as const } : {}),
+    ...(clip.loop ? { loop: { ...clip.loop } } : {}),
   };
   clip.length = at - clip.start;
   dropAudioFade(clip, 'out');
@@ -341,8 +390,10 @@ export function carveAudio(track: AudioTrack, start: number, end: number, keep: 
         name: c.name,
         start: end,
         length: after,
-        offset: c.offset + beatsToSeconds(end - c.start, tempo),
+        offset: loopedPosition(c, c.offset + beatsToSeconds(end - c.start, tempo)),
         ...(c.gain !== undefined ? { gain: c.gain } : {}),
+        ...(c.reverse ? { reverse: true as const } : {}),
+        ...(c.loop ? { loop: { ...c.loop } } : {}),
       };
       if (c.fadeOut !== undefined) setAudioFade(right, 'out', c.fadeOut);
       if (right.fadeOut !== undefined && c.fadeOutBend !== undefined) right.fadeOutBend = c.fadeOutBend;
@@ -353,7 +404,7 @@ export function carveAudio(track: AudioTrack, start: number, end: number, keep: 
       c.length = before;
       dropAudioFade(c, 'out');
     } else if (after > eps) {
-      c.offset += beatsToSeconds(end - c.start, tempo);
+      c.offset = loopedPosition(c, c.offset + beatsToSeconds(end - c.start, tempo));
       c.start = end;
       c.length = after;
       dropAudioFade(c, 'in');

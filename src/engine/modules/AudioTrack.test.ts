@@ -140,3 +140,40 @@ describe('AudioTrack pan', () => {
     expect(t.track.outR[last]!).toBeCloseTo(0.5, 3);
   });
 });
+
+describe('AudioTrack reverse and loop', () => {
+  /** A 2 s sample whose value is its own time in seconds (a ramp from 0 to 2). */
+  function ramp() {
+    const bank = new SampleBank();
+    const data = new Float32Array(2 * SR);
+    for (let i = 0; i < data.length; i++) data[i] = i / SR;
+    bank.set('s', SR, [data]);
+    const transport = new Transport(SR);
+    transport.setTempo(120); // 2 beats per second
+    return { bank, transport, track: new AudioTrack(SR, transport, bank) };
+  }
+
+  it('plays a reversed clip backwards, its offset counted from the sample end', () => {
+    const t = ramp();
+    // Offset 0.5 s from the end: starts at 1.5 s into the sample and goes back.
+    t.track.setAudioClips([{ sample: 's', start: 0, end: 2, offset: 0.5, reverse: true }]);
+    const out = render(t, Math.ceil((1 * SR) / BLOCK_SIZE));
+    expect(out[Math.floor(0.1 * SR)]!).toBeCloseTo(1.4, 2);
+    expect(out[Math.floor(0.6 * SR)]!).toBeCloseTo(0.9, 2);
+  });
+
+  it('goes round its loop for as long as the clip lasts', () => {
+    const t = ramp();
+    // Loop 1 s – 2 s, starting at 1.5 s; the clip lasts 3 s.
+    t.track.setAudioClips([{ sample: 's', start: 0, end: 6, offset: 1.5, loopStart: 1, loopEnd: 2 }]);
+    const out = render(t, Math.ceil((3 * SR) / BLOCK_SIZE));
+    expect(out[Math.floor(0.25 * SR)]!).toBeCloseTo(1.75, 2);
+    expect(out[Math.floor(0.75 * SR)]!).toBeCloseTo(1.25, 2); // went round at 0.5 s
+    expect(out[Math.floor(2.25 * SR)]!).toBeCloseTo(1.75, 2);
+    // Starting in the middle finds the same place.
+    t.transport.rewind(5); // 2.5 s
+    const later = render(t, 4);
+    expect(later[300]!).toBeCloseTo(1.0 + 300 / SR, 2); // after the few ms of fade against clicks
+  });
+});
+

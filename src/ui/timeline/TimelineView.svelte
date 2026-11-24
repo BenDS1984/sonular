@@ -19,7 +19,9 @@
     strip just under the name drags the clip's own volume up or down, the waveform growing and
     shrinking with it (double-click: 0 dB). S cuts the
     selected ones at the playhead (also in the right-click menu, which can cut at the dashed line);
-    a clip dropped or moved onto other clips replaces the part under it
+    a clip dropped or moved onto other clips replaces the part under it; R (or the right-click
+    menu) plays the selected clips backwards, and with Loop on a clip repeats its sample and can be
+    made as long as wanted
   - ruler: click or drag to place the playhead (Play starts there; while playing it jumps)
   - the strip above the numbers holds the loop: drag it to move, drag its edges to resize, drag
     on an empty part to draw a new one, double-click it to switch it on or off
@@ -78,6 +80,9 @@ import TrackLevel from '../components/TrackLevel.svelte';
     audioFadeBends,
     setAudioFade,
     setAudioFadeBend,
+    setAudioReverse,
+    setAudioLoop,
+    loopedPosition,
     audioGain,
     setAudioGain,
     gainToLinePosition,
@@ -91,7 +96,6 @@ import TrackLevel from '../components/TrackLevel.svelte';
   import { library, loadLibrary } from '../../samples/library.svelte';
   import { SAMPLE_DRAG_TYPE, sampleDrag } from '../browser/browserPanel.svelte';
   import { showToast } from '../toast.svelte';
-  import { clipWavePoints } from './clipWave';
   import TrackOverview from './TrackOverview.svelte';
   import GateLed from './GateLed.svelte';
 import { waveColumns, waveShape } from '../../samples/waveform';
@@ -822,12 +826,6 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
   const WAVE_COLUMN_PX = 1.5;
 
   /**
-   * The waveform of the part of the sample a clip plays, drawn only for the stretch of the clip that
-   * is on screen (so a zoomed-in clip stays sharp however long it is): the shape, its viewBox and
-   * where it sits in the clip. The library's coarse overview stands in until the detailed one is
-   * ready; null when there is nothing to draw (the sample is not in the library).
-   */
-  /**
    * The level of a clip's fades at a beat inside the clip (1 outside them), the same curve the
    * engine plays; null when the clip has no fades.
    */
@@ -862,33 +860,92 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     return { line, shade: `0,0 1,0 ${[...pts].reverse().join(' ')}` };
   }
 
+  /**
+   * The waveform of the part of the sample a clip plays, drawn only for the stretch of the clip that
+   * is on screen (so a zoomed-in clip stays sharp however long it is): the shape, its viewBox and
+   * where it sits in the clip. The library's coarse overview stands in until the detailed one is
+   * ready; null when there is nothing to draw (the sample is not in the library).
+   */
   function clipWave(clip: AudioClip): { points: string; viewBox: string; x: number; w: number } | null {
     const widthPx = clip.length * ppb;
     const left = clip.start * ppb;
     const x0 = Math.max(0, timelineView.scrollLeft - left - 40);
     const x1 = Math.min(widthPx, timelineView.scrollLeft + viewW - left + 40);
     if (!(x1 > x0)) return null;
-    const secondsPerPx = 60 / project.tempo / ppb;
-    const from = clip.offset + x0 * secondsPerPx;
-    const to = clip.offset + x1 * secondsPerPx;
-    const envelope = fadeEnvelope(clip);
     const wave = waveformOf(clip.sample);
-    if (wave) {
-      const columns = Math.max(1, Math.round((x1 - x0) / WAVE_COLUMN_PX));
-      const cols = waveColumns(wave, from, to, columns);
-      if (envelope) {
-        for (let c = 0; c < columns; c++) {
-          const g = envelope((x0 + ((c + 0.5) * (x1 - x0)) / columns) / ppb);
-          cols.min[c]! *= g;
-          cols.max[c]! *= g;
-        }
+    const info = sampleOf(clip.sample);
+    const duration = wave ? wave.frames / wave.rate : info?.duration;
+    if (!duration || !(duration > 0) || (!wave && !info?.peaks.length)) return null;
+    const secondsPerPx = 60 / project.tempo / ppb;
+    const columns = Math.max(1, Math.round((x1 - x0) / WAVE_COLUMN_PX));
+    const colW = (x1 - x0) / columns;
+    const min = new Float32Array(columns);
+    const max = new Float32Array(columns);
+    const envelope = fadeEnvelope(clip);
+    for (let c = 0; c < columns; c++) {
+      // Where this column is in the sample (going round a loop; read from the end when reversed).
+      const a = loopedPosition(clip, clip.offset + (x0 + c * colW) * secondsPerPx);
+      const b = a + colW * secondsPerPx;
+      const from = clip.reverse ? duration - b : a;
+      const to = clip.reverse ? duration - a : b;
+      let lo = 0;
+      let hi = 0;
+      if (wave) {
+        const one = waveColumns(wave, from, to, 1);
+        lo = one.min[0]!;
+        hi = one.max[0]!;
+      } else if (info) {
+        const n = info.peaks.length;
+        const i0 = Math.max(0, Math.floor((from / duration) * n));
+        const i1 = Math.min(n, Math.max(i0 + 1, Math.ceil((to / duration) * n)));
+        for (let i = i0; i < i1; i++) hi = Math.max(hi, info.peaks[i]!);
+        lo = -hi;
       }
-      return { points: waveShape(cols), viewBox: `0 -1 ${columns} 2`, x: x0, w: x1 - x0 };
+      const g = envelope ? envelope((x0 + (c + 0.5) * colW) / ppb) : 1;
+      min[c] = lo * g;
+      max[c] = hi * g;
     }
-    const s = sampleOf(clip.sample);
-    if (!s || !(s.duration > 0)) return null;
-    const scale = envelope ? (f: number) => envelope((x0 + f * (x1 - x0)) / ppb) : undefined;
-    return { points: clipWavePoints(s.peaks, from / s.duration, to / s.duration, 48, scale), viewBox: '0 0 100 20', x: x0, w: x1 - x0 };
+    return { points: waveShape({ min, max }), viewBox: `0 -1 ${columns} 2`, x: x0, w: x1 - x0 };
+  }
+
+  /** Where a looping clip starts its sample part over again, in pixels from the clip's start (on screen only). */
+  function loopMarks(clip: AudioClip): number[] {
+    const l = clip.loop;
+    if (!l || !(l.end > l.start)) return [];
+    const beatsPerSecond = project.tempo / 60;
+    const period = (l.end - l.start) * beatsPerSecond * ppb;
+    if (period < 4) return []; // too close together to show
+    const first = (l.end - Math.min(clip.offset, l.end)) * beatsPerSecond * ppb;
+    const widthPx = clip.length * ppb;
+    const left = clip.start * ppb;
+    const from = Math.max(0, timelineView.scrollLeft - left);
+    const to = Math.min(widthPx, timelineView.scrollLeft + viewW - left);
+    const out: number[] = [];
+    let x = first + Math.max(0, Math.ceil((from - first) / period)) * period;
+    for (; x < to && out.length < 400; x += period) if (x > 0.5) out.push(x);
+    return out;
+  }
+
+  /** Play the selected clips backwards, or all forwards again when they all are reversed. */
+  function reverseSelected(): boolean {
+    const items = selectedAudio();
+    if (items.length === 0) return false;
+    const on = items.some(({ clip }) => !clip.reverse);
+    for (const { clip } of items) {
+      const d = sampleOf(clip.sample)?.duration;
+      if (d) setAudioReverse(clip, on, d, project.tempo);
+    }
+    return true;
+  }
+
+  /** Switch Loop on for the selected clips, or off when it is on for all of them. */
+  function loopSelected(): void {
+    const items = selectedAudio();
+    const on = items.some(({ clip }) => !clip.loop);
+    for (const { clip } of items) {
+      const d = sampleOf(clip.sample)?.duration;
+      if (d) setAudioLoop(clip, on, d, project.tempo);
+    }
   }
 
   function onrowdblclick(e: MouseEvent, patch: Patch, moduleId: string) {
@@ -1209,6 +1266,9 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     } else if (!mod && !e.altKey && key === 's') {
       // S: cut the selected audio clips at the playhead.
       if (splitSelectedAtPlayhead()) e.preventDefault();
+    } else if (!mod && !e.altKey && key === 'r') {
+      // R: play the selected audio clips backwards (again: forwards).
+      if (reverseSelected()) e.preventDefault();
     } else if (!mod && !e.altKey && /^[a-z]$/i.test(e.key)) {
       // A–H: the pattern the blocks play.
       if (setSelectedBank(e.key.toUpperCase().charCodeAt(0) - 65)) e.preventDefault();
@@ -1689,7 +1749,15 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
                   style:cursor={GAIN_CURSOR}
                   title={`Clip volume ${formatGainDb(gain)}: drag up or down (Shift: finer), double-click for 0 dB`}
                 ></span>
-                <span class="clip-name" data-grab>{missing ? `${c.name} (missing)` : c.name}</span>
+                {#each loopMarks(c) as x (x)}
+                  <span class="loop-mark" style:left={`${x}px`}></span>
+                {/each}
+                <span class="clip-name" data-grab
+                  >{#if c.reverse}<span class="clip-flag" title="Plays backwards">◂</span>{/if}{#if c.loop}<span
+                      class="clip-flag"
+                      title="Loops">↻</span
+                    >{/if}{missing ? `${c.name} (missing)` : c.name}</span
+                >
                 <span class="edge start" data-edge="start"></span>
                 <span class="edge end" data-edge="end"></span>
                 <span
@@ -1828,6 +1896,27 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
         splitAudio(m.track, m.clip, shownBeat);
         audioMenu = null;
       }}>Split at playhead <kbd>S</kbd></button
+    >
+    <div class="menu-sep" role="separator"></div>
+    <button
+      type="button"
+      role="menuitemcheckbox"
+      aria-checked={!!m.clip.reverse}
+      title="Play the clip backwards"
+      onclick={() => {
+        reverseSelected();
+        audioMenu = null;
+      }}>{m.clip.reverse ? '✓ ' : ''}Reverse <kbd>R</kbd></button
+    >
+    <button
+      type="button"
+      role="menuitemcheckbox"
+      aria-checked={!!m.clip.loop}
+      title="Repeat the sample from where the clip starts in it to its end; drag the clip's end as far as you like"
+      onclick={() => {
+        loopSelected();
+        audioMenu = null;
+      }}>{m.clip.loop ? '✓ ' : ''}Loop</button
     >
     <div class="menu-sep" role="separator"></div>
     <button
@@ -2597,6 +2686,20 @@ import { loadWaveform, waveformOf } from '../../samples/waveforms.svelte';
     opacity: 0.8;
   }
   /* The name sits in a strip above the waveform, so the two do not run into each other. */
+  /* Where a looping clip starts its sample part over again. */
+  .loop-mark {
+    position: absolute;
+    top: 15px;
+    bottom: 0;
+    width: 0;
+    border-left: 1px dashed rgb(255 255 255 / 0.35);
+    pointer-events: none;
+  }
+  /* Small signs before the clip's name: reversed, looping. */
+  .clip-flag {
+    margin-right: 4px;
+    pointer-events: none;
+  }
   .block.audio .clip-name {
     position: absolute;
     top: 0;

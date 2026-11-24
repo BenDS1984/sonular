@@ -43,7 +43,7 @@ const sample = (): Project => ({
       send2: 0,
       mute: false,
       solo: true,
-      clips: [{ id: 'c1', sample: 's1', name: 'Verse', start: 4, length: 8, offset: 1.5, fadeIn: 1, fadeInBend: 0.7, gain: 0.5 }],
+      clips: [{ id: 'c1', sample: 's1', name: 'Verse', start: 4, length: 8, offset: 1.5, fadeIn: 1, fadeInBend: 0.7, gain: 0.5, reverse: true, loop: { start: 0.5, end: 3 } }],
     },
   ],
   name: 'My drone',

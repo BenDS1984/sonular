@@ -79,7 +79,14 @@ export class AudioTrack implements SinkModule {
     this.states = clips.map((clip) => {
       const same = old.find(
         // A changed fade or volume is not a different clip: it keeps playing, with the new one.
-        (s) => s.clip.sample === clip.sample && s.clip.start === clip.start && s.clip.end === clip.end && s.clip.offset === clip.offset,
+        (s) =>
+          s.clip.sample === clip.sample &&
+          s.clip.start === clip.start &&
+          s.clip.end === clip.end &&
+          s.clip.offset === clip.offset &&
+          !!s.clip.reverse === !!clip.reverse &&
+          s.clip.loopStart === clip.loopStart &&
+          s.clip.loopEnd === clip.loopEnd,
       );
       return same
         ? { ...same, clip }
@@ -142,12 +149,16 @@ export class AudioTrack implements SinkModule {
           s.active = false;
           continue;
         }
+        const looping = c.loopEnd !== undefined && c.loopStart !== undefined && c.loopEnd > c.loopStart;
         if (!s.active) {
           s.active = true;
           s.age = 0;
-          s.cursor = (c.offset + (b - c.start) * secondsPerBeat) * data.rate;
+          let sec = c.offset + (b - c.start) * secondsPerBeat;
+          if (looping && sec >= c.loopEnd!) sec = c.loopStart! + ((sec - c.loopStart!) % (c.loopEnd! - c.loopStart!));
+          s.cursor = sec * data.rate;
         }
-        const pos = s.cursor;
+        // A reversed clip reads the sample from its end: the cursor counts frames from there.
+        const pos = c.reverse ? data.length - 1 - s.cursor : s.cursor;
         const i0 = Math.floor(pos);
         if (i0 >= 0 && i0 < data.length) {
           const frac = pos - i0;
@@ -166,7 +177,11 @@ export class AudioTrack implements SinkModule {
           const a2 = data.right[i0]!;
           r += (a2 + (data.right[i1]! - a2) * frac) * g;
         }
-        s.cursor = pos + data.rate / outRate;
+        s.cursor += data.rate / outRate;
+        if (looping) {
+          const endF = c.loopEnd! * data.rate;
+          if (s.cursor >= endF) s.cursor -= endF - c.loopStart! * data.rate;
+        }
         s.age++;
       }
       let gl = gain;
