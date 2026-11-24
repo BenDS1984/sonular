@@ -25,6 +25,11 @@ export class Sequencer implements DspModule {
   readonly numOutputs = 2;
   /** Holds its pitch indefinitely, so it never sleeps. */
   readonly tailSeconds = Infinity;
+  /**
+   * Keeps running (with the clock that feeds it) even when nothing is connected to its outputs, so
+   * its panel shows the step it is on. It costs next to nothing: eight steps and a clock edge.
+   */
+  readonly isObserver = true;
   readonly meterNames = ['step'] as const;
 
   /** All patterns after each other: pattern b, step s at b * 8 + s. */

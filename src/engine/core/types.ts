@@ -49,8 +49,9 @@ export interface DspModule {
   /** Write the current meter values into `out`, starting at `offset`, in `meterNames` order. */
   readMeters?(out: Float32Array, offset: number): void;
   /**
-   * Set for modules that only watch signals (scopes). They are processed even when no cable
-   * leads from them to an output, and so are the modules feeding them.
+   * Set for modules that watch signals (scopes) or show their state live on the panel and cost
+   * next to nothing (the sequencer). They are processed even when no cable leads from them to an
+   * output, and so are the modules feeding them.
    */
   readonly isObserver?: boolean;
   /** Number of display values (e.g. a scope trace) this module exposes, if any. */

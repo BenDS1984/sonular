@@ -209,6 +209,26 @@ describe('Envelope', () => {
   });
 });
 
+describe('A sequencer with nothing on its outputs', () => {
+  it('keeps running, so its panel shows the step it is on', () => {
+    const engine = new Engine(SR, { ...NATIVE_MODULES });
+    engine.setTempo(120);
+    engine.setPatch({
+      nodes: [
+        { id: 'clock', kind: 'native:clock', params: { ratio1: clockRatio('1/4') } },
+        { id: 'seq', kind: 'native:sequencer', params: {} },
+      ],
+      connections: [{ from: { node: 'clock', port: 0 }, to: { node: 'seq', port: 0 } }],
+    });
+    engine.restart();
+    engine.render(new Float32Array(SR), new Float32Array(SR), SR); // one second: two beats
+    const meters = new Float32Array(engine.meterValueCount);
+    engine.readMeters(meters);
+    const names = engine.meterLayout.flatMap((e) => e.names.map((n) => `${e.node}:${n}`));
+    expect(meters[names.indexOf('seq:step')]).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe('Clock, Sequencer and Envelope in a patch', () => {
   function program(name: string) {
     const path = (ext: string) => fileURLToPath(new URL(`../../dsp/generated/${name}.${ext}`, import.meta.url));
