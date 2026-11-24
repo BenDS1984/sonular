@@ -9,10 +9,11 @@ import { output } from './output/definition';
 import { recorder } from './recorder/definition';
 import { reverb } from './reverb/definition';
 import { scope } from './scope/definition';
+import { spectrum } from './spectrum/definition';
 import { sequencer } from './sequencer/definition';
 import type { ModuleDefinition } from './types';
 
-export const MODULES: readonly ModuleDefinition[] = [oscillator, clock, sequencer, envelope, mixer, reverb, output, recorder, scope];
+export const MODULES: readonly ModuleDefinition[] = [oscillator, clock, sequencer, envelope, mixer, reverb, output, recorder, scope, spectrum];
 
 const byType = new Map(MODULES.map((d) => [d.type, d]));
 

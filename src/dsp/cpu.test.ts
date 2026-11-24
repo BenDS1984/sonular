@@ -15,6 +15,7 @@ import { Clock } from '../engine/modules/Clock';
 import { Envelope } from '../engine/modules/Envelope';
 import { Recorder } from '../engine/modules/Recorder';
 import { Scope } from '../engine/modules/Scope';
+import { Spectrum } from '../engine/modules/Spectrum';
 import { Sequencer } from '../engine/modules/Sequencer';
 import { FaustDsp, type FaustMeta } from '../engine/faust/FaustDsp';
 
@@ -63,6 +64,14 @@ function scope(time: number): Scope {
   return s;
 }
 
+/** A spectrum analyser with both inputs connected (peak hold on). */
+function spectrum(): Spectrum {
+  const s = new Spectrum(SR);
+  s.onConnectionsChanged([true, true]);
+  s.setParam('peak', 1);
+  return s;
+}
+
 /** A recorder that is recording; its audio is handed over every 50 ms as in the engine. */
 function recorder(): Recorder {
   const r = new Recorder();
@@ -90,6 +99,7 @@ describe.skipIf(import.meta.env.MODE !== 'bench')('CPU cost per module', () => {
       ['Envelope', new Envelope(SR)],
       ['Scope (2 ms)', scope(0.002)],
       ['Scope (1 s)', scope(1)],
+      ['Spectrum', spectrum()],
       ['Recorder (recording)', recorder()],
     ];
     const rows = modules.map(([name, dsp]) => {

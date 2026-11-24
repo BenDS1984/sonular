@@ -8,11 +8,13 @@ import { Envelope } from './Envelope';
 import { Recorder } from './Recorder';
 import { Scope } from './Scope';
 import { Sequencer } from './Sequencer';
+import { Spectrum } from './Spectrum';
 
 export const NATIVE_MODULES: Readonly<Record<string, ModuleFactory>> = {
   'native:clock': (_sr, transport) => new Clock(transport),
   'native:sequencer': () => new Sequencer(),
   'native:envelope': (sr) => new Envelope(sr),
   'native:scope': (sr) => new Scope(sr),
+  'native:spectrum': (sr) => new Spectrum(sr),
   'native:recorder': () => new Recorder(),
 };
