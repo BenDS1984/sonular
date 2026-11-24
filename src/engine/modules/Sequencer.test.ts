@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { Transport } from '../core/Transport';
 import { BLOCK_SIZE, type EngineClip } from '../core/types';
 import { stepParam } from '../../modules/sequencer/banks';
-import { Clock } from './Clock';
+import { Clock, clockRatio } from './Clock';
 import { Sequencer } from './Sequencer';
 
 const SR = 48000;
@@ -26,7 +26,7 @@ function pattern(bank: number, first: number, off: number[] = []): Record<string
 const BANKS = { ...pattern(0, 12), ...pattern(1, -12), ...pattern(2, 7), ...pattern(3, 5) };
 
 /**
- * Play `beats` beats from `from` with a Clock output at `ratio` (index in CLOCK_RATIOS, 2 = ×1)
+ * Play `beats` beats from `from` with a Clock output at `ratio` (index in CLOCK_RATIOS; default 1/4, a pulse every beat)
  * into the sequencer. Returns pitch and gate for every sample.
  */
 function play(
@@ -38,7 +38,7 @@ function play(
   if (opts.loop) t.setLoop(true, opts.loop[0], opts.loop[1]);
   t.rewind(opts.from ?? 0);
   const clock = new Clock(t);
-  clock.setParam('ratio1', opts.ratio ?? 2);
+  clock.setParam('ratio1', opts.ratio ?? clockRatio('1/4'));
   const seq = new Sequencer(t);
   for (const [k, v] of Object.entries(opts.params ?? BANKS)) seq.setParam(k, v);
   seq.setClips(clips);
@@ -92,7 +92,7 @@ describe('Sequencer with timeline blocks', () => {
 
   it('closes the gate exactly where a block ends', () => {
     // ÷2: a pulse every 2 beats, high for 1 beat. The block ends halfway through a pulse.
-    const { gate } = play([{ start: 0, end: 2.5, bank: 0 }], 4, { ratio: 3 });
+    const { gate } = play([{ start: 0, end: 2.5, bank: 0 }], 4, { ratio: clockRatio('1/2') });
     expect(gate[2.5 * BEAT - 1]).toBe(1);
     expect(gate[2.5 * BEAT]).toBe(0);
   });

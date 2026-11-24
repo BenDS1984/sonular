@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Clock } from '../modules/Clock';
+import { Clock, clockRatio } from '../modules/Clock';
 import { Transport } from './Transport';
 
 const SR = 48000;
@@ -68,7 +68,7 @@ describe('transport', () => {
     const t = new Transport(SR);
     t.setLoop(true, 0, 2);
     const clock = new Clock(t);
-    clock.setParam('ratio1', 2); // ×1: a pulse every beat
+    clock.setParam('ratio1', clockRatio('1/4')); // a pulse every beat
     const outs = Array.from({ length: 4 }, () => new Float32Array(BLOCK));
     const rises: number[] = [];
     let last = 0;

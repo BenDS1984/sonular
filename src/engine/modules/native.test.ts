@@ -12,7 +12,7 @@ import { BLOCK_SIZE, type DspModule, type EnginePatch } from '../core/types';
 import { FaustDsp, type FaustMeta } from '../faust/FaustDsp';
 import { FaustSink } from '../faust/FaustSink';
 import { estimateFrequency } from '../../dsp/testUtils';
-import { Clock, CLOCK_RATIOS } from './Clock';
+import { Clock, clockRatio } from './Clock';
 import { Envelope } from './Envelope';
 import { Sequencer } from './Sequencer';
 import { NATIVE_MODULES } from './native';
@@ -66,10 +66,10 @@ describe('Clock', () => {
     const t = new Transport(SR);
     t.setTempo(120); // one beat = 0.5 s = 24000 samples
     const clock = new Clock(t);
-    const ratios = ['×4', '×1', '÷3', '÷16'].map((l) => CLOCK_RATIOS.findIndex((r) => r.label === l));
+    const ratios = ['1/16', '1/8T', '1/4', '4 bars'].map(clockRatio);
     ratios.forEach((r, o) => clock.setParam(`ratio${o + 1}`, r));
     const outs = run(clock, 33, undefined, t);
-    const expected = [6000, 24000, 72000, 384000];
+    const expected = [6000, 8000, 24000, 384000];
     outs.forEach((out, o) => {
       const edges = risingEdges(out);
       expect(edges[0]).toBe(0);
@@ -84,7 +84,7 @@ describe('Clock', () => {
   it('follows a tempo change at once', () => {
     const t = new Transport(SR);
     const clock = new Clock(t);
-    clock.setParam('ratio1', CLOCK_RATIOS.findIndex((r) => r.label === '×1'));
+    clock.setParam('ratio1', clockRatio('1/4'));
     // 120 BPM for the first second (2 beats), then 60 BPM.
     const firstSecond = SR / BLOCK_SIZE;
     const [out] = run(clock, 4, undefined, t, (b) => b === firstSecond && t.setTempo(60));
@@ -201,7 +201,7 @@ describe('Clock, Sequencer and Envelope in a patch', () => {
     engine.setTempo(tempo);
     const patch: EnginePatch = {
       nodes: [
-        { id: 'clock', kind: 'native:clock', params: { ratio1: 0 } }, // ×4: sixteenth notes
+        { id: 'clock', kind: 'native:clock', params: { ratio1: clockRatio('1/16') } }, // sixteenth notes
         { id: 'seq', kind: 'native:sequencer', params: { pitch1: 0, pitch2: 12, pitch3: -12, on1: 1, on2: 1, on3: 1, on4: 0, on5: 1, on6: 1, on7: 1, on8: 1 } },
         { id: 'osc', kind: 'faust:osc', params: { wave: 0, level: 0.5 } },
         { id: 'env', kind: 'native:envelope', params: { attack: 0.002, decay: 0.05, sustain: 1, release: 0.01 } },
