@@ -2,14 +2,10 @@
  * AudioWorklet entry point: hosts one Engine for the whole patch.
  * Bundled separately by Vite (imported with `?worker&url`) and loaded via audioWorklet.addModule.
  */
-import { Engine, type MasterMeters } from '../core/Engine';
+import type { Engine, MasterMeters } from '../core/Engine';
 import { SampleBank } from '../core/SampleBank';
-import { AudioTrack } from '../modules/AudioTrack';
-import type { ModuleFactory, RecordedAudio } from '../core/types';
-import { FaustDsp, declaredSink } from '../faust/FaustDsp';
-import { FaustSink } from '../faust/FaustSink';
-import { Master } from '../modules/Master';
-import { NATIVE_MODULES } from '../modules/native';
+import type { RecordedAudio } from '../core/types';
+import { createEngine } from '../createEngine';
 import { PROCESSOR_NAME, type EngineStats, type FromEngine, type ToEngine } from '../protocol';
 
 /** Fade applied when starting/stopping playback, to avoid clicks. */
@@ -78,19 +74,7 @@ class SonularProcessor extends AudioWorkletProcessor {
   private handle(msg: ToEngine) {
     switch (msg.type) {
       case 'init': {
-        const factories: Record<string, ModuleFactory> = {
-          master: () => new Master(),
-          ...NATIVE_MODULES,
-          'native:audiotrack': (sr, transport) => new AudioTrack(sr, transport, this.samples),
-        };
-        for (const prog of msg.faust) {
-          const sink = declaredSink(prog.meta);
-          factories[`faust:${prog.name}`] = (sr) => {
-            const dsp = new FaustDsp(prog.module, prog.meta, sr);
-            return sink ? new FaustSink(dsp) : dsp;
-          };
-        }
-        this.engine = new Engine(sampleRate, factories);
+        this.engine = createEngine(sampleRate, msg.faust, this.samples);
         this.engine.setTempo(msg.tempo);
         this.engine.setMasterLevel(msg.masterLevel);
         this.engine.setLimiter(msg.limiter, true);

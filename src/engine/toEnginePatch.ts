@@ -128,6 +128,26 @@ export function toEnginePatch(project: Project, getDef: DefinitionLookup): Engin
 }
 
 /**
+ * The graph for exporting: as for playback, but only what plays from the timeline is heard. Free
+ * patches (which ignore the timeline) are switched off, like muted ones, and a sequencer without
+ * blocks (which would play its pattern on its own) stays quiet.
+ */
+export function toExportPatch(project: Project, getDef: DefinitionLookup): EnginePatch {
+  const graph = toEnginePatch(project, getDef);
+  const free = new Set(project.patches.filter((p) => p.free).map((p) => p.id));
+  for (const node of graph.nodes) {
+    const patchId = node.id.slice(0, node.id.indexOf('/'));
+    if (node.active !== undefined && free.has(patchId)) node.active = false;
+    // One block before the song starts: the sequencer follows its blocks, and plays nothing.
+    if (node.clips && node.clips.length === 0) node.clips = [QUIET_BLOCK];
+  }
+  return graph;
+}
+
+/** A block that never plays (it ends before the song begins). */
+const QUIET_BLOCK: EngineClip = { start: -2, end: -1, bank: 0 };
+
+/**
  * A module's timeline blocks as the engine takes them, sorted by start. None for a Free patch: its
  * sequencers then play the pattern chosen on the module.
  */

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ModuleDefinition } from '../modules/types';
 import { emptyTimeline } from '../patch/timeline';
 import type { Patch, Project } from '../patch/types';
-import { audiblePatches, engineClips, engineLanes, toEnginePatch } from './toEnginePatch';
+import { audiblePatches, engineClips, engineLanes, toEnginePatch, toExportPatch } from './toEnginePatch';
 
 const def = (type: string, inputs: string[], outputs: string[]): ModuleDefinition => ({
   type,
@@ -106,3 +106,27 @@ describe('project to engine graph', () => {
     expect(toEnginePatch(project(patch('p1'), patch('p2', 1)), getDef).nodes.find((n) => n.id === 'p2/channel1')!.active).toBe(false);
   });
 });
+
+describe('graph for exporting', () => {
+  it('leaves out Free patches: only what plays from the timeline is heard', () => {
+    const free = { ...patch('p2'), free: true as const };
+    const pr = project(patch('p1'), free);
+    const channels = (g: ReturnType<typeof toEnginePatch>) =>
+      Object.fromEntries(g.nodes.filter((n) => n.active !== undefined).map((n) => [n.id.split('/')[0], n.active]));
+    expect(channels(toEnginePatch(pr, getDef))).toEqual({ p1: true, p2: true }); // playback: both
+    expect(channels(toExportPatch(pr, getDef))).toEqual({ p1: true, p2: false });
+  });
+
+  it('keeps a sequencer without blocks quiet, instead of playing its pattern', () => {
+    const seqDef: ModuleDefinition = { ...def('seq', [], ['gate']), banks: 8 };
+    const withSeq = (t: string) => (t === 'seq' ? seqDef : getDef(t));
+    const p = patch('p1');
+    p.modules.push({ id: 'seq1', type: 'seq', x: 0, y: 0, params: {} });
+    const node = (g: ReturnType<typeof toEnginePatch>) => g.nodes.find((n) => n.id === 'p1/seq1')!;
+    expect(node(toEnginePatch(project(p), withSeq)).clips).toEqual([]); // playback: its own pattern
+    const quiet = node(toExportPatch(project(p), withSeq)).clips!;
+    expect(quiet).toHaveLength(1);
+    expect(quiet[0]!.end).toBeLessThanOrEqual(0);
+  });
+});
+

@@ -4,4 +4,6 @@ export const dialogs = $state({
   save: false,
   /** Welcome / about window: opens by itself on the first visit (see App.svelte). */
   welcome: false,
+  /** "Export audio" dialog: render the song or the loop to a WAV file. */
+  export: false,
 });

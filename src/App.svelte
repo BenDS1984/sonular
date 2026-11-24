@@ -9,6 +9,7 @@
   import Toasts from './ui/Toasts.svelte';
   import ControlMenu from './ui/ControlMenu.svelte';
   import SaveDialog from './ui/SaveDialog.svelte';
+  import ExportDialog from './ui/ExportDialog.svelte';
   import WelcomeDialog from './ui/WelcomeDialog.svelte';
   import { dialogs } from './ui/dialogs.svelte';
   import { prefs } from './ui/prefs.svelte';
@@ -52,6 +53,7 @@
     {/if}
   </div>
   <SaveDialog />
+  <ExportDialog />
   <WelcomeDialog />
   <Toasts />
   <ControlMenu />

@@ -160,6 +160,7 @@
     </span>
     <IconButton icon="open" label="Open project file (Ctrl+O)" onclick={chooseProjectFile} />
     <IconButton icon="save" label="Save project as file (Ctrl+S)" onclick={requestSave} />
+    <IconButton icon="export" label="Export audio (WAV)" onclick={() => (dialogs.export = true)} />
     <span class="sep" aria-hidden="true"></span>
     <IconButton icon="undo" label="Undo (Ctrl+Z)" disabled={!historyState.canUndo} onclick={undo} />
     <IconButton icon="redo" label="Redo (Ctrl+Y)" disabled={!historyState.canRedo} onclick={redo} />
