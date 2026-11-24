@@ -12,7 +12,7 @@
 <script lang="ts">
   import { canvasState, patch } from '../../patch/patch.svelte';
   import { cablePath } from '../../patch/geometry';
-  import { barAnchor, groupOf } from '../../patch/groups';
+  import { cableEnds } from '../../patch/groups';
   import { getDefinition } from '../../modules/registry';
   import type { Cable } from '../../patch/types';
   import type { SignalType } from '../signals';
@@ -38,12 +38,8 @@
     patch.cables.flatMap((c) => {
       // In a collapsed group the modules are hidden: cables inside it are not drawn and cables
       // that come in or go out attach to the group's bar.
-      const gf = groupOf(patch, c.from.module);
-      const gt = groupOf(patch, c.to.module);
-      if (gf?.collapsed && gf.id === gt?.id) return [];
-      const a = gf?.collapsed ? barAnchor(patch, gf, canvasState.moduleSizes, c.id, 'from') : portPosition(c.from);
-      const b = gt?.collapsed ? barAnchor(patch, gt, canvasState.moduleSizes, c.id, 'to') : portPosition(c.to);
-      return a && b ? [{ cable: c, d: cablePath(a, b), signal: signalOf(c) }] : [];
+      const ends = cableEnds(patch, canvasState.moduleSizes, c, portPosition);
+      return ends ? [{ cable: c, d: cablePath(ends.a, ends.b), signal: signalOf(c) }] : [];
     }),
   );
 

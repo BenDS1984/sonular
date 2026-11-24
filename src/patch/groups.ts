@@ -2,7 +2,7 @@
  * Plain helpers for module groups (see ModuleGroup): where a group's frame or collapsed bar is, and
  * where the cables of a collapsed group attach. No browser APIs, so they can be tested in Node.
  */
-import type { ModuleGroup, Patch, PortRef } from './types';
+import type { Cable, ModuleGroup, Patch, PortRef } from './types';
 
 export interface Rect {
   x: number;
@@ -19,7 +19,7 @@ export interface Point {
 export const GROUP_PAD = 14;
 export const GROUP_HEADER = 32;
 /** Width of a collapsed group's bar, and the room per attached cable. */
-export const BAR_WIDTH = 230;
+export const BAR_WIDTH = 270;
 const BAR_BASE = 34;
 const BAR_STEP = 14;
 
@@ -69,6 +69,25 @@ export function barRect(patch: Pick<Patch, 'modules' | 'cables'>, group: ModuleG
   const { outgoing, incoming } = externalCables(patch, group);
   const rows = Math.max(outgoing.length, incoming.length, 1);
   return { x: f.x, y: f.y, w: BAR_WIDTH, h: BAR_BASE + BAR_STEP * (rows - 1) };
+}
+
+/**
+ * Both ends of a cable as drawn: a jack, or the bar of a collapsed group when that end is hidden in
+ * one. Null when the cable is not drawn (a port is not measured yet, or the cable runs inside a
+ * collapsed group). `portAt` gives the position of a jack.
+ */
+export function cableEnds(
+  patch: Pick<Patch, 'modules' | 'cables' | 'groups'>,
+  sizes: Sizes,
+  cable: Cable,
+  portAt: (ref: PortRef) => Point | null,
+): { a: Point; b: Point } | null {
+  const gf = groupOf(patch, cable.from.module);
+  const gt = groupOf(patch, cable.to.module);
+  if (gf?.collapsed && gf.id === gt?.id) return null;
+  const a = gf?.collapsed ? barAnchor(patch, gf, sizes, cable.id, 'from') : portAt(cable.from);
+  const b = gt?.collapsed ? barAnchor(patch, gt, sizes, cable.id, 'to') : portAt(cable.to);
+  return a && b ? { a, b } : null;
 }
 
 /** Where the end of a cable attaches to the bar of a collapsed group. */

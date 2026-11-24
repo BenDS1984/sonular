@@ -4,7 +4,8 @@
 -->
 <script lang="ts">
   import { getDefinition } from '../../modules/registry';
-  import { canvasState, patch } from '../../patch/patch.svelte';
+  import { canvasState, isHidden, patch } from '../../patch/patch.svelte';
+  import { barRect, cableEnds, frameRect, groupOf, GROUP_HEADER } from '../../patch/groups';
   import { zoomAt } from '../../patch/geometry';
   import { portPosition } from './interaction.svelte';
 
@@ -26,11 +27,22 @@
     return { x, y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y };
   };
 
+  // Modules in a group are drawn differently (dimmer, inside the group's grey frame); the modules
+  // of a collapsed group are not drawn at all: the group shows as its small grey bar.
   const moduleRects = $derived(
-    patch.modules.map((m) => {
-      const size = canvasState.moduleSizes[m.id] ?? { w: getDefinition(m.type)?.width ?? 200, h: 200 };
-      const family = (getDefinition(m.type)?.category ?? 'Utilities').toLowerCase();
-      return { id: m.id, family, x: m.x, y: m.y, w: size.w, h: size.h };
+    patch.modules
+      .filter((m) => !isHidden(m.id))
+      .map((m) => {
+        const size = canvasState.moduleSizes[m.id] ?? { w: getDefinition(m.type)?.width ?? 200, h: 200 };
+        const family = (getDefinition(m.type)?.category ?? 'Utilities').toLowerCase();
+        return { id: m.id, family, grouped: !!groupOf(patch, m.id), x: m.x, y: m.y, w: size.w, h: size.h };
+      }),
+  );
+
+  const groupRects = $derived(
+    (patch.groups ?? []).flatMap((g) => {
+      const r = g.collapsed ? barRect(patch, g, canvasState.moduleSizes) : frameRect(patch, g, canvasState.moduleSizes);
+      return r ? [{ id: g.id, collapsed: g.collapsed, ...r }] : [];
     }),
   );
 
@@ -49,6 +61,7 @@
     if (frozen) return frozen;
     let b = viewRect;
     for (const r of moduleRects) b = union(b, r);
+    for (const r of groupRects) b = union(b, r);
     return { x: b.x - PAD, y: b.y - PAD, w: b.w + 2 * PAD, h: b.h + 2 * PAD };
   });
 
@@ -60,11 +73,10 @@
 
   const cableLines = $derived(
     patch.cables.flatMap((c) => {
-      const a = portPosition(c.from);
-      const b = portPosition(c.to);
+      const ends = cableEnds(patch, canvasState.moduleSizes, c, portPosition);
       const m = patch.modules.find((x) => x.id === c.from.module);
       const signal = (m && getDefinition(m.type)?.outputs.find((p) => p.id === c.from.port)?.signal) ?? 'audio';
-      return a && b ? [{ id: c.id, a, b, signal }] : [];
+      return ends ? [{ id: c.id, a: ends.a, b: ends.b, signal }] : [];
     }),
   );
 
@@ -126,6 +138,20 @@
   ondblclick={(e) => e.stopPropagation()}
 >
   <svg width={W} height={H} aria-hidden="true">
+    {#each groupRects as g (g.id)}
+      <rect
+        class="group"
+        class:collapsed={g.collapsed}
+        x={mx(g.x)}
+        y={my(g.y)}
+        width={Math.max(3, g.w * scale)}
+        height={Math.max(3, g.h * scale)}
+        rx="2"
+      />
+      {#if !g.collapsed}
+        <rect class="group-bar" x={mx(g.x)} y={my(g.y)} width={Math.max(3, g.w * scale)} height={Math.max(2, GROUP_HEADER * scale)} rx="2" />
+      {/if}
+    {/each}
     {#each cableLines as c (c.id)}
       <line
         class="cable"
@@ -139,6 +165,7 @@
     {#each moduleRects as r (r.id)}
       <rect
         class="module"
+        class:grouped={r.grouped}
         x={mx(r.x)}
         y={my(r.y)}
         width={Math.max(2, r.w * scale)}
@@ -184,6 +211,23 @@
     fill: var(--family);
     stroke: color-mix(in srgb, var(--family) 60%, white);
     stroke-width: 1;
+  }
+  /* A group: a grey frame with a grey bar on top (as on the canvas); its modules are dimmer. */
+  .group {
+    fill: color-mix(in srgb, var(--family-output) 22%, transparent);
+    stroke: var(--family-output);
+    stroke-width: 1;
+  }
+  .group.collapsed {
+    fill: var(--family-output);
+    stroke: color-mix(in srgb, var(--family-output) 60%, white);
+  }
+  .group-bar {
+    fill: var(--family-output);
+  }
+  .module.grouped {
+    fill-opacity: 0.55;
+    stroke-opacity: 0.55;
   }
   .cable {
     stroke-width: 1.2;
