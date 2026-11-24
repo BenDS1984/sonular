@@ -14,7 +14,7 @@
 /** Silence for longer than this (ms) makes the next Play start with the warm-up tone. */
 export const WAKE_IDLE_MS = 10_000;
 /** How long the warm-up tone lasts, in seconds. */
-export const WAKE_SECONDS = 0.1;
+export const WAKE_SECONDS = 0.04;
 /** Peak level of the tone: about one step of a 16-bit sound card (-90 dBFS). */
 export const WAKE_LEVEL = 3e-5;
 
