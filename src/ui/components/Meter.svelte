@@ -5,6 +5,7 @@
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { smoothed } from '../smoothed.svelte';
 
   interface Props {
     level: number;
@@ -56,7 +57,9 @@
 
   $effect(() => () => cancelAnimationFrame(decayFrame));
 
-  const fill = $derived(gainToPos(level));
+  // The bar falls back gradually (the peak hold above keeps the true peaks).
+  const shown = smoothed(() => level, 0.1);
+  const fill = $derived(gainToPos(shown.value));
   const holdPos = $derived(gainToPos(hold));
   // Colour zones: green below −12 dB, yellow up to 0 dB, red above.
   const warnStop = `${(dbToPos(-12) * 100).toFixed(1)}%`;

@@ -1,6 +1,7 @@
 <script lang="ts">
   import Meter from '../../ui/components/Meter.svelte';
   import { meterValue } from '../../engine/engine.svelte';
+  import { smoothed } from '../../ui/smoothed.svelte';
   import ParamKnob from '../ParamKnob.svelte';
   import type { ModulePanelProps } from '../types';
 
@@ -10,7 +11,10 @@
   const METER_HEIGHT = 124;
 
   // The gain (level × cv): 0 (closed) .. 1 (fully open).
-  const gain = $derived(Math.min(1, Math.max(0, meterValue(module.id, 'gain'))));
+  const target = $derived(Math.min(1, Math.max(0, meterValue(module.id, 'gain'))));
+  // Calmer for fast sequences: opens at once, closes gradually.
+  const smooth = smoothed(() => target, 0.12);
+  const gain = $derived(smooth.value);
 </script>
 
 <div class="vca">
