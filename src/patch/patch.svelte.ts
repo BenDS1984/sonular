@@ -69,6 +69,8 @@ export const canvasState = $state({
    * module list, so DOM nodes never move while the user is interacting with them.
    */
   zIndex: {} as Record<string, number>,
+  /** The loose (ungrouped) module that was selected last: it may lie above the groups. */
+  topLoose: null as string | null,
   /** Size of the visible canvas area in screen pixels. */
   viewport: { w: 0, h: 0 },
   /** While a module is dragged: the group it would join or leave if let go now (shown on the group). */
@@ -173,7 +175,9 @@ export function disconnect(cableId: string) {
  * covers (or is covered by) other modules as one piece.
  */
 export function raiseModule(id: string) {
+  if (zCounter > MAX_Z) renumberLayers();
   const group = groupOf(patch, id);
+  if (!group) canvasState.topLoose = id;
   for (const member of group ? group.moduleIds.filter((x) => x !== id) : []) canvasState.zIndex[member] = ++zCounter;
   canvasState.zIndex[id] = ++zCounter;
 }
@@ -183,11 +187,28 @@ export function raiseGroups() {
   for (const g of patch.groups ?? []) if (g.moduleIds[0]) raiseModule(g.moduleIds[0]);
 }
 
+/** Stacking numbers stay far below the cable layer (100000); past this the numbers are made small again. */
+const MAX_Z = 14000;
+const GROUP_TIER = 30000;
+const TOP_TIER = 60000;
+
+/** Give every module the smallest stacking number that keeps the current order. */
+function renumberLayers() {
+  const ids = Object.keys(canvasState.zIndex).sort((a, b) => canvasState.zIndex[a]! - canvasState.zIndex[b]!);
+  zCounter = 0;
+  for (const id of ids) canvasState.zIndex[id] = ++zCounter;
+}
+
 /**
- * Stacking number on the canvas. Modules take even numbers; the frame of an expanded group sits just
- * below its lowest member (an odd number), above everything underneath it.
+ * Stacking number on the canvas. Modules take even numbers. Three tiers, from below: loose modules,
+ * grouped modules, and the loose module selected last (it may lie above a group). The frame of an
+ * expanded group sits just below its lowest member (an odd number), above everything underneath it.
  */
-export const moduleLayer = (id: string) => 2 * (canvasState.zIndex[id] ?? 0);
+export const moduleLayer = (id: string) => {
+  const base = 2 * (canvasState.zIndex[id] ?? 0);
+  if (groupOf(patch, id)) return base + GROUP_TIER;
+  return canvasState.topLoose === id ? base + TOP_TIER : base;
+};
 export function groupLayer(moduleIds: string[]) {
   return Math.min(...moduleIds.map((id) => moduleLayer(id))) - 1;
 }
