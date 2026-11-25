@@ -215,6 +215,15 @@ describe('Mixer', () => {
     expect(r.L).toBeCloseTo(0.3 * Math.SQRT1_2 * 2, 3);
   });
 
+  it('solo leaves only the soloed channels audible, and mute still wins', () => {
+    const solo = mix((m) => m.setParam('solo2', 1), [0.2, 0.4, 0.4, 0]);
+    expect(solo.L).toBeCloseTo(0.4 * Math.SQRT1_2, 3); // only channel 2
+    const two = mix((m) => (m.setParam('solo1', 1), m.setParam('solo2', 1)), [0.2, 0.4, 0.4, 0]);
+    expect(two.L).toBeCloseTo(0.6 * Math.SQRT1_2, 3);
+    const muted = mix((m) => (m.setParam('solo2', 1), m.setParam('mute2', 1)), [0.2, 0.4, 0.4, 0]);
+    expect(muted.L).toBeCloseTo(0, 3);
+  });
+
   it('reports silent meters before anything has been processed', () => {
     const m = load('mixer');
     const meters = new Float32Array(m.meterNames.length).fill(-1);

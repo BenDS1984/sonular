@@ -1,4 +1,4 @@
-// Mixer: four mono channels with level, pan (−3 dB equal-power law) and mute, summed to stereo.
+// Mixer: four mono channels with level, pan (−3 dB equal-power law), mute and solo, summed to stereo.
 //
 // Inputs 0-3: channels 1-4. Outputs 0/1: left/right.
 // Meters (peak followers): meter1..meter4 per channel (post-fader), mainL / mainR.
@@ -26,18 +26,26 @@ panR(pan) = sin((pan + 1) * ma.PI / 4) : smo;
 
 // Groups are parenthesised for readability. (Faust priorities: `~` > `,` > `:` > `<:`/`:>`.)
 // `attach(a, b)` has two inputs, so a meter is attached with `_ <: attach(_, peak : meter)`.
-channel(gain, mute, pan, meter) = (*(level) : (_ <: attach(_, peak : meter))) <: (*(panL(pan)), *(panR(pan)))
+channel(gain, mute, solo, pan, meter) = (*(level) : (_ <: attach(_, peak : meter))) <: (*(panL(pan)), *(panR(pan)))
 with {
-  level = gain * (1 - mute) : smo;
+  // While any channel is soloed, only the soloed channels are heard (mute still silences a soloed one).
+  audible = max(solo, 1 - anySolo);
+  level = gain * (1 - mute) * audible : smo;
 };
 
-ch1 = channel(hslider("gain1", 1, 0, 2, 0.0001), hslider("mute1", 0, 0, 1, 1), hslider("pan1", 0, -1, 1, 0.001),
+solo1 = hslider("solo1", 0, 0, 1, 1);
+solo2 = hslider("solo2", 0, 0, 1, 1);
+solo3 = hslider("solo3", 0, 0, 1, 1);
+solo4 = hslider("solo4", 0, 0, 1, 1);
+anySolo = max(max(solo1, solo2), max(solo3, solo4));
+
+ch1 = channel(hslider("gain1", 1, 0, 2, 0.0001), hslider("mute1", 0, 0, 1, 1), solo1, hslider("pan1", 0, -1, 1, 0.001),
               vbargraph("meter1", 0, 4));
-ch2 = channel(hslider("gain2", 1, 0, 2, 0.0001), hslider("mute2", 0, 0, 1, 1), hslider("pan2", 0, -1, 1, 0.001),
+ch2 = channel(hslider("gain2", 1, 0, 2, 0.0001), hslider("mute2", 0, 0, 1, 1), solo2, hslider("pan2", 0, -1, 1, 0.001),
               vbargraph("meter2", 0, 4));
-ch3 = channel(hslider("gain3", 1, 0, 2, 0.0001), hslider("mute3", 0, 0, 1, 1), hslider("pan3", 0, -1, 1, 0.001),
+ch3 = channel(hslider("gain3", 1, 0, 2, 0.0001), hslider("mute3", 0, 0, 1, 1), solo3, hslider("pan3", 0, -1, 1, 0.001),
               vbargraph("meter3", 0, 4));
-ch4 = channel(hslider("gain4", 1, 0, 2, 0.0001), hslider("mute4", 0, 0, 1, 1), hslider("pan4", 0, -1, 1, 0.001),
+ch4 = channel(hslider("gain4", 1, 0, 2, 0.0001), hslider("mute4", 0, 0, 1, 1), solo4, hslider("pan4", 0, -1, 1, 0.001),
               vbargraph("meter4", 0, 4));
 
 main = hslider("main", 1, 0, 2, 0.0001) : smo;

@@ -4,7 +4,7 @@
     pressed: boolean;
     label: string;
     title?: string;
-    tone?: 'danger' | 'accent' | 'gate';
+    tone?: 'danger' | 'accent' | 'gate' | 'solo';
     onchange?: (pressed: boolean) => void;
   }
 
@@ -57,6 +57,12 @@
     background: var(--signal-gate-bg);
     border-color: var(--signal-gate);
     color: var(--signal-gate-soft);
+  }
+  /* Solo: yellow, apart from the red mute and the orange audio colour. */
+  .solo.pressed {
+    background: color-mix(in srgb, var(--yellow-500) 22%, var(--surface-control));
+    border-color: var(--yellow-500);
+    color: var(--yellow-500);
   }
   .accent.pressed {
     background: var(--signal-audio-bg);
