@@ -224,6 +224,11 @@ describe('Mixer', () => {
     expect(muted.L).toBeCloseTo(0, 3);
   });
 
+  it('keeps running with nothing on its outputs, so its meters move', () => {
+    expect(load('mixer').isObserver).toBe(true);
+    expect(load('osc').isObserver).toBe(false);
+  });
+
   it('reports silent meters before anything has been processed', () => {
     const m = load('mixer');
     const meters = new Float32Array(m.meterNames.length).fill(-1);

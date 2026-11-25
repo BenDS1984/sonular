@@ -5,6 +5,7 @@
 
 declare name "mixer";
 declare tail "0";
+declare observer "1"; // keeps running with nothing on its outputs, so the panel meters move
 
 import("stdfaust.lib");
 

@@ -140,6 +140,14 @@ export function declaredSink(meta: FaustMeta): boolean {
 }
 
 /**
+ * Whether the program keeps running without anything on its outputs (`declare observer "1";`),
+ * so its panel meters still move.
+ */
+export function declaredObserver(meta: FaustMeta): boolean {
+  return (meta.meta ?? []).some((entry) => entry['observer'] === '1');
+}
+
+/**
  * Normalled inputs from `declare normal "1:0";` (comma-separated pairs `input:fallback`):
  * while input 1 is unpatched it receives whatever input 0 gets — e.g. mono into a stereo pair.
  * Returns, per input, the input it falls back to (or -1).
@@ -191,6 +199,7 @@ export class FaustDsp implements DspModule {
   readonly numInputs: number;
   readonly numOutputs: number;
   readonly tailSeconds: number;
+  readonly isObserver: boolean;
 
   private readonly exports: FaustExports;
   private readonly params: Map<string, FaustParam>;
@@ -217,6 +226,7 @@ export class FaustDsp implements DspModule {
     this.numInputs = meta.inputs;
     this.numOutputs = meta.outputs;
     this.tailSeconds = declaredTail(meta);
+    this.isObserver = declaredObserver(meta);
     this.normals = declaredNormals(meta, meta.inputs);
     this.source = Int32Array.from({ length: meta.inputs }, (_, i) => i);
     this.params = collectParams(meta);
