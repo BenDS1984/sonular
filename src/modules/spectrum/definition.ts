@@ -9,7 +9,7 @@ export const spectrum: ModuleDefinition = {
   description:
     'Spectrum analyser: shows which frequencies are in the sound (low on the left, high on the right) and how loud. Signals pass through unchanged, so it can sit between two modules.',
   signal: 'audio',
-  width: 280,
+  width: 264,
   inputs: [
     { id: 'l', label: 'L', signal: 'audio' },
     { id: 'r', label: 'R', signal: 'audio' },

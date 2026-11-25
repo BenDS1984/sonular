@@ -38,18 +38,42 @@
   }: Props = $props();
 
   let nameField: EditableName | undefined = $state();
+
+  // Heights come in steps of GRID, so modules fall into a few sizes: the module grows to the next
+  // step and the extra room goes between its controls and its jacks. The natural height is the
+  // header, the controls, the jacks and the frame, measured on the parts that do not stretch.
+  const GRID = 40;
+  let header: HTMLElement | undefined = $state();
+  let content: HTMLElement | undefined = $state();
+  let footer: HTMLElement | undefined = $state();
+  let minHeight = $state(0);
+
+  $effect(() => {
+    if (!header || !content) return;
+    const body = content.parentElement!;
+    const measure = () => {
+      const pad = parseFloat(getComputedStyle(body).paddingTop) + parseFloat(getComputedStyle(body).paddingBottom);
+      const natural = header!.offsetHeight + content!.offsetHeight + pad + (footer?.offsetHeight ?? 0) + 2;
+      minHeight = Math.ceil(natural / GRID) * GRID;
+    };
+    const observer = new ResizeObserver(measure);
+    for (const el of [header, content, footer]) if (el) observer.observe(el);
+    measure();
+    return () => observer.disconnect();
+  });
 </script>
 
 <section
   class="module"
   class:selected
   style:width={`${width}px`}
+  style:min-height={minHeight ? `${minHeight}px` : undefined}
   style:--module-accent={`var(--signal-${signal})`}
   style:--module-family={`var(--family-${family.toLowerCase()})`}
 >
   <!-- svelte-ignore a11y_no_static_element_interactions (dragging by the header is a mouse affordance; keyboard moving comes later) -->
   <!-- The header grabs the pointer for dragging, so a double-click on the name arrives here; only one that lands on the name counts. -->
-  <header class="header" onpointerdown={onheaderpointerdown} ondblclick={rename ? (e) => nameField?.isAt(e.clientX, e.clientY) && nameField.start() : undefined}>
+  <header class="header" bind:this={header} onpointerdown={onheaderpointerdown} ondblclick={rename ? (e) => nameField?.isAt(e.clientX, e.clientY) && nameField.start() : undefined}>
     <h3 class="title">
       {#if rename}
         <EditableName
@@ -81,10 +105,12 @@
     {/if}
   </header>
   <div class="body">
-    {@render children()}
+    <div class="content" bind:this={content}>
+      {@render children()}
+    </div>
   </div>
   {#if ports}
-    <footer class="ports">
+    <footer class="ports" bind:this={footer}>
       {@render ports()}
     </footer>
   {/if}

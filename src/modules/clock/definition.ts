@@ -9,7 +9,7 @@ export const clock: ModuleDefinition = {
   category: 'Sequencing',
   description: 'Brings the tempo into the patch: four pulse outputs, each at its own note value (1/16, 1/8, …).',
   signal: 'gate',
-  width: 252,
+  width: 264,
   inputs: [],
   outputs: [1, 2, 3, 4].map((n) => ({ id: `out${n}`, label: String(n), signal: 'gate' as const })),
   params: [1, 2, 3, 4].map(
