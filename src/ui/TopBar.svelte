@@ -74,16 +74,7 @@
         : `CPU ${Math.min(999, Math.round(engineState.cpu * 100))}%`
       : 'CPU –',
   );
-  // Times the sound hung for a moment since Play: the sound card (or the browser) called late.
-  const stalled = $derived(engineState.stalls > 0);
-  const cpuTitle = $derived(
-    'Audio engine load (share of the real-time budget). Click for a graph over time.' +
-      (stalled
-        ? ` The sound hung ${engineState.stalls}× since Play, the longest for ${Math.round(engineState.longestStallMs)} ms: the sound card or the browser asked for sound late.`
-        : engineState.playing
-          ? ' No hangs in the sound since Play.'
-          : ''),
-  );
+  const cpuTitle = 'Audio engine load (share of the real-time budget). Click for a graph over time.';
   const playLabel = $derived(
     engineState.status === 'starting' ? 'Starting…' : engineState.playing ? 'Stop' : 'Play',
   );
@@ -233,7 +224,6 @@
       <button
         class="pill readout cpu"
         class:open={cpuOpen}
-        class:stalled
         type="button"
         title={cpuTitle}
         aria-expanded={cpuOpen}
@@ -443,10 +433,6 @@
   .cpu {
     min-width: 76px;
     justify-content: center;
-  }
-  /* The sound hung for a moment since Play: the figure turns amber (details in the tooltip). */
-  .cpu.stalled {
-    color: var(--amber-500);
   }
   .cpu-wrap {
     display: flex;
