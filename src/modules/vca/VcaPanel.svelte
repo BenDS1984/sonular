@@ -1,0 +1,73 @@
+<script lang="ts">
+  import Meter from '../../ui/components/Meter.svelte';
+  import { meterValue } from '../../engine/engine.svelte';
+  import ParamKnob from '../ParamKnob.svelte';
+  import type { ModulePanelProps } from '../types';
+
+  let { module, def }: ModulePanelProps = $props();
+
+  // Tall enough to make the module 280 high, like the Oscillator and Reverb.
+  const METER_HEIGHT = 124;
+
+  // How far the VCA is open: 0 (closed) .. 1 (fully open).
+  const gain = $derived(Math.min(1, Math.max(0, meterValue(module.id, 'gain'))));
+</script>
+
+<div class="vca">
+  <div class="col">
+    <Meter level={meterValue(module.id, 'in')} height={METER_HEIGHT} label="Input level" />
+    <span class="cap">in</span>
+  </div>
+  <div class="col">
+    <div class="open" role="meter" aria-label="How far the VCA is open" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(gain * 100)}>
+      <div class="fill" style:height={`${gain * 100}%`}></div>
+    </div>
+    <span class="cap">{Math.round(gain * 100)}%</span>
+  </div>
+  <div class="col">
+    <Meter level={meterValue(module.id, 'out')} height={METER_HEIGHT} label="Output level" />
+    <span class="cap">out</span>
+  </div>
+  <div class="knob">
+    <ParamKnob {module} {def} param="level" />
+  </div>
+</div>
+
+<style>
+  .vca {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+  .col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .cap {
+    min-width: 28px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+  /* The VCA's opening: the fuller, the more sound passes through. */
+  .open {
+    display: flex;
+    align-items: flex-end;
+    width: 14px;
+    height: 124px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface-control);
+    overflow: hidden;
+  }
+  .fill {
+    width: 100%;
+    background: var(--signal-cv);
+  }
+  .knob {
+    margin-left: auto;
+  }
+</style>

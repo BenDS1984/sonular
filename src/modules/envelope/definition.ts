@@ -6,17 +6,11 @@ export const envelope: ModuleDefinition = {
   version: 1,
   title: 'Envelope',
   category: 'Modulation',
-  description: 'ADSR envelope with a built-in VCA: a gate shapes the volume of the audio passing through.',
+  description: 'ADSR envelope: a gate makes a curve that rises and falls (attack, decay, sustain, release). Patch it into a VCA to shape the volume of a sound, or into any modulation input.',
   signal: 'cv',
   width: 204,
-  inputs: [
-    { id: 'gate', label: 'gate', signal: 'gate' },
-    { id: 'in', label: 'in', signal: 'audio' },
-  ],
-  outputs: [
-    { id: 'out', label: 'out', signal: 'audio' },
-    { id: 'env', label: 'env', signal: 'cv' },
-  ],
+  inputs: [{ id: 'gate', label: 'gate', signal: 'gate' }],
+  outputs: [{ id: 'env', label: 'env', signal: 'cv' }],
   params: [
     { id: 'attack', label: 'Attack', min: 0.001, max: 10, default: 0.005, scale: 'log', format: 'seconds' },
     { id: 'decay', label: 'Decay', min: 0.001, max: 10, default: 0.3, scale: 'log', format: 'seconds' },

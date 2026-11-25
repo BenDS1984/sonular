@@ -15,7 +15,7 @@ describe('built-in presets', () => {
     const { patch, warnings } = parsePatchFile(welcome, getDefinition, 'Welcome!');
     expect(warnings).toEqual([]);
     expect(patch.name).toBe('Welcome!');
-    expect(patch.modules).toHaveLength(7);
-    expect(patch.cables).toHaveLength(9);
+    expect(patch.modules).toHaveLength(8);
+    expect(patch.cables).toHaveLength(10);
   });
 });

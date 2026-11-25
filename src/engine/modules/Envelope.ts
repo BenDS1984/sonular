@@ -23,10 +23,10 @@ const DECAY = 2;
 const RELEASE = 3;
 
 /**
- * Envelope with built-in VCA: an ADSR shaped by the gate input, applied to the audio input.
+ * ADSR envelope shaped by the gate input.
  *
- * Inputs:  0 gate, 1 audio in.
- * Outputs: 0 audio out (in × envelope), 1 envelope itself (0..1, for modulating other modules).
+ * Input 0:  gate.
+ * Output 0: the envelope (0..1), to modulate other modules, e.g. a VCA's cv input.
  *
  * A new gate during release or decay restarts the attack from the current level (no jump to
  * zero, so retriggering never clicks).
@@ -35,9 +35,9 @@ const RELEASE = 3;
  * Meter "level": the current envelope level.
  */
 export class Envelope implements DspModule {
-  readonly numInputs = 2;
-  readonly numOutputs = 2;
-  /** The engine also waits for the outputs to fall silent, which covers the release. */
+  readonly numInputs = 1;
+  readonly numOutputs = 1;
+  /** The engine also waits for the output to fall silent, which covers the release. */
   readonly tailSeconds = 0;
   readonly meterNames = ['level'] as const;
 
@@ -80,12 +80,9 @@ export class Envelope implements DspModule {
     }
   }
 
-  process(inputs: readonly Float32Array[], inputSilent: readonly boolean[], outputs: readonly Float32Array[], frames: number): void {
+  process(inputs: readonly Float32Array[], _silent: readonly boolean[], outputs: readonly Float32Array[], frames: number): void {
     const gate = inputs[0]!;
-    const input = inputs[1]!;
-    const inputIsSilent = inputSilent[1]!;
-    const out = outputs[0]!;
-    const env = outputs[1]!;
+    const env = outputs[0]!;
 
     let stage = this.stage;
     let level = this.level;
@@ -130,7 +127,6 @@ export class Envelope implements DspModule {
           level = 0;
       }
       env[i] = level;
-      out[i] = inputIsSilent ? 0 : input[i]! * level;
     }
 
     this.stage = stage;

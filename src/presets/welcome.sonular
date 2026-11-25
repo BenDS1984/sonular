@@ -107,6 +107,15 @@
         "params": {
           "volume": 0.6599999999999998
         }
+      },
+      {
+        "id": "vca1",
+        "type": "vca",
+        "x": 350,
+        "y": 520,
+        "params": {
+          "level": 0
+        }
       }
     ],
     "cables": [
@@ -150,14 +159,14 @@
           "port": "out"
         },
         "to": {
-          "module": "envelope1",
+          "module": "vca1",
           "port": "in"
         }
       },
       {
         "id": "c5",
         "from": {
-          "module": "envelope1",
+          "module": "vca1",
           "port": "out"
         },
         "to": {
@@ -207,6 +216,17 @@
         "to": {
           "module": "output1",
           "port": "R"
+        }
+      },
+      {
+        "id": "c10",
+        "from": {
+          "module": "envelope1",
+          "port": "env"
+        },
+        "to": {
+          "module": "vca1",
+          "port": "cv"
         }
       }
     ],

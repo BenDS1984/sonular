@@ -1,6 +1,6 @@
 /**
  * Tests for the TypeScript modules (Clock, Sequencer, Envelope) and for the transport, plus a
- * whole patch Clock -> Sequencer -> Oscillator -> Envelope -> Output. Everything renders
+ * whole patch Clock -> Sequencer -> Oscillator -> VCA (opened by an Envelope) -> Output. Everything renders
  * offline; nothing is played.
  */
 import { readFileSync } from 'node:fs';
@@ -14,6 +14,7 @@ import { FaustSink } from '../faust/FaustSink';
 import { estimateFrequency } from '../../dsp/testUtils';
 import { Clock, clockRatio } from './Clock';
 import { Envelope } from './Envelope';
+import { Vca } from './Vca';
 import { Sequencer } from './Sequencer';
 import { NATIVE_MODULES } from './native';
 
@@ -187,20 +188,18 @@ describe('Envelope', () => {
 
   it('rises in the attack time, settles at the sustain level and releases in the release time', () => {
     const env = envelope({ attack: 0.01, decay: 0.1, sustain: 0.5, release: 0.2 });
-    const [out, level] = run(env, 1, gateFor(0.5));
+    const [level] = run(env, 1, gateFor(0.5));
     const peakAt = level!.findIndex((v) => v >= 1);
     expect(Math.abs(peakAt - 0.01 * SR)).toBeLessThan(3);
     expect(level![Math.round(0.4 * SR)]).toBeCloseTo(0.5, 3);
     // Release: −60 dB (0.5 → 0.0005) after 0.2 s.
     expect(level![Math.round(0.7 * SR)]).toBeCloseTo(0.0005, 4);
-    // The VCA multiplies the audio input by the envelope.
-    expect(out![Math.round(0.4 * SR)]).toBeCloseTo(0.25, 3);
   });
 
   it('retriggers from the current level, without jumps', () => {
     const env = envelope({ attack: 0.005, decay: 0.05, sustain: 0.3, release: 0.5 });
     // Gate on 0.2 s, off 0.05 s (half-way through the release), on again.
-    const [, level] = run(env, 0.5, (c, i) => (c === 1 ? 0 : i < 0.2 * SR || i >= 0.25 * SR ? 1 : 0));
+    const [level] = run(env, 0.5, (c, i) => (c === 1 ? 0 : i < 0.2 * SR || i >= 0.25 * SR ? 1 : 0));
     let maxStep = 0;
     for (let i = 1; i < level!.length; i++) maxStep = Math.max(maxStep, Math.abs(level![i]! - level![i - 1]!));
     // The steepest move is the 5 ms attack: about 1/240 per sample, never a jump.
@@ -210,16 +209,54 @@ describe('Envelope', () => {
 
   it('glides when the sustain knob jumps', () => {
     const env = envelope({ attack: 0.001, decay: 0.001, sustain: 1, release: 0.1 });
-    const [, level] = run(env, 0.2, (c) => (c === 0 ? 1 : 0), undefined, (b) => b === 400 && env.setParam('sustain', 0));
+    const [level] = run(env, 0.2, (c) => (c === 0 ? 1 : 0), undefined, (b) => b === 400 && env.setParam('sustain', 0));
     let maxStep = 0;
     for (let i = SR / 10; i < level!.length; i++) maxStep = Math.max(maxStep, Math.abs(level![i]! - level![i - 1]!));
     expect(maxStep).toBeLessThan(0.002);
   });
 
   it('falls silent after the release, so the engine can let it sleep', () => {
-    const [out, level] = run(envelope({ release: 0.05 }), 1, gateFor(0.1));
+    const [level] = run(envelope({ release: 0.05 }), 1, gateFor(0.1));
     expect(level![level!.length - 1]).toBe(0);
-    expect(out![out!.length - 1]).toBe(0);
+  });
+});
+
+describe('Vca', () => {
+  const vca = (level: number) => {
+    const v = new Vca(SR);
+    v.setParam('level', level);
+    v.reset();
+    return v;
+  };
+  const read = (v: Vca) => {
+    const m = new Float32Array(3);
+    v.readMeters(m, 0);
+    return { gain: m[0]!, inPeak: m[1]!, outPeak: m[2]! };
+  };
+
+  it('multiplies the audio by the cv', () => {
+    const v = vca(0);
+    const [out] = run(v, 0.1, (c) => (c === 0 ? 0.5 : 0.4));
+    expect(out![SR * 0.05]).toBeCloseTo(0.2, 4);
+    expect(read(v).gain).toBeCloseTo(0.4, 4);
+  });
+
+  it('stays closed with nothing on cv, and level is a base volume the cv adds to', () => {
+    const [closed] = run(vca(0), 0.1, (c) => (c === 0 ? 0.5 : 0));
+    expect(Math.max(...closed!.map(Math.abs))).toBe(0);
+    // level 0.5, cv 0.5: gain = 0.5 + 0.5 × 0.5 = 0.75
+    const [mixed] = run(vca(0.5), 0.2, (c) => (c === 0 ? 1 : 0.5));
+    expect(mixed![SR * 0.15]).toBeCloseTo(0.75, 3);
+  });
+
+  it('reports the input and output peaks, and falls silent without input', () => {
+    const v = vca(1);
+    run(v, 0.1, (c) => (c === 0 ? 0.5 : 0));
+    const r = read(v);
+    expect(r.inPeak).toBeCloseTo(0.5, 2);
+    expect(r.outPeak).toBeCloseTo(0.5, 2);
+    run(v, 2, () => 0);
+    expect(read(v).outPeak).toBe(0);
   });
 });
 
@@ -267,14 +304,16 @@ describe('Clock, Sequencer and Envelope in a patch', () => {
         { id: 'seq', kind: 'native:sequencer', params: { pitch1: 0, pitch2: 12, pitch3: -12, on1: 1, on2: 1, on3: 1, on4: 0, on5: 1, on6: 1, on7: 1, on8: 1 } },
         { id: 'osc', kind: 'faust:osc', params: { wave: 0, level: 0.5 } },
         { id: 'env', kind: 'native:envelope', params: { attack: 0.002, decay: 0.05, sustain: 1, release: 0.01 } },
+        { id: 'vca', kind: 'native:vca', params: { level: 0 } },
         { id: 'out', kind: 'faust:output', params: { volume: 1 } },
       ],
       connections: [
         { from: { node: 'clock', port: 0 }, to: { node: 'seq', port: 0 } },
         { from: { node: 'seq', port: 0 }, to: { node: 'osc', port: 0 } },
         { from: { node: 'seq', port: 1 }, to: { node: 'env', port: 0 } },
-        { from: { node: 'osc', port: 0 }, to: { node: 'env', port: 1 } },
-        { from: { node: 'env', port: 0 }, to: { node: 'out', port: 0 } },
+        { from: { node: 'osc', port: 0 }, to: { node: 'vca', port: 0 } },
+        { from: { node: 'env', port: 0 }, to: { node: 'vca', port: 1 } },
+        { from: { node: 'vca', port: 0 }, to: { node: 'out', port: 0 } },
       ],
     };
     engine.setPatch(patch);
