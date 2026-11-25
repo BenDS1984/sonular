@@ -30,6 +30,8 @@ export type ParamFormat =
   | 'times'
   /** A shift in octaves, e.g. "+1.5 oct". */
   | 'octaves'
+  /** An angle in degrees, e.g. "90°". */
+  | 'degrees'
   | 'toggle'
   | 'choice';
 

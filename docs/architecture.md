@@ -24,7 +24,7 @@ that every module must follow are listed near the end.
 | Patch sync | `src/engine/engine.svelte.ts`, `toEnginePatch.ts` | Sends the graph when modules or cables change; single values when a parameter moves. |
 | Engine | `src/engine/core/` | Plain TypeScript (runs in the worklet, in offline renders and in Node tests). Orders nodes, routes buffers, sums cables, sleeps idle modules, guards the output. Owns the transport (tempo and position). |
 | DSP | `src/dsp/*.dsp` | Faust, compiled to WebAssembly at build time; each module is its own wasm instance. See [faust-notes.md](faust-notes.md). |
-| Native modules | `src/engine/modules/` | TypeScript for control logic and anything that follows the tempo (Clock, Sequencer, Envelope, Scope, Spectrum, Recorder). Engine kinds `native:<name>`. |
+| Native modules | `src/engine/modules/` | TypeScript for control logic and anything that follows the tempo (Clock, Sequencer, Envelope, LFO, Scope, Spectrum, Recorder). Engine kinds `native:<name>`. |
 | Persistence | `src/patch/`, `src/platform/storage.ts` | Autosave in browser storage, undo history, `.sonular` files with a version number. |
 | Offline | `vite.config.ts`, `src/platform/pwa.svelte.ts` | Service worker precaches every built file; updates wait for the user. |
 
@@ -68,6 +68,7 @@ so a desktop build could swap them out.
 | Envelope | 0.7 | 0.03 % |
 | Scope (2 ms / 1 s window, 2026-11-17) | 1.4 / 0.9 | 0.05 % / 0.03 % |
 | Spectrum (8192-point FFT every 1024 samples, 2026-11-25; nothing while silent) | 31.9 | 1.19 % |
+| LFO (sine / smooth random, free running, 2026-11-25) | 1.9 / 2.7 | 0.07 % / 0.10 % |
 | Filter (state-variable, per-sample coefficients, 2026-11-25) | 8.5 | 0.32 % |
 | Recorder (recording, 2026-11-18) | 1.0 | 0.04 % |
 

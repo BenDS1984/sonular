@@ -13,6 +13,7 @@ import { Transport } from '../engine/core/Transport';
 import { BLOCK_SIZE, type DspModule } from '../engine/core/types';
 import { Clock } from '../engine/modules/Clock';
 import { Envelope } from '../engine/modules/Envelope';
+import { Lfo } from '../engine/modules/Lfo';
 import { Recorder } from '../engine/modules/Recorder';
 import { Scope } from '../engine/modules/Scope';
 import { Spectrum } from '../engine/modules/Spectrum';
@@ -64,6 +65,15 @@ function scope(time: number): Scope {
   return s;
 }
 
+/** An LFO of the given wave, running free. */
+function lfo(wave: number): Lfo {
+  const l = new Lfo(SR);
+  l.onConnectionsChanged([false]);
+  l.setParam('wave', wave);
+  l.setParam('rate', 3);
+  return l;
+}
+
 /** A spectrum analyser with both inputs connected (peak hold on). */
 function spectrum(): Spectrum {
   const s = new Spectrum(SR);
@@ -98,6 +108,8 @@ describe.skipIf(import.meta.env.MODE !== 'bench')('CPU cost per module', () => {
       ['Clock', new Clock(transport)],
       ['Sequencer', new Sequencer()],
       ['Envelope', new Envelope(SR)],
+      ['LFO (sine)', lfo(0)],
+      ['LFO (smooth random)', lfo(5)],
       ['Scope (2 ms)', scope(0.002)],
       ['Scope (1 s)', scope(1)],
       ['Spectrum', spectrum()],

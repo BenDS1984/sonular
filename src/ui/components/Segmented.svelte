@@ -13,10 +13,12 @@
     options: Option[];
     label?: string;
     signal?: SignalType;
+    /** Stretch over the full width of the parent, the options sharing it equally. */
+    fill?: boolean;
     onchange?: (value: T) => void;
   }
 
-  let { value = $bindable(), options, label = '', signal = 'audio', onchange }: Props = $props();
+  let { value = $bindable(), options, label = '', signal = 'audio', fill = false, onchange }: Props = $props();
 
   function select(v: T) {
     if (v === value) return;
@@ -27,6 +29,7 @@
 
 <div
   class="segmented"
+  class:fill
   role="radiogroup"
   aria-label={label}
   style:--seg-accent={`var(--signal-${signal})`}
@@ -54,6 +57,14 @@
     padding: 2px;
     background: var(--surface-inset);
     border-radius: var(--radius-md);
+  }
+  .segmented.fill {
+    display: flex;
+  }
+  .fill button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0;
   }
   button {
     height: 20px;
