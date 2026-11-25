@@ -222,9 +222,10 @@ describe('Envelope', () => {
 });
 
 describe('Vca', () => {
-  const vca = (level: number) => {
+  const vca = (level: number, cvPatched: boolean) => {
     const v = new Vca(SR);
     v.setParam('level', level);
+    v.onConnectionsChanged([true, cvPatched]);
     v.reset();
     return v;
   };
@@ -234,23 +235,28 @@ describe('Vca', () => {
     return { gain: m[0]!, inPeak: m[1]!, outPeak: m[2]! };
   };
 
-  it('multiplies the audio by the cv', () => {
-    const v = vca(0);
-    const [out] = run(v, 0.1, (c) => (c === 0 ? 0.5 : 0.4));
-    expect(out![SR * 0.05]).toBeCloseTo(0.2, 4);
-    expect(read(v).gain).toBeCloseTo(0.4, 4);
+  it('multiplies the audio by level and cv', () => {
+    const v = vca(0.5, true);
+    const [out] = run(v, 0.2, (c) => (c === 0 ? 0.5 : 0.4));
+    expect(out![SR * 0.15]).toBeCloseTo(0.1, 4); // 0.5 × 0.5 × 0.4
+    expect(read(v).gain).toBeCloseTo(0.2, 4);
   });
 
-  it('stays closed with nothing on cv, and level is a base volume the cv adds to', () => {
-    const [closed] = run(vca(0), 0.1, (c) => (c === 0 ? 0.5 : 0));
+  it('is a plain amount knob when nothing is on cv, also for bipolar signals', () => {
+    const [out] = run(vca(0.5, false), 0.2, (c, i) => (c === 0 ? (i % 2 ? -0.8 : 0.8) : 0));
+    expect(out![SR * 0.15]).toBeCloseTo(0.4, 4);
+    expect(out![SR * 0.15 + 1]).toBeCloseTo(-0.4, 4);
+  });
+
+  it('is closed by a patched cv that is 0, and never amplifies', () => {
+    const [closed] = run(vca(1, true), 0.1, (c) => (c === 0 ? 0.5 : 0));
     expect(Math.max(...closed!.map(Math.abs))).toBe(0);
-    // level 0.5, cv 0.5: gain = 0.5 + 0.5 × 0.5 = 0.75
-    const [mixed] = run(vca(0.5), 0.2, (c) => (c === 0 ? 1 : 0.5));
-    expect(mixed![SR * 0.15]).toBeCloseTo(0.75, 3);
+    const [capped] = run(vca(5, true), 0.2, (c) => (c === 0 ? 0.25 : 3));
+    expect(capped![SR * 0.15]).toBeCloseTo(0.25, 4); // level and cv are both capped at 1
   });
 
   it('reports the input and output peaks, and falls silent without input', () => {
-    const v = vca(1);
+    const v = vca(1, false);
     run(v, 0.1, (c) => (c === 0 ? 0.5 : 0));
     const r = read(v);
     expect(r.inPeak).toBeCloseTo(0.5, 2);
@@ -304,7 +310,7 @@ describe('Clock, Sequencer and Envelope in a patch', () => {
         { id: 'seq', kind: 'native:sequencer', params: { pitch1: 0, pitch2: 12, pitch3: -12, on1: 1, on2: 1, on3: 1, on4: 0, on5: 1, on6: 1, on7: 1, on8: 1 } },
         { id: 'osc', kind: 'faust:osc', params: { wave: 0, level: 0.5 } },
         { id: 'env', kind: 'native:envelope', params: { attack: 0.002, decay: 0.05, sustain: 1, release: 0.01 } },
-        { id: 'vca', kind: 'native:vca', params: { level: 0 } },
+        { id: 'vca', kind: 'native:vca', params: { level: 1 } },
         { id: 'out', kind: 'faust:output', params: { volume: 1 } },
       ],
       connections: [

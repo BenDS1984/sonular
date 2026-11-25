@@ -6,16 +6,14 @@ const LEVEL_GLIDE_SECONDS = 0.02;
 const PEAK_RELEASE_SECONDS = 0.3;
 
 /**
- * VCA (voltage-controlled amplifier): the audio input times a gain that follows the cv input.
+ * VCA (voltage-controlled amplifier), as in VCV Rack: out = in × level × cv.
  *
- * Inputs:  0 audio in, 1 cv (0..1, e.g. an Envelope).
- * Output 0: audio out = in × gain.
+ * Inputs:  0 in (audio, or any signal: with no cv it is a plain amount knob), 1 cv (0..1, e.g. an
+ *          Envelope). An unpatched cv counts as 1, so the VCA is open; a patched one that is 0 closes it.
+ * Output 0: out.
  *
- * gain = level + cv × (1 − level), so Level 0 lets only the cv open the VCA, Level 1 leaves it open
- * and in between the cv adds on top of a steady base volume. An unpatched cv counts as 0.
- *
- * Parameter "level" 0..1 (the base volume).
- * Meters: "gain" (the current gain, 0..1), "in" and "out" (peak levels, linear).
+ * Parameter "level" 0..1 (default 1): the VCA only turns down, never up.
+ * Meters: "gain" (the current gain, level × cv), "in" and "out" (peak levels, linear).
  * Always rendered (isObserver), even with nothing on its output, so its panel shows what it does;
  * silent input costs almost nothing.
  */
@@ -28,8 +26,9 @@ export class Vca implements DspModule {
 
   private readonly levelCoef: number;
   private readonly peakCoef: number;
-  private level = 0;
-  private levelNow = 0;
+  private level = 1;
+  private levelNow = 1;
+  private cvConnected = false;
   private gain = 0;
   private peakIn = 0;
   private peakOut = 0;
@@ -43,11 +42,17 @@ export class Vca implements DspModule {
     if (name === 'level') this.level = Math.min(1, Math.max(0, value));
   }
 
+  onConnectionsChanged(connected: readonly boolean[]): void {
+    this.cvConnected = connected[1] ?? false;
+  }
+
   process(inputs: readonly Float32Array[], silent: readonly boolean[], outputs: readonly Float32Array[], frames: number): void {
     const audio = inputs[0]!;
     const cv = inputs[1]!;
     const out = outputs[0]!;
     const audioSilent = silent[0]!;
+    // A patched cv acts even while silent (its value is then 0, which closes the VCA).
+    const cvPatched = this.cvConnected;
     const cvSilent = silent[1]!;
     const target = this.level;
     const lc = this.levelCoef;
@@ -59,8 +64,8 @@ export class Vca implements DspModule {
 
     for (let i = 0; i < frames; i++) {
       lv = target + (lv - target) * lc;
-      const c = cvSilent ? 0 : cv[i]!;
-      gain = lv + (c < 0 ? 0 : c > 1 ? 1 : c) * (1 - lv);
+      const c = !cvPatched ? 1 : cvSilent ? 0 : cv[i]!;
+      gain = lv * (c < 0 ? 0 : c > 1 ? 1 : c);
       const a = audioSilent ? 0 : audio[i]!;
       const y = a * gain;
       out[i] = y;

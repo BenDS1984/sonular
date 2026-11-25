@@ -9,7 +9,7 @@
   // Tall enough to make the module 280 high, like the Oscillator and Reverb.
   const METER_HEIGHT = 124;
 
-  // How far the VCA is open: 0 (closed) .. 1 (fully open).
+  // The gain (level × cv): 0 (closed) .. 1 (fully open).
   const gain = $derived(Math.min(1, Math.max(0, meterValue(module.id, 'gain'))));
 </script>
 
@@ -19,7 +19,7 @@
     <span class="cap">in</span>
   </div>
   <div class="col">
-    <div class="open" role="meter" aria-label="How far the VCA is open" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(gain * 100)}>
+    <div class="open" role="meter" aria-label="Gain" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(gain * 100)}>
       <div class="fill" style:height={`${gain * 100}%`}></div>
     </div>
     <span class="cap">{Math.round(gain * 100)}%</span>
@@ -38,7 +38,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-3);
+    gap: 6px;
   }
   .col {
     display: flex;
@@ -47,13 +47,17 @@
     gap: 4px;
   }
   .cap {
-    min-width: 28px;
+    /* Fixed width, so "100%" does not push the other elements aside. */
+    width: 32px;
     text-align: center;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
     color: var(--text-muted);
     font-size: var(--text-xs);
   }
   /* The VCA's opening: the fuller, the more sound passes through. */
   .open {
+    position: relative;
     display: flex;
     align-items: flex-end;
     width: 14px;
@@ -69,5 +73,6 @@
   }
   .knob {
     margin-left: auto;
+    margin-right: 10px;
   }
 </style>
