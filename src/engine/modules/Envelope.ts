@@ -8,15 +8,17 @@ const LOW = 0.4;
  * The attack charges towards this level and stops at 1, like an analog envelope: the curve
  * starts fast and rounds off at the top.
  */
-const ATTACK_TARGET = 1.3;
+export const ENVELOPE_ATTACK_TARGET = 1.3;
+const ATTACK_TARGET = ENVELOPE_ATTACK_TARGET;
 /** Decay and release times are the time to fall by 60 dB (to 0.1% of the way). */
-const LN_1000 = Math.log(1000);
+export const ENVELOPE_LN_1000 = Math.log(1000);
+const LN_1000 = ENVELOPE_LN_1000;
 /** Below this the release snaps to zero (−120 dB), so the module can go to sleep. */
 const FLOOR = 1e-6;
 /** Sustain level changes glide over ~20 ms, so turning the knob never clicks. */
 const SUSTAIN_GLIDE_SECONDS = 0.02;
 
-// Stages (plain numbers: the hot loop compares small integers).
+// Stages (plain numbers: the hot loop compares small integers). The panel reads them from the meter "stage".
 const IDLE = 0;
 const ATTACK = 1;
 const DECAY = 2;
@@ -32,12 +34,15 @@ const RELEASE = 3;
  * zero, so retriggering never clicks).
  *
  * Parameters: "attack", "decay", "release" in seconds; "sustain" 0..1.
+ * Meters (for the panel's drawing): "level", the envelope now, and "stage": 0 idle, 1 attack, 2 decay
+ * (and then sustain), 3 release.
  */
 export class Envelope implements DspModule {
   readonly numInputs = 1;
   readonly numOutputs = 1;
   /** The engine also waits for the output to fall silent, which covers the release. */
   readonly tailSeconds = 0;
+  readonly meterNames = ['level', 'stage'] as const;
 
   private readonly sampleRate: number;
   private attackCoef = 0;
@@ -131,6 +136,11 @@ export class Envelope implements DspModule {
     this.level = level;
     this.gateHigh = high;
     this.sustainNow = sus;
+  }
+
+  readMeters(out: Float32Array, offset: number): void {
+    out[offset] = this.level;
+    out[offset + 1] = this.stage;
   }
 
   reset(): void {
