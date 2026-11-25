@@ -3,33 +3,21 @@
   import { displayValues } from '../../engine/engine.svelte';
   import { SPECTRUM_BANDS } from '../../engine/modules/Spectrum';
   import { patch } from '../../patch/patch.svelte';
-  import ParamKnob from '../ParamKnob.svelte';
   import type { ModulePanelProps } from '../types';
 
-  let { module, def }: ModulePanelProps = $props();
+  let { module }: ModulePanelProps = $props();
 
   const W = 376;
   const H = 150;
   const B = SPECTRUM_BANDS;
-  /** The picture's dB range choices (the Range parameter is an index into this). */
-  const RANGES = [60, 90, 120];
+  /** The picture shows this many dB below the top. */
+  const range = 90;
 
-  const RANGE_OPTIONS = [
-    { value: '0', label: '60', title: 'Show 60 dB' },
-    { value: '1', label: '90', title: 'Show 90 dB' },
-    { value: '2', label: '120', title: 'Show 120 dB' },
-  ];
-  const PEAK_OPTIONS = [
-    { value: '0', label: 'Off', title: 'No peak line' },
-    { value: '1', label: 'On', title: 'A thin line holds the highest level for a moment' },
-  ];
   const SCALE_OPTIONS = [
     { value: '0', label: 'Log', title: 'Frequency axis as we hear it (each octave equally wide)' },
     { value: '1', label: 'Lin', title: 'Frequency axis in equal steps of Hz' },
   ];
 
-  const range = $derived(RANGES[Math.round(module.params.range ?? 1)] ?? 90);
-  const peakOn = $derived(Math.round(module.params.peak ?? 1) === 1);
   const linear = $derived(Math.round(module.params.scale ?? 0) === 1);
 
   /** Whether anything is patched into the module (otherwise there is nothing to show). */
@@ -43,12 +31,10 @@
 
   const shape = $derived.by(() => {
     const values = displayValues(module.id);
-    if (!connected || !values || values.length < 2 * B) return { area: '', top: '', peak: '' };
+    if (!connected || !values || values.length < 2 * B) return { area: '', top: '' };
     let top = '';
     for (let c = 0; c < B; c++) top += `${c ? 'L' : 'M'}${x(c)} ${y(values[c]!)}`;
-    let peak = '';
-    if (peakOn) for (let c = 0; c < B; c++) peak += `${c ? 'L' : 'M'}${x(c)} ${y(values[B + c]!)}`;
-    return { area: `${top}L${x(B - 1)} ${H}L${x(0)} ${H}Z`, top, peak };
+    return { area: `${top}L${x(B - 1)} ${H}L${x(0)} ${H}Z`, top };
   });
 
   /** Horizontal lines every 20 dB (not at 0, the top edge). */
@@ -87,31 +73,9 @@
         <path class="area" d={shape.area} />
         <path class="line" d={shape.top} />
       {/if}
-      {#if shape.peak}
-        <path class="peak" d={shape.peak} />
-      {/if}
     </svg>
   </div>
   <div class="row">
-    <ParamKnob {module} {def} param="decay" />
-    <div class="choice">
-      <Segmented
-        value={String(Math.round(module.params.range ?? 1))}
-        options={RANGE_OPTIONS}
-        label="Range in dB"
-        onchange={(v) => (module.params.range = Number(v))}
-      />
-      <span>Range (dB)</span>
-    </div>
-    <div class="choice">
-      <Segmented
-        value={String(Math.round(module.params.peak ?? 1))}
-        options={PEAK_OPTIONS}
-        label="Peak hold"
-        onchange={(v) => (module.params.peak = Number(v))}
-      />
-      <span>Peak hold</span>
-    </div>
     <div class="choice">
       <Segmented
         value={String(Math.round(module.params.scale ?? 0))}
@@ -162,17 +126,9 @@
     vector-effect: non-scaling-stroke;
     filter: drop-shadow(0 0 3px var(--signal-audio));
   }
-  .peak {
-    fill: none;
-    stroke: var(--text-strong);
-    stroke-width: 1;
-    opacity: 0.8;
-    vector-effect: non-scaling-stroke;
-  }
   .row {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    justify-content: center;
   }
   .choice {
     display: flex;

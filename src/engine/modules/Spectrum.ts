@@ -1,8 +1,8 @@
 import type { DspModule } from '../core/types';
 
-/** Samples per analysis window (about 43 ms at 48 kHz: 23 Hz resolution). */
-export const SPECTRUM_FFT = 2048;
-/** A new picture every this many samples (the windows overlap by half). */
+/** Samples per analysis window (about 170 ms at 48 kHz: 6 Hz resolution, so low notes stay narrow). */
+export const SPECTRUM_FFT = 8192;
+/** A new picture every this many samples (the windows overlap by seven eighths). */
 const HOP = 1024;
 /** Number of columns of the picture. */
 export const SPECTRUM_BANDS = 192;
@@ -105,7 +105,7 @@ export class Spectrum implements DspModule {
       this.bitrev[i] = r;
       this.window[i] = 0.5 - 0.5 * Math.cos((TWO_PI * i) / N);
     }
-    this.setParam('decay', 0.5);
+    this.setParam('decay', 0);
     this.layoutColumns();
   }
 
