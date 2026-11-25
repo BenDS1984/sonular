@@ -32,14 +32,12 @@ const RELEASE = 3;
  * zero, so retriggering never clicks).
  *
  * Parameters: "attack", "decay", "release" in seconds; "sustain" 0..1.
- * Meter "level": the current envelope level.
  */
 export class Envelope implements DspModule {
   readonly numInputs = 1;
   readonly numOutputs = 1;
   /** The engine also waits for the output to fall silent, which covers the release. */
   readonly tailSeconds = 0;
-  readonly meterNames = ['level'] as const;
 
   private readonly sampleRate: number;
   private attackCoef = 0;
@@ -133,10 +131,6 @@ export class Envelope implements DspModule {
     this.level = level;
     this.gateHigh = high;
     this.sustainNow = sus;
-  }
-
-  readMeters(out: Float32Array, offset: number): void {
-    out[offset] = this.level;
   }
 
   reset(): void {
