@@ -158,6 +158,31 @@ describe('Sequencer', () => {
     expect(pitch![period * 2 + 10]).toBeCloseTo(NOTES[2]! / 12, 6); // pulse 3: back to A, its step 3
   });
 
+  it('spreads the pattern input over the chosen range, counted from the knob', () => {
+    const seq = sequencer();
+    for (const b of [2, 3, 4]) {
+      seq.setParam(`b${b}pitch1`, b); // B..D: distinct first notes (1, 2, 3 semitones... as 2, 3, 4)
+      seq.setParam(`b${b}on1`, 1);
+    }
+    seq.setParam('bank', 1); // B
+    seq.setParam('range', 3); // B, C, D
+    seq.onConnectionsChanged([true, true]);
+    const period = 4800;
+    const at = (cv: number) => {
+      const s2 = sequencer();
+      for (const b of [2, 3, 4]) s2.setParam(`b${b}pitch1`, b);
+      s2.setParam('bank', 1);
+      s2.setParam('range', 3);
+      s2.onConnectionsChanged([true, true]);
+      const [pitch] = run(s2, 0.05, (c, i) => (c === 0 ? pulses(period)(i) : cv));
+      return Math.round(pitch![10]! * 12);
+    };
+    expect(at(0)).toBe(2); // B
+    expect(at(0.4)).toBe(3); // C
+    expect(at(0.99)).toBe(4); // D, the end of the range
+    expect(at(1)).toBe(4); // and not past it
+  });
+
   it('adds the pattern input to the knob and wraps from H back to A', () => {
     const seq = sequencer();
     seq.setParam('b1pitch1', 0);

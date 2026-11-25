@@ -50,6 +50,8 @@ export const sequencer: ModuleDefinition = {
       // How many steps of this pattern play before it starts over.
       { id: lenParam(b), label: 'Length', min: 1, max: SEQUENCER_STEPS, default: SEQUENCER_STEPS, step: 1 } as ParamSpec,
     ]),
+    // How many patterns the pattern input spans, counted from the chosen one.
+    { id: 'range', label: 'Pattern mod range', min: 1, max: SEQUENCER_BANKS, default: SEQUENCER_BANKS, step: 1 },
     // The pattern that plays (and is shown on the panel).
     { id: 'bank', label: 'Pattern', min: 0, max: SEQUENCER_BANKS - 1, default: 0, step: 1 },
   ],

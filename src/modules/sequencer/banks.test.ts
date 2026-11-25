@@ -19,7 +19,7 @@ describe('sequencer banks', () => {
 
   it('defines every step of every bank and the chosen bank', () => {
     const ids = sequencer.params.map((p) => p.id);
-    expect(ids).toHaveLength(8 * 17 + 1);
+    expect(ids).toHaveLength(8 * 17 + 2);
     for (let b = 0; b < 8; b++) for (const id of bankParams(b)) expect(ids).toContain(id);
     expect(ids).toContain('bank');
   });

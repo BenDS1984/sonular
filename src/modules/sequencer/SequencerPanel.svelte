@@ -23,6 +23,12 @@
   const playing = $derived(engineState.playing && patterned ? Math.round(meterValue(module.id, 'pattern')) : -1);
   const current = $derived(Math.round(meterValue(module.id, 'step')));
 
+  // How many patterns the pattern input spans (1..8), counted from the chosen one.
+  const range = $derived(Math.min(SEQUENCER_BANKS, Math.max(1, Math.round(module.params['range'] ?? SEQUENCER_BANKS))));
+  function setRange(n: number) {
+    module.params['range'] = Math.min(SEQUENCER_BANKS, Math.max(1, n));
+  }
+
   function setLen(n: number) {
     module.params[lenParam(bank)] = Math.min(SEQUENCER_STEPS, Math.max(1, n));
   }
@@ -73,7 +79,11 @@
   <button type="button" class="btn small" disabled={len <= 1} title="Shorter pattern" aria-label="Shorter pattern" onclick={() => setLen(len - 1)}>−</button>
   <span class="len-value" aria-live="polite">{len}</span>
   <button type="button" class="btn small" disabled={len >= SEQUENCER_STEPS} title="Longer pattern" aria-label="Longer pattern" onclick={() => setLen(len + 1)}>+</button>
-  <span class="hint">steps, then back to step 1</span>
+  <span class="spacer"></span>
+  <span class="caption auto" class:dim={!patterned} title="How many patterns the pattern input spans, counted from the chosen one">Pattern mod range</span>
+  <button type="button" class="btn small" disabled={range <= 1} title="Pattern mod range: fewer patterns" aria-label="Pattern mod range: fewer patterns" onclick={() => setRange(range - 1)}>−</button>
+  <span class="len-value" class:dim={!patterned} aria-live="polite">{range}</span>
+  <button type="button" class="btn small" disabled={range >= SEQUENCER_BANKS} title="Pattern mod range: more patterns" aria-label="Pattern mod range: more patterns" onclick={() => setRange(range + 1)}>+</button>
 </div>
 
 <div class="steps">
@@ -184,10 +194,17 @@
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
   }
-  .hint {
-    margin-left: 6px;
-    color: var(--text-muted);
-    font-size: var(--text-xs);
+  /* A caption that is wider than the standard label column. */
+  .caption.auto {
+    width: auto;
+    white-space: nowrap;
+    margin-right: 4px;
+  }
+  .spacer {
+    flex: 1;
+  }
+  .dim {
+    opacity: 0.45;
   }
   /* Steps after the pattern's end never play. */
   .step.beyond {
