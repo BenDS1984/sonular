@@ -2,6 +2,7 @@
 
 A modular online and offline music/noise making environment for mac and pc. Made with love and maybe a bit of help from AI.
 Faust-powered DSP, Svelte UI, installable PWA.
+https://sonular.app/
 
 Patch modules together with cables, shape sound, save/load patches, record output.
 Sonular is free and open source, and aims for sound quality that holds up in real music production.
