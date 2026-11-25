@@ -1,7 +1,8 @@
 <script lang="ts">
   import Led from '../../ui/components/Led.svelte';
   import Toggle from '../../ui/components/Toggle.svelte';
-  import { meterValue } from '../../engine/engine.svelte';
+  import { engineState, meterValue } from '../../engine/engine.svelte';
+  import { patch } from '../../patch/patch.svelte';
   import ParamKnob from '../ParamKnob.svelte';
   import type { ModulePanelProps } from '../types';
   import { bankClipboard, bankColor } from './bankClipboard.svelte';
@@ -17,6 +18,9 @@
   // Meter "step" is 1..8 for the step playing, 0 before the first clock pulse.
   // How many steps of this pattern play (1..8).
   const len = $derived(Math.min(SEQUENCER_STEPS, Math.max(1, Math.round(module.params[lenParam(bank)] ?? SEQUENCER_STEPS))));
+  // With a cable on the pattern input the pattern that plays can differ from the one being edited.
+  const patterned = $derived(patch.cables.some((c) => c.to.module === module.id && c.to.port === 'pattern'));
+  const playing = $derived(engineState.playing && patterned ? Math.round(meterValue(module.id, 'pattern')) : -1);
   const current = $derived(Math.round(meterValue(module.id, 'step')));
 
   function setLen(n: number) {
@@ -41,11 +45,12 @@
       role="radio"
       class="bank"
       class:selected={b === bank}
+      class:playing={b === playing}
       aria-checked={b === bank}
       style:--bank-color={bankColor(b)}
       style:--bank-bg={bankColor(b, 30, 0.45)}
       style:--bank-dim={bankColor(b, 26, 0.3)}
-      title={`Play and edit pattern ${bankLetter(b)}`}
+      title={patterned ? `Edit pattern ${bankLetter(b)}; the pattern input shifts which one plays` : `Play and edit pattern ${bankLetter(b)}`}
       onclick={() => (module.params['bank'] = b)}
     >
       {bankLetter(b)}
@@ -107,6 +112,7 @@
   }
   /* Each pattern keeps its own colour. */
   .bank {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -129,6 +135,16 @@
     border-color: var(--bank-color);
     background: var(--bank-bg);
     color: var(--text-strong);
+  }
+  /* The pattern that plays now, when the pattern input moves it away from the one being edited. */
+  .bank.playing::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    width: 10px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--bank-color);
   }
   .btn {
     flex: 1;

@@ -19,10 +19,14 @@ const LOW = 0.4;
  * A, "b2pitch1".."b8on8" for the others, and "bank" (0..7), the pattern that plays. Switching
  * pattern while playing keeps the step going: the next step is simply read from the new pattern.
  * "len" (1..8, "b2len".. for the others) is how many steps of a pattern play before it starts over.
- * Meter "step": the current step, 1..8 (0 before the first clock edge).
+ * Input 1: pattern (optional). With a cable patched in, 0..1 is spread over the patterns A..H and added to
+ * the pattern chosen with the knob (wrapping from H to A). It is read on each clock pulse, so the
+ * new pattern starts with the next step.
+ * Meters: "step", the current step, 1..8 (0 before the first clock edge); "pattern", the pattern that
+ * plays, 0..7.
  */
 export class Sequencer implements DspModule {
-  readonly numInputs = 1;
+  readonly numInputs = 2;
   readonly numOutputs = 2;
   /** Holds its pitch indefinitely, so it never sleeps. */
   readonly tailSeconds = Infinity;
@@ -31,7 +35,7 @@ export class Sequencer implements DspModule {
    * its panel shows the step it is on. It costs next to nothing: eight steps and a clock edge.
    */
   readonly isObserver = true;
-  readonly meterNames = ['step'] as const;
+  readonly meterNames = ['step', 'pattern'] as const;
 
   /** All patterns after each other: pattern b, step s at b * 8 + s. */
   private readonly pitch = new Float32Array(SEQUENCER_BANKS * SEQUENCER_STEPS);
@@ -42,7 +46,13 @@ export class Sequencer implements DspModule {
   private readonly len = new Uint8Array(SEQUENCER_BANKS).fill(SEQUENCER_STEPS);
   /** Length of the chosen pattern. */
   private curLen = SEQUENCER_STEPS;
+  /** The pattern chosen with the knob (parameter "bank"). */
   private bankIndex = 0;
+  /** Whether a cable is patched into the pattern input, and the pattern shift it last asked for (0..7). */
+  private cvConnected = false;
+  private cvOffset = 0;
+  /** The pattern that plays: the knob plus the cv shift, wrapping around. */
+  private activeBank = 0;
   /** Current step index, −1 before the first clock edge. */
   private step = -1;
   private clockHigh = false;
@@ -51,14 +61,13 @@ export class Sequencer implements DspModule {
     if (name === 'bank') {
       const b = Math.round(value);
       this.bankIndex = b >= 0 && b < SEQUENCER_BANKS ? b : 0;
-      this.base = this.bankIndex * SEQUENCER_STEPS;
-      this.curLen = this.len[this.bankIndex]!;
+      this.applyBank();
       return;
     }
     const lb = parseLenParam(name);
     if (lb !== null) {
       this.len[lb] = Math.min(SEQUENCER_STEPS, Math.max(1, Math.round(value)));
-      this.curLen = this.len[this.bankIndex]!;
+      this.applyBank();
       return;
     }
     const p = parseStepParam(name);
@@ -68,16 +77,40 @@ export class Sequencer implements DspModule {
     else this.on[i] = value >= 0.5 ? 1 : 0;
   }
 
+  /** Work out which pattern plays: the knob plus the cv shift, wrapping from H back to A. */
+  private applyBank(): void {
+    this.activeBank = (this.bankIndex + this.cvOffset) % SEQUENCER_BANKS;
+    this.base = this.activeBank * SEQUENCER_STEPS;
+    this.curLen = this.len[this.activeBank]!;
+  }
+
+  onConnectionsChanged(inputsConnected: readonly boolean[]): void {
+    this.cvConnected = !!inputsConnected[1];
+    if (!this.cvConnected) this.cvOffset = 0;
+    this.applyBank();
+  }
+
+  /** The pattern shift a cv value asks for: 0..1 is spread over the eight patterns, A (low) to H (high). */
+  private static shiftFor(cv: number): number {
+    const n = Math.floor(cv * SEQUENCER_BANKS);
+    return n < 0 ? 0 : n >= SEQUENCER_BANKS ? SEQUENCER_BANKS - 1 : n;
+  }
+
   process(inputs: readonly Float32Array[], _silent: readonly boolean[], outputs: readonly Float32Array[], frames: number): void {
     const clock = inputs[0]!;
+    const cv = inputs[1]!;
     const pitchOut = outputs[0]!;
     const gateOut = outputs[1]!;
     let step = this.step;
     let high = this.clockHigh;
+    // Before the first clock pulse there is no step to wait for: follow the cv straight away.
+    if (this.cvConnected && step < 0) this.setShift(Sequencer.shiftFor(cv[0]!));
     for (let i = 0; i < frames; i++) {
       const c = clock[i]!;
       if (!high && c > HIGH) {
         high = true;
+        // The pattern is chosen on the pulse, so it changes with the next step and never mid-step.
+        if (this.cvConnected) this.setShift(Sequencer.shiftFor(cv[i]!));
         step = (step + 1) % this.curLen;
       } else if (high && c < LOW) {
         high = false;
@@ -92,8 +125,15 @@ export class Sequencer implements DspModule {
     this.clockHigh = high;
   }
 
+  private setShift(shift: number): void {
+    if (shift === this.cvOffset) return;
+    this.cvOffset = shift;
+    this.applyBank();
+  }
+
   readMeters(out: Float32Array, offset: number): void {
     out[offset] = this.step + 1;
+    out[offset + 1] = this.activeBank;
   }
 
   reset(): void {

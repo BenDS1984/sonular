@@ -143,6 +143,37 @@ describe('Sequencer', () => {
     expect(() => seq.setParam('b9len', 1)).not.toThrow();
   });
 
+  it('switches pattern with the pattern input: 0..1 spread over A..H, read on each clock pulse', () => {
+    const seq = sequencer(); // pattern A: C D E F G A B C
+    // Pattern C (index 2): one note, an octave up, on step 1.
+    seq.setParam('b3pitch1', 12);
+    seq.setParam('b3on1', 1);
+    seq.onConnectionsChanged([true, true]);
+    const period = 4800;
+    // The cv sits on "C" (2/8 .. 3/8) for the first two pulses, then drops to "A".
+    const cvAt = (i: number) => (i < period * 2 ? 0.3 : 0);
+    const [pitch] = run(seq, (period * 4) / SR, (c, i) => (c === 0 ? pulses(period)(i) : cvAt(i)));
+    expect(pitch![10]).toBeCloseTo(1, 6); // pulse 1: pattern C step 1
+    expect(pitch![period + 10]).toBeCloseTo(0, 6); // pulse 2: pattern C step 2 (still C, silent note 0)
+    expect(pitch![period * 2 + 10]).toBeCloseTo(NOTES[2]! / 12, 6); // pulse 3: back to A, its step 3
+  });
+
+  it('adds the pattern input to the knob and wraps from H back to A', () => {
+    const seq = sequencer();
+    seq.setParam('b1pitch1', 0);
+    seq.setParam('b2pitch1', 5);
+    seq.setParam('bank', 7); // H
+    seq.onConnectionsChanged([true, true]);
+    // cv 0.2 = shift 1: H + 1 wraps to A.
+    const [pitch] = run(seq, 0.05, (c) => (c === 0 ? 1 : 0.2));
+    expect(pitch![10]).toBeCloseTo(NOTES[0]! / 12, 6);
+    // Unpatching drops the shift again: the knob alone plays (pattern H, step 1 holds its default 0).
+    seq.onConnectionsChanged([true, false]);
+    const meters = new Float32Array(2);
+    seq.readMeters(meters, 0);
+    expect(meters[1]).toBe(7);
+  });
+
   it('ignores a pattern that does not exist', () => {
     const seq = sequencer();
     seq.setParam('bank', 99);

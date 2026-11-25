@@ -10,10 +10,13 @@ export const sequencer: ModuleDefinition = {
   version: 1,
   title: 'Sequencer',
   category: 'Sequencing',
-  description: 'Up to eight steps with a note and an on/off switch each, moved on by a clock, in eight patterns (A–H) that each have their own length.',
+  description: 'Up to eight steps with a note and an on/off switch each, moved on by a clock, in eight patterns (A–H) that each have their own length. A modulation signal on the pattern input switches between the patterns.',
   signal: 'pitch',
   width: 464,
-  inputs: [{ id: 'clock', label: 'clock', signal: 'gate' }],
+  inputs: [
+    { id: 'clock', label: 'clock', signal: 'gate' },
+    { id: 'pattern', label: 'pattern', signal: 'cv' },
+  ],
   outputs: [
     { id: 'pitch', label: 'pitch', signal: 'pitch' },
     { id: 'gate', label: 'gate', signal: 'gate' },
