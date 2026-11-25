@@ -11,13 +11,14 @@ import { oscillator } from './oscillator/definition';
 import { output } from './output/definition';
 import { recorder } from './recorder/definition';
 import { reverb } from './reverb/definition';
+import { sampler } from './sampler/definition';
 import { scope } from './scope/definition';
 import { spectrum } from './spectrum/definition';
 import { sequencer } from './sequencer/definition';
 import { vca } from './vca/definition';
 import type { ModuleDefinition } from './types';
 
-export const MODULES: readonly ModuleDefinition[] = [oscillator, clock, sequencer, envelope, vca, lfo, filter, mixer, delay, reverb, output, recorder, scope, spectrum];
+export const MODULES: readonly ModuleDefinition[] = [oscillator, sampler, clock, sequencer, envelope, vca, lfo, filter, mixer, delay, reverb, output, recorder, scope, spectrum];
 
 const byType = new Map(MODULES.map((d) => [d.type, d]));
 

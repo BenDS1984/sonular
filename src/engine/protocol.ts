@@ -15,6 +15,8 @@ export type ToEngine =
   | { type: 'patch'; patch: EnginePatch }
   | { type: 'param'; node: string; name: string; value: number }
   | { type: 'tempo'; bpm: number }
+  /** The audio of a sample, by hash, for the modules that play it (right: null for mono). */
+  | { type: 'sample'; hash: string; left: Float32Array; right: Float32Array | null; sampleRate: number }
   /** Master limiter on or off. */
   | { type: 'limiter'; on: boolean }
   | { type: 'run'; running: boolean };

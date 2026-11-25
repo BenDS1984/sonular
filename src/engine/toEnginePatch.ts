@@ -12,7 +12,7 @@ export function toEnginePatch(patch: Patch, getDef: (type: string) => ModuleDefi
     const def = getDef(m.type);
     if (!def) continue;
     defs.set(m.id, def);
-    nodes.push({ id: m.id, kind: def.engine, params: { ...m.params } });
+    nodes.push({ id: m.id, kind: def.engine, params: { ...m.params }, ...(m.sample ? { sample: m.sample } : {}) });
   }
   const connections: EnginePatch['connections'] = [];
   for (const c of patch.cables) {
@@ -27,9 +27,9 @@ export function toEnginePatch(patch: Patch, getDef: (type: string) => ModuleDefi
   return { nodes, connections };
 }
 
-/** A string that changes only when modules or cables change (not when parameters move). */
+/** A string that changes only when modules, cables or chosen samples change (not when parameters move). */
 export function structureKey(patch: Patch): string {
-  const mods = patch.modules.map((m) => `${m.id}/${m.type}`).join(',');
+  const mods = patch.modules.map((m) => `${m.id}/${m.type}/${m.sample ?? ''}`).join(',');
   const cables = patch.cables.map((c) => `${c.from.module}.${c.from.port}>${c.to.module}.${c.to.port}`).join(',');
   return `${mods}|${cables}`;
 }

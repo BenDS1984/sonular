@@ -42,6 +42,22 @@ describe('patch files', () => {
     expect(patch).toEqual(sample());
   });
 
+  it('keeps the sample a module uses, and the sample files that come with the patch', () => {
+    const hash = 'ab'.repeat(32);
+    const withSample = sample();
+    withSample.modules[0]!.sample = hash;
+    const embedded = [{ hash, name: 'Kick', fileName: 'kick.wav', type: 'audio/wav', data: 'AAAA' }];
+    const text = serializePatch(withSample, new Date('2026-01-01T00:00:00Z'), embedded);
+    const { patch, samples } = parsePatchFile(text, getDef);
+    expect(patch.modules[0]!.sample).toBe(hash);
+    expect(samples).toEqual(embedded);
+    // A patch without samples writes none, and a made-up reference is dropped.
+    expect(JSON.parse(serializePatch(sample())).samples).toBeUndefined();
+    const bad = JSON.parse(text);
+    bad.patch.modules[0].sample = 'nonsense';
+    expect(parsePatchFile(JSON.stringify(bad), getDef).patch.modules[0]!.sample).toBeUndefined();
+  });
+
   it('keeps the limiter switch: on is the default and is not stored', () => {
     const on = serializePatch(sample());
     expect(JSON.parse(on).patch.limiter).toBeUndefined();

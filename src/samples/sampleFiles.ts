@@ -1,5 +1,11 @@
 /** Plain helpers for sample files: which files are audio, names, sizes and the waveform overview. */
 
+/** The Sampler plays samples up to this long (longer ones would make patches too heavy). */
+export const SAMPLER_MAX_SECONDS = 60;
+
+/** Drag data type of a sample dragged from the library (its hash), for dropping on a Sampler. */
+export const SAMPLE_DRAG_TYPE = 'application/x-sonular-sample';
+
 /** Number of parts in a sample's waveform overview. */
 export const PEAK_COUNT = 64;
 

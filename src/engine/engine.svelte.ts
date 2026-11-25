@@ -8,6 +8,7 @@ import { AudioEngine, DEFAULT_BUFFER, type BufferSize, type EngineStatus } from 
 import type { DisplayLayoutEntry, MeterLayoutEntry } from './core/types';
 import { getDefinition } from '../modules/registry';
 import { patch } from '../patch/patch.svelte';
+import { library, loadSampleAudio } from '../samples/library.svelte';
 import { structureKey, toEnginePatch } from './toEnginePatch';
 
 export const engineState = $state({
@@ -125,6 +126,22 @@ if (import.meta.env.DEV) {
 
 // ---------- Live patch sync ----------
 
+/** Samples (by hash) already sent to the running engine; forgotten when the engine stops. */
+const sentSamples = new Set<string>();
+
+/** Send the audio of a sample to the engine, once per run of the engine. */
+async function sendSample(hash: string): Promise<void> {
+  if (sentSamples.has(hash)) return;
+  sentSamples.add(hash);
+  const data = await loadSampleAudio(hash);
+  if (!data || engineState.status !== 'ready') {
+    // Not in the library (yet): try again when the library or the patch changes.
+    sentSamples.delete(hash);
+    return;
+  }
+  audio.setSample(hash, data.left, data.right, data.sampleRate);
+}
+
 /** Parameter values last sent to the engine, per module. */
 let sentParams: Record<string, Record<string, number>> = {};
 
@@ -143,6 +160,19 @@ export function startPatchSync(): () => void {
         sentParams = Object.fromEntries(patch.modules.map((m) => [m.id, { ...m.params }]));
         pruneRecorders(new Set(patch.modules.map((m) => m.id)));
         resendArmed();
+      });
+    });
+
+    // The audio of the samples the modules use goes to the engine (again after it has been closed).
+    $effect(() => {
+      if (engineState.status !== 'ready') {
+        sentSamples.clear();
+        return;
+      }
+      void library.samples; // a sample added to the library later may be one a module waits for
+      const hashes = new Set(patch.modules.flatMap((m) => (m.sample ? [m.sample] : [])));
+      untrack(() => {
+        for (const hash of hashes) void sendSample(hash);
       });
     });
 

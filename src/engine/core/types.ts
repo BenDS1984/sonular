@@ -10,6 +10,13 @@ import type { Transport } from './Transport';
 /** Frames processed per engine block (the Web Audio render quantum). */
 export const BLOCK_SIZE = 128;
 
+/** Audio of a sample, as the engine holds it: one array per channel (null right = a mono sample). */
+export interface SampleData {
+  left: Float32Array;
+  right: Float32Array | null;
+  sampleRate: number;
+}
+
 /**
  * A unit of DSP inside the engine. Every module type (Faust-based or hand-written) implements
  * this one interface; the engine never needs to know what a module does.
@@ -63,6 +70,11 @@ export interface DspModule {
    * none. Called about 20 times per second; the arrays are moved to the main thread.
    */
   takeRecorded?(): RecordedAudio | null;
+  /**
+   * Modules that play a sample (the Sampler): called when the sample chosen for the module arrives
+   * or changes, with null when it has none (or it is not available yet).
+   */
+  setSample?(data: SampleData | null): void;
   /** Clear internal state (delay lines, filter memory, phases). */
   reset(): void;
   /** Release resources when removed from the patch. */
@@ -92,6 +104,8 @@ export interface PatchNode {
   id: string;
   kind: string;
   params?: Record<string, number>;
+  /** Sample modules: the hash of the chosen sample (its audio is sent separately). */
+  sample?: string;
 }
 
 export interface PatchEndpoint {

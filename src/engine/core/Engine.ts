@@ -8,6 +8,7 @@ import {
   type MeterLayoutEntry,
   type ModuleFactory,
   type RecordedAudio,
+  type SampleData,
   type SinkModule,
 } from './types';
 import { Limiter } from './Limiter';
@@ -56,6 +57,9 @@ interface Node {
   isSink: boolean;
   /** Whether the module has processed at least one block (meters are meaningless before). */
   rendered: boolean;
+  /** Sample modules: the hash of the sample chosen for the node, and the data last handed to it. */
+  sampleRef?: string;
+  sampleGiven?: SampleData | null;
 }
 
 function isBufferSilent(buf: Float32Array, frames: number): boolean {
@@ -84,6 +88,8 @@ export class Engine {
   readonly transport: Transport;
   private readonly factories: Readonly<Record<string, ModuleFactory>>;
   private nodes = new Map<string, Node>();
+  /** Samples that have arrived from the main thread, by hash. */
+  private samples = new Map<string, SampleData>();
   /** Processing order: only reachable nodes, dependencies first. */
   private order: Node[] = [];
   private sinks: { node: Node; module: SinkModule }[] = [];
@@ -135,6 +141,10 @@ export class Engine {
       }
       if (desc.params) {
         for (const [name, value] of Object.entries(desc.params)) node.module.setParam(name, value);
+      }
+      if (node.module.setSample) {
+        node.sampleRef = desc.sample;
+        this.giveSample(node);
       }
       next.set(desc.id, node);
     }
@@ -228,6 +238,22 @@ export class Engine {
       if (node.asleep || !node.rendered) out.fill(0, offset, offset + count);
       else node.module.readMeters!(out, offset);
       offset += count;
+    }
+  }
+
+  /** Hand a node the sample it is set to, when that is not the one it already has. */
+  private giveSample(node: Node): void {
+    const data = node.sampleRef ? (this.samples.get(node.sampleRef) ?? null) : null;
+    if (data === (node.sampleGiven ?? null)) return;
+    node.sampleGiven = data;
+    node.module.setSample?.(data);
+  }
+
+  /** A sample arrived (or changed): every module that is set to it plays the new audio from now on. */
+  addSample(hash: string, data: SampleData): void {
+    this.samples.set(hash, data);
+    for (const node of this.nodes.values()) {
+      if (node.sampleRef === hash) this.giveSample(node);
     }
   }
 

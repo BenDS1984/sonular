@@ -10,6 +10,7 @@ import { FILE_EXTENSION, PatchFileError, fileNameFor, parsePatchFile, serializeP
 import { snap } from './geometry';
 import * as ops from './operations';
 import { prefs } from '../ui/prefs.svelte';
+import { embedSamples, importEmbeddedSamples } from '../samples/library.svelte';
 import { canvasState, DEFAULT_PATCH_NAME, fitAll, patch, raiseGroups, setLimiter } from './patch.svelte';
 import type { Patch } from './types';
 import welcomePreset from '../presets/welcome.sonular?raw';
@@ -20,17 +21,20 @@ import welcomePreset from '../presets/welcome.sonular?raw';
  */
 export function requestSave() {
   if (patch.name.trim() === '' || patch.name === DEFAULT_PATCH_NAME) dialogs.save = true;
-  else savePatchFile();
+  else void savePatchFile();
 }
 
 /** Give the patch a name and save it (used by the "Save patch" dialog). */
 export function saveAs(name: string) {
   patch.name = name.trim() || DEFAULT_PATCH_NAME;
-  savePatchFile();
+  void savePatchFile();
 }
 
-export function savePatchFile() {
-  const blob = new Blob([serializePatch(patch)], { type: 'application/json' });
+export async function savePatchFile() {
+  // The audio of the samples the patch uses goes into the file too.
+  const hashes = patch.modules.flatMap((m) => (m.sample ? [m.sample] : []));
+  const { samples, skipped } = hashes.length ? await embedSamples(hashes) : { samples: [], skipped: [] };
+  const blob = new Blob([serializePatch(patch, new Date(), samples)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -40,12 +44,15 @@ export function savePatchFile() {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
   showToast(`Saved “${a.download}” to your downloads`);
+  if (skipped.length) showToast(`Not saved in the file (missing or too big): ${skipped.join(', ')}`, 'warning');
 }
 
 export async function openPatchFile(file: File) {
   try {
     const fallbackName = file.name.replace(/\.[^.]+$/, '') || DEFAULT_PATCH_NAME;
-    const { patch: loaded, warnings } = parsePatchFile(await file.text(), getDefinition, fallbackName);
+    const { patch: loaded, warnings, samples } = parsePatchFile(await file.text(), getDefinition, fallbackName);
+    // The samples the file came with go into the library first, so the modules find them at once.
+    await importEmbeddedSamples(samples);
     applyPatch(loaded);
     showToast(`Opened “${loaded.name}”`);
     for (const w of warnings) showToast(w, 'warning');

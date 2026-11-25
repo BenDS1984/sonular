@@ -19,7 +19,7 @@
     stopPreview,
     togglePreview,
   } from '../../samples/library.svelte';
-  import { formatBytes, formatSampleLength, PEAK_COUNT } from '../../samples/sampleFiles';
+  import { formatBytes, formatSampleLength, PEAK_COUNT, SAMPLE_DRAG_TYPE } from '../../samples/sampleFiles';
   import type { SampleInfo } from '../../platform/sampleStore';
   import { prefs } from '../prefs.svelte';
 
@@ -87,6 +87,14 @@
     node.select();
   };
 
+  // ---------- Dragging onto a Sampler ----------
+
+  function dragSample(e: DragEvent, s: SampleInfo) {
+    if (!e.dataTransfer) return;
+    e.dataTransfer.setData(SAMPLE_DRAG_TYPE, s.hash);
+    e.dataTransfer.effectAllowed = 'copy';
+  }
+
   // ---------- Right-click menu ----------
 
   let menu = $state<{ x: number; y: number; sample: SampleInfo; confirm: boolean } | null>(null);
@@ -125,6 +133,8 @@
         class="sample"
         class:playing
         role="listitem"
+        draggable="true"
+        ondragstart={(e) => dragSample(e, s)}
         oncontextmenu={(e) => openMenu(e, s)}
       >
         {#if renaming === s.id}

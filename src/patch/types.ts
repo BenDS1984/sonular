@@ -12,6 +12,8 @@ export interface ModuleInstance {
   params: Record<string, number>;
   /** The user's own name for the module (shown instead of "Oscillator 2"). */
   name?: string;
+  /** Sampler: the SHA-256 (hex) of the chosen sample file, which is how it is found in the library. */
+  sample?: string;
 }
 
 export interface PortRef {

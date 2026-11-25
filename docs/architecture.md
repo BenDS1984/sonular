@@ -71,6 +71,7 @@ so a desktop build could swap them out.
 | LFO (sine / smooth random, free running, 2026-11-25) | 1.9 / 2.7 | 0.07 % / 0.10 % |
 | Filter (state-variable, per-sample coefficients, 2026-11-25) | 8.5 | 0.32 % |
 | Dual Delay (two mono lines, note-synced, shared feedback, high-pass and low-pass, tape; stereo / ping-pong, 2026-11-25; nothing while idle) | 5.7 / 5.8 | 0.21 % / 0.22 % |
+| Sampler (playing a sample, 2026-11-25; nothing when no sample plays) | 0.9 | 0.04 % |
 | Recorder (recording, 2026-11-18) | 1.0 | 0.04 % |
 
 In the browser on the user's laptop (CPU meter, peak), 2026-11-16:

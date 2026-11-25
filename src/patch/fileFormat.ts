@@ -7,6 +7,7 @@
  */
 import { clampTempo, DEFAULT_TEMPO } from '../engine/core/Transport';
 import type { ModuleDefinition } from '../modules/types';
+import { parseEmbedded, type EmbeddedSample } from '../samples/embedded';
 import type { Cable, ModuleGroup, ModuleInstance, Patch } from './types';
 
 export const FILE_FORMAT = 'sonular-patch';
@@ -18,6 +19,8 @@ export interface PatchFile {
   version: number;
   savedAt: string;
   patch: Patch;
+  /** The audio files of the samples the patch uses (left out when there are none). */
+  samples?: EmbeddedSample[];
 }
 
 export type DefinitionLookup = (type: string) => ModuleDefinition | undefined;
@@ -28,7 +31,7 @@ export type DefinitionLookup = (type: string) => ModuleDefinition | undefined;
  */
 const MIGRATIONS: Record<number, (data: Record<string, unknown>) => Record<string, unknown>> = {};
 
-export function serializePatch(patch: Patch, now = new Date()): string {
+export function serializePatch(patch: Patch, now = new Date(), samples: readonly EmbeddedSample[] = []): string {
   const file: PatchFile = {
     format: FILE_FORMAT,
     version: FILE_VERSION,
@@ -37,13 +40,14 @@ export function serializePatch(patch: Patch, now = new Date()): string {
       name: patch.name,
       tempo: patch.tempo,
       ...(patch.limiter === false ? { limiter: false } : {}),
-      modules: patch.modules.map((m) => ({ id: m.id, type: m.type, x: m.x, y: m.y, params: { ...m.params }, ...(m.name ? { name: m.name } : {}) })),
+      modules: patch.modules.map((m) => ({ id: m.id, type: m.type, x: m.x, y: m.y, params: { ...m.params }, ...(m.name ? { name: m.name } : {}), ...(m.sample ? { sample: m.sample } : {}) })),
       cables: patch.cables.map((c) => ({ id: c.id, from: { ...c.from }, to: { ...c.to } })),
       ...(patch.groups?.length
         ? { groups: patch.groups.map((g) => ({ id: g.id, name: g.name, moduleIds: [...g.moduleIds], collapsed: g.collapsed })) }
         : {}),
       view: { ...patch.view },
     },
+    ...(samples.length ? { samples: [...samples] } : {}),
   };
   return JSON.stringify(file, null, 2);
 }
@@ -52,6 +56,8 @@ export interface ParseResult {
   patch: Patch;
   /** Human-readable notes about anything that had to be repaired or dropped. */
   warnings: string[];
+  /** Samples that came with the file (to be added to the library); empty for the autosaved copy. */
+  samples: EmbeddedSample[];
 }
 
 export class PatchFileError extends Error {}
@@ -83,11 +89,11 @@ export function parsePatchFile(text: string, getDef: DefinitionLookup, fallbackN
     current = migrate(current);
     version++;
   }
-  return validatePatch(current['patch'], getDef, fallbackName);
+  return { ...validatePatch(current['patch'], getDef, fallbackName), samples: parseEmbedded(current['samples']) };
 }
 
 /** Repair a patch-shaped value into a valid Patch. Also used for the autosaved copy. */
-export function validatePatch(raw: unknown, getDef: DefinitionLookup, fallbackName = 'Untitled patch'): ParseResult {
+export function validatePatch(raw: unknown, getDef: DefinitionLookup, fallbackName = 'Untitled patch'): Omit<ParseResult, 'samples'> {
   const warnings: string[] = [];
   const src = isObject(raw) ? raw : {};
 
@@ -120,6 +126,7 @@ export function validatePatch(raw: unknown, getDef: DefinitionLookup, fallbackNa
       y: isFiniteNumber(m['y']) ? m['y'] : 0,
       params,
       ...(typeof m['name'] === 'string' && m['name'].trim() ? { name: m['name'].trim().slice(0, 40) } : {}),
+      ...(typeof m['sample'] === 'string' && /^[0-9a-f]{64}$/.test(m['sample']) ? { sample: m['sample'] } : {}),
     });
   }
   for (const t of unknownTypes) warnings.push(`Skipped modules of unknown type "${t}".`);

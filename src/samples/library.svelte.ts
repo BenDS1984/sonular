@@ -6,6 +6,8 @@
 import { askPersistentStorage, browserSampleStore, type SampleInfo } from '../platform/sampleStore';
 import { showToast } from '../ui/toast.svelte';
 import { prefs } from '../ui/prefs.svelte';
+import type { SampleData } from '../engine/core/types';
+import { base64ToBytes, bytesToBase64, MAX_EMBED_BYTES, type EmbeddedSample } from './embedded';
 import { computePeaks, isAudioFile, sampleName } from './sampleFiles';
 
 const store = browserSampleStore;
@@ -124,6 +126,59 @@ export async function removeSample(id: string): Promise<void> {
   if (library.playing === id) stopPreview();
   await store.remove(id);
   library.samples = library.samples.filter((x) => x.id !== id);
+}
+
+// ---------- Use in modules and patch files ----------
+
+/** The library's entry for the sample with this hash (what modules store), if it is in the library. */
+export const sampleByHash = (hash: string): SampleInfo | undefined => library.samples.find((s) => s.hash === hash);
+
+/** The audio of a sample for the engine: one array per channel, as the file decodes. Null when it is not in the library. */
+export async function loadSampleAudio(hash: string): Promise<SampleData | null> {
+  await loadLibrary();
+  const info = sampleByHash(hash);
+  if (!info) return null;
+  const blob = await store.file(info.id);
+  if (!blob) return null;
+  const buffer = await decode(await blob.arrayBuffer());
+  // Copies, because the arrays are moved to the audio thread.
+  const left = new Float32Array(buffer.getChannelData(0));
+  const right = buffer.numberOfChannels > 1 ? new Float32Array(buffer.getChannelData(1)) : null;
+  return { left, right, sampleRate: buffer.sampleRate };
+}
+
+/** The files of the samples with these hashes, for a patch file. `skipped` lists the names that are missing or too big. */
+export async function embedSamples(hashes: Iterable<string>): Promise<{ samples: EmbeddedSample[]; skipped: string[] }> {
+  await loadLibrary();
+  const samples: EmbeddedSample[] = [];
+  const skipped: string[] = [];
+  for (const hash of new Set(hashes)) {
+    const info = sampleByHash(hash);
+    if (!info) {
+      skipped.push('a sample that is not in the library');
+      continue;
+    }
+    const blob = await store.file(info.id);
+    if (!blob || blob.size > MAX_EMBED_BYTES) {
+      skipped.push(info.name);
+      continue;
+    }
+    samples.push({ hash, name: info.name, fileName: info.fileName, type: info.type, data: bytesToBase64(new Uint8Array(await blob.arrayBuffer())) });
+  }
+  return { samples, skipped };
+}
+
+/** Add the samples that came with a patch file to the library (those already there are left alone). */
+export async function importEmbeddedSamples(list: readonly EmbeddedSample[]): Promise<void> {
+  await loadLibrary();
+  const fresh = list.filter((e) => !sampleByHash(e.hash));
+  if (fresh.length === 0) return;
+  await addSampleFiles(fresh.map((e) => new File([base64ToBytes(e.data) as BlobPart], e.fileName, { type: e.type })));
+  // Keep the name the patch's author gave the sample.
+  for (const e of fresh) {
+    const info = sampleByHash(e.hash);
+    if (info && info.name !== e.name) await renameSample(info.id, e.name);
+  }
 }
 
 // ---------- Listening ----------

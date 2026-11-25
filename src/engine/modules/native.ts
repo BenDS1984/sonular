@@ -8,6 +8,7 @@ import { Delay } from './Delay';
 import { Envelope } from './Envelope';
 import { Lfo } from './Lfo';
 import { Recorder } from './Recorder';
+import { Sampler } from './Sampler';
 import { Scope } from './Scope';
 import { Sequencer } from './Sequencer';
 import { Spectrum } from './Spectrum';
@@ -19,6 +20,7 @@ export const NATIVE_MODULES: Readonly<Record<string, ModuleFactory>> = {
   'native:delay': (sr, transport) => new Delay(sr, transport),
   'native:envelope': (sr) => new Envelope(sr),
   'native:lfo': (sr) => new Lfo(sr),
+  'native:sampler': (sr) => new Sampler(sr),
   'native:scope': (sr) => new Scope(sr),
   'native:spectrum': (sr) => new Spectrum(sr),
   'native:vca': (sr) => new Vca(sr),

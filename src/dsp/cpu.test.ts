@@ -16,6 +16,7 @@ import { Delay } from '../engine/modules/Delay';
 import { Envelope } from '../engine/modules/Envelope';
 import { Lfo } from '../engine/modules/Lfo';
 import { Recorder } from '../engine/modules/Recorder';
+import { Sampler } from '../engine/modules/Sampler';
 import { Scope } from '../engine/modules/Scope';
 import { Spectrum } from '../engine/modules/Spectrum';
 import { Sequencer } from '../engine/modules/Sequencer';
@@ -75,6 +76,21 @@ function lfo(wave: number): Lfo {
   return l;
 }
 
+/** A Sampler playing a long looping-by-gate sample (a new gate every 0.5 s). */
+function sampler(): Sampler {
+  const s = new Sampler(SR);
+  s.setSample({ left: Float32Array.from({ length: SR * 4 }, (_, i) => Math.sin(i * 0.05)), right: null, sampleRate: SR });
+  const process = s.process.bind(s);
+  let blocks = 0;
+  s.process = (inputs, silent, outputs, n) => {
+    inputs[0]!.fill(blocks % 188 < 2 ? 1 : 0); // about every 0.5 s a gate of a few ms
+    blocks++;
+    process(inputs, silent, outputs, n);
+  };
+  s.reset();
+  return s;
+}
+
 /** A Dual Delay with feedback, filters, tape and sync on, in stereo or ping-pong. */
 function dualDelay(routing: number): Delay {
   const t = new Transport(SR);
@@ -125,6 +141,7 @@ describe.skipIf(import.meta.env.MODE !== 'bench')('CPU cost per module', () => {
       ['Envelope', new Envelope(SR)],
       ['LFO (sine)', lfo(0)],
       ['LFO (smooth random)', lfo(5)],
+      ['Sampler (playing)', sampler()],
       ['Dual Delay (stereo)', dualDelay(0)],
       ['Dual Delay (ping-pong)', dualDelay(1)],
       ['Scope (2 ms)', scope(0.002)],

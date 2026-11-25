@@ -153,6 +153,13 @@ export class AudioEngine {
     this.send({ type: 'param', node, name, value });
   }
 
+  /** Send the audio of a sample to the engine (the arrays are moved, not copied). */
+  setSample(hash: string, left: Float32Array, right: Float32Array | null, sampleRate: number): void {
+    const transfer: Transferable[] = [left.buffer];
+    if (right) transfer.push(right.buffer);
+    this.node?.port.postMessage({ type: 'sample', hash, left, right, sampleRate } satisfies ToEngine, transfer);
+  }
+
   setTempo(bpm: number): void {
     this.tempo = bpm;
     this.send({ type: 'tempo', bpm });
