@@ -28,7 +28,7 @@
 
   function starter() {
     close();
-    loadStarterPatch();
+    void loadStarterPatch();
   }
 
   function onkeydown(e: KeyboardEvent) {
@@ -81,10 +81,17 @@
     <div class="actions">
       {#if emptyAtOpen}
         <button type="button" class="btn" onclick={close}>Start with an empty patch</button>
-        <button type="button" class="btn primary" onclick={starter}>Load a starter patch</button>
       {:else}
-        <button type="button" class="btn primary" onclick={close}>Close</button>
+        <button type="button" class="btn" onclick={close}>Close</button>
       {/if}
+      <button
+        type="button"
+        class="btn primary"
+        title={emptyAtOpen ? '' : 'Replaces the patch on the canvas (you can undo it)'}
+        onclick={starter}
+      >
+        Load the Welcome! patch
+      </button>
     </div>
 
     <div class="brand" aria-hidden="true">

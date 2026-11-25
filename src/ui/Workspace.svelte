@@ -330,9 +330,9 @@
         class="starter"
         onpointerdown={(e) => e.stopPropagation()}
         ondblclick={(e) => e.stopPropagation()}
-        onclick={loadStarterPatch}
+        onclick={() => void loadStarterPatch()}
       >
-        Load a starter patch
+        Load the Welcome! patch
       </button>
     </div>
   {/if}

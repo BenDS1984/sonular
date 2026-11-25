@@ -13,7 +13,6 @@ import { prefs } from '../ui/prefs.svelte';
 import { embedSamples, importEmbeddedSamples } from '../samples/library.svelte';
 import { canvasState, DEFAULT_PATCH_NAME, fitAll, patch, raiseGroups, setLimiter } from './patch.svelte';
 import type { Patch } from './types';
-import welcomePreset from '../presets/welcome.sonular?raw';
 
 /**
  * Save, asking for a name first while the patch is still untitled. The browser doesn't tell us
@@ -75,14 +74,20 @@ function applyPatch(loaded: Patch) {
 }
 
 /**
- * The starter patch ("Welcome!", from src/presets): Clock -> Sequencer -> Oscillator ->
- * Envelope -> Reverb -> Mixer -> Output. Built into the app, so it also works offline.
- * Zooms to fit once the modules have been drawn and measured.
+ * The starter patch ("Welcome!", from src/presets). Built into the app, so it also works offline.
+ * It is read when it is asked for (it carries a sample, which makes it large), the sample goes into
+ * the library like with any opened file, and the view zooms to fit once the modules have been drawn.
  */
-export function loadStarterPatch() {
-  const { patch: loaded } = parsePatchFile(welcomePreset, getDefinition, 'Welcome!');
-  applyPatch(loaded);
-  requestAnimationFrame(() => requestAnimationFrame(fitAll));
+export async function loadStarterPatch() {
+  try {
+    const { default: text } = await import('../presets/welcome.sonular?raw');
+    const { patch: loaded, samples } = parsePatchFile(text, getDefinition, 'Welcome!');
+    await importEmbeddedSamples(samples);
+    applyPatch(loaded);
+    requestAnimationFrame(() => requestAnimationFrame(fitAll));
+  } catch {
+    showToast('The Welcome! patch could not be loaded.', 'error');
+  }
 }
 
 /** Let the user pick a .sonular file. */

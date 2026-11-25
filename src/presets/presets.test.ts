@@ -12,10 +12,14 @@ import welcome from './welcome.sonular?raw';
 
 describe('built-in presets', () => {
   it('the Welcome! starter patch loads completely, without warnings', () => {
-    const { patch, warnings } = parsePatchFile(welcome, getDefinition, 'Welcome!');
+    const { patch, warnings, samples } = parsePatchFile(welcome, getDefinition, 'Welcome!');
     expect(warnings).toEqual([]);
     expect(patch.name).toBe('Welcome!');
-    expect(patch.modules).toHaveLength(8);
-    expect(patch.cables).toHaveLength(10);
+    expect(patch.modules).toHaveLength(15);
+    expect(patch.cables).toHaveLength(22);
+    // Every sample a module uses comes with the file.
+    const used = patch.modules.flatMap((m) => (m.sample ? [m.sample] : []));
+    expect(used.length).toBeGreaterThan(0);
+    for (const hash of used) expect(samples.map((s) => s.hash)).toContain(hash);
   });
 });
