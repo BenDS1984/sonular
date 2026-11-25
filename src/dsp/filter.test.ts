@@ -120,6 +120,18 @@ describe('Filter modulation input', () => {
     expect(gainAt({ type: 0, cutoff: 1000, resonance: 0, mod: 4 }, 1000, 0)).toBeCloseTo(-3.01, 0);
   });
 
+  it('reports to the panel how many octaves the cutoff is moved right now', () => {
+    const dsp = filter({ cutoff: 1000, mod: 2 });
+    render(dsp, 0.5, sine(220), () => 0.75);
+    const out = new Float32Array(dsp.meterNames.length);
+    dsp.readMeters(out, 0);
+    expect(out[dsp.meterNames.indexOf('shift')]).toBeCloseTo(1.5, 1); // 2 octaves per unit x 0.75
+    const none = filter({ cutoff: 1000, mod: 0 });
+    render(none, 0.5, sine(220), () => 1);
+    none.readMeters(out, 0);
+    expect(out[none.meterNames.indexOf('shift')]).toBeCloseTo(0, 3);
+  });
+
   it('follows a slow LFO without trouble', () => {
     const lfo = (i: number) => Math.sin((2 * Math.PI * 2 * i) / SR);
     const { L } = render(filter({ type: 0, cutoff: 800, resonance: 0.7, mod: 3 }), 2, sine(220, 0.5), lfo);

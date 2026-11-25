@@ -73,6 +73,9 @@ with {
   mix(lp, bp, hp) = lp * wLow + bp * wBand + hp * wHigh;
 };
 
+// A meter for the panel: how many octaves the modulation moves the cutoff right now.
+shiftMeter = _ <: attach(_, (*(modAmt) : vbargraph("shift", -8, 8)));
+
 // (left, right, mod) -> shared coefficients -> two channels.
-process = (_, _, coefs) : route(7, 12, (3, 1), (4, 2), (5, 3), (6, 4), (7, 5), (1, 6), (3, 7), (4, 8), (5, 9), (6, 10), (7, 11), (2, 12))
+process = (_, _, (shiftMeter : coefs)) : route(7, 12, (3, 1), (4, 2), (5, 3), (6, 4), (7, 5), (1, 6), (3, 7), (4, 8), (5, 9), (6, 10), (7, 11), (2, 12))
         : (channel, channel);
