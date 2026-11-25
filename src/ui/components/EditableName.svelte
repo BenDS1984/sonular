@@ -33,6 +33,29 @@
     queueMicrotask(() => input?.select());
   }
 
+  let nameEl: HTMLSpanElement | undefined = $state();
+
+  /** Whether a screen point lies on the name or the pencil (an owner that grabs the pointer asks this). */
+  export function isAt(x: number, y: number): boolean {
+    return [nameEl, pencilEl].some((el) => {
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    });
+  }
+  let pencilEl: HTMLButtonElement | undefined = $state();
+
+  // A press anywhere outside the field ends the editing (and keeps the name), even where the press
+  // itself is handled by something else (dragging a module, panning the canvas).
+  $effect(() => {
+    if (!editing) return;
+    const away = (e: PointerEvent) => {
+      if (e.target !== input) finish(true);
+    };
+    window.addEventListener('pointerdown', away, true);
+    return () => window.removeEventListener('pointerdown', away, true);
+  });
+
   function finish(save: boolean) {
     if (!editing) return;
     editing = false;
@@ -64,6 +87,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions (double-click to rename; the pencil button is the accessible way) -->
   <span
     class="name"
+    bind:this={nameEl}
     title={title ? `${title} — double-click to rename` : 'Double-click to rename'}
     ondblclick={(e) => {
       e.stopPropagation();
@@ -77,6 +101,7 @@
   <button
     type="button"
     class="pencil"
+    bind:this={pencilEl}
     aria-label={`Rename ${text}`}
     title="Rename"
     onpointerdown={(e) => e.stopPropagation()}

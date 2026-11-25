@@ -138,10 +138,11 @@
     <ModulePanel
       title={moduleLabel(def, module)}
       rename={{
-        value: module.name ?? '',
+        value: moduleLabel(def, module),
         placeholder: defaultTitle(def, module),
         tooltip: moduleTooltip(def, module),
-        onrename: (name) => renameModule(module, name),
+        // The field starts with the name shown (like a group's); the unchanged default stays "no own name".
+        onrename: (name) => renameModule(module, name === defaultTitle(def, module) ? '' : name),
       }}
       signal={def.signal}
       family={def.category}

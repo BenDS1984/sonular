@@ -84,7 +84,7 @@
       class="head"
       style:height={group.collapsed ? '100%' : `${GROUP_HEADER}px`}
       onpointerdown={ondragstart}
-      ondblclick={() => nameField?.start()}
+      ondblclick={(e) => nameField?.isAt(e.clientX, e.clientY) && nameField.start()}
     >
       <h3 class="title">
         <EditableName
