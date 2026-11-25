@@ -14,6 +14,20 @@ export function stepParam(bank: number, kind: 'pitch' | 'on', step: number): str
   return bank === 0 ? `${kind}${step}` : `b${bank + 1}${kind}${step}`;
 }
 
+/** Parameter id of a bank's length: how many of its steps play before it starts over (1..8, default 8). */
+export function lenParam(bank: number): string {
+  return bank === 0 ? 'len' : `b${bank + 1}len`;
+}
+
+/** Which bank a length parameter id belongs to (0-based), or null for other ids. */
+export function parseLenParam(id: string): number | null {
+  const m = /^(?:b(\d+))?len$/.exec(id);
+  if (!m) return null;
+  const bank = m[1] ? Number(m[1]) - 1 : 0;
+  if (m[1] && bank < 1) return null;
+  return bank >= SEQUENCER_BANKS ? null : bank;
+}
+
 /** Which bank, kind and step a parameter id belongs to (all 0-based), or null for other ids. */
 export function parseStepParam(id: string): { bank: number; kind: 'pitch' | 'on'; step: number } | null {
   const m = /^(?:b(\d+))?(pitch|on)(\d+)$/.exec(id);
@@ -29,6 +43,7 @@ export function parseStepParam(id: string): { bank: number; kind: 'pitch' | 'on'
 export function bankParams(bank: number): string[] {
   const ids: string[] = [];
   for (const kind of ['pitch', 'on'] as const) for (let s = 1; s <= SEQUENCER_STEPS; s++) ids.push(stepParam(bank, kind, s));
+  ids.push(lenParam(bank));
   return ids;
 }
 
@@ -40,6 +55,7 @@ export function copyBankValues(params: Record<string, number>, from: Record<stri
       if (v !== undefined) params[stepParam(to, kind, s)] = v;
     }
   }
+  if (from['len'] !== undefined) params[lenParam(to)] = from['len'];
 }
 
 /** One bank's steps under bank-1 ids, the form `copyBankValues` takes (a bank clipboard). */
@@ -51,6 +67,8 @@ export function readBank(params: Record<string, number>, bank: number): Record<s
       if (v !== undefined) out[`${kind}${s}`] = v;
     }
   }
+  const len = params[lenParam(bank)];
+  if (len !== undefined) out['len'] = len;
   return out;
 }
 

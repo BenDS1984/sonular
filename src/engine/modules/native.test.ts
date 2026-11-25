@@ -128,6 +128,20 @@ describe('Sequencer', () => {
     expect(again![0]).toBeCloseTo(NOTES[2]! / 12, 6);
   });
 
+  it('starts over after the pattern length, per pattern', () => {
+    const seq = sequencer();
+    seq.setParam('len', 3);
+    const period = 4800;
+    const [pitch] = run(seq, (period * 4) / SR, (_c, i) => pulses(period)(i));
+    // Steps 1, 2, 3, then back to 1.
+    expect(pitch![period * 3 + 10]).toBeCloseTo(NOTES[0]! / 12, 6);
+    expect(pitch![period * 2 + 10]).toBeCloseTo(NOTES[2]! / 12, 6);
+    // Another pattern keeps its full length of 8.
+    seq.setParam('b2len', 8);
+    seq.setParam('bank', 1);
+    expect(() => seq.setParam('b9len', 1)).not.toThrow();
+  });
+
   it('ignores a pattern that does not exist', () => {
     const seq = sequencer();
     seq.setParam('bank', 99);

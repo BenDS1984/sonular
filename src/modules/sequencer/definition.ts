@@ -1,5 +1,5 @@
 import type { ModuleDefinition, ParamSpec } from '../types';
-import { SEQUENCER_BANKS, SEQUENCER_STEPS, stepParam } from './banks';
+import { SEQUENCER_BANKS, SEQUENCER_STEPS, lenParam, stepParam } from './banks';
 import SequencerPanel from './SequencerPanel.svelte';
 
 const STEPS = Array.from({ length: SEQUENCER_STEPS }, (_, i) => i + 1);
@@ -10,7 +10,7 @@ export const sequencer: ModuleDefinition = {
   version: 1,
   title: 'Sequencer',
   category: 'Sequencing',
-  description: 'Eight steps with a note and an on/off switch each, moved on by a clock, in eight patterns (A–H).',
+  description: 'Up to eight steps with a note and an on/off switch each, moved on by a clock, in eight patterns (A–H) that each have their own length.',
   signal: 'pitch',
   width: 464,
   inputs: [{ id: 'clock', label: 'clock', signal: 'gate' }],
@@ -44,6 +44,8 @@ export const sequencer: ModuleDefinition = {
           format: 'toggle',
         }),
       ),
+      // How many steps of this pattern play before it starts over.
+      { id: lenParam(b), label: 'Length', min: 1, max: SEQUENCER_STEPS, default: SEQUENCER_STEPS, step: 1 } as ParamSpec,
     ]),
     // The pattern that plays (and is shown on the panel).
     { id: 'bank', label: 'Pattern', min: 0, max: SEQUENCER_BANKS - 1, default: 0, step: 1 },

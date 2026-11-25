@@ -5,7 +5,7 @@
   import ParamKnob from '../ParamKnob.svelte';
   import type { ModulePanelProps } from '../types';
   import { bankClipboard, bankColor } from './bankClipboard.svelte';
-  import { bankLetter, copyBankValues, readBank, SEQUENCER_BANKS, SEQUENCER_STEPS, stepParam } from './banks';
+  import { bankLetter, copyBankValues, readBank, SEQUENCER_BANKS, SEQUENCER_STEPS, lenParam, stepParam } from './banks';
 
   let { module, def }: ModulePanelProps = $props();
 
@@ -15,7 +15,13 @@
   // The pattern shown and played.
   const bank = $derived(Math.round(module.params['bank'] ?? 0));
   // Meter "step" is 1..8 for the step playing, 0 before the first clock pulse.
+  // How many steps of this pattern play (1..8).
+  const len = $derived(Math.min(SEQUENCER_STEPS, Math.max(1, Math.round(module.params[lenParam(bank)] ?? SEQUENCER_STEPS))));
   const current = $derived(Math.round(meterValue(module.id, 'step')));
+
+  function setLen(n: number) {
+    module.params[lenParam(bank)] = Math.min(SEQUENCER_STEPS, Math.max(1, n));
+  }
 
   function copy() {
     bankClipboard.steps = readBank(module.params, bank);
@@ -57,11 +63,19 @@
   </button>
 </div>
 
+<div class="length">
+  <span class="caption">Length</span>
+  <button type="button" class="btn small" disabled={len <= 1} title="Shorter pattern" aria-label="Shorter pattern" onclick={() => setLen(len - 1)}>−</button>
+  <span class="len-value" aria-live="polite">{len}</span>
+  <button type="button" class="btn small" disabled={len >= SEQUENCER_STEPS} title="Longer pattern" aria-label="Longer pattern" onclick={() => setLen(len + 1)}>+</button>
+  <span class="hint">steps, then back to step 1</span>
+</div>
+
 <div class="steps">
   {#each STEPS as n (n)}
     {@const onId = stepParam(bank, 'on', n)}
     {@const on = (module.params[onId] ?? 0) >= 0.5}
-    <div class="step" class:off={!on}>
+    <div class="step" class:off={!on} class:beyond={n > len}>
       <Led level={current === n ? 1 : 0} signal="pitch" label={current === n ? `Step ${n} playing` : ''} />
       <ParamKnob {module} {def} param={stepParam(bank, 'pitch', n)} size="sm" />
       <Toggle
@@ -83,7 +97,8 @@
     margin-bottom: var(--space-2);
   }
   .caption {
-    margin-right: 2px;
+    flex: none;
+    width: 58px;
     color: var(--text-muted);
     font-size: var(--text-xs);
     font-weight: var(--weight-bold);
@@ -133,6 +148,34 @@
   .btn:disabled {
     opacity: 0.45;
     cursor: default;
+  }
+  .length {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: var(--space-2);
+  }
+  .btn.small {
+    flex: none;
+    min-width: 0;
+    width: 30px;
+    padding: 0;
+  }
+  .len-value {
+    width: 30px;
+    text-align: center;
+    color: var(--text-strong);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+  }
+  .hint {
+    margin-left: 6px;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+  /* Steps after the pattern's end never play. */
+  .step.beyond {
+    opacity: 0.35;
   }
   .steps {
     display: flex;

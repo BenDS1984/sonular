@@ -1,5 +1,5 @@
 import type { DspModule } from '../core/types';
-import { parseStepParam, SEQUENCER_BANKS, SEQUENCER_STEPS } from '../../modules/sequencer/banks';
+import { parseLenParam, parseStepParam, SEQUENCER_BANKS, SEQUENCER_STEPS } from '../../modules/sequencer/banks';
 
 /** A clock input counts as high above this level and as low again below the lower one. */
 const HIGH = 0.6;
@@ -18,6 +18,7 @@ const LOW = 0.4;
  * Parameters: "pitch1".."pitch8" in semitones (−24..+24 around C4), "on1".."on8" (0/1) for pattern
  * A, "b2pitch1".."b8on8" for the others, and "bank" (0..7), the pattern that plays. Switching
  * pattern while playing keeps the step going: the next step is simply read from the new pattern.
+ * "len" (1..8, "b2len".. for the others) is how many steps of a pattern play before it starts over.
  * Meter "step": the current step, 1..8 (0 before the first clock edge).
  */
 export class Sequencer implements DspModule {
@@ -37,6 +38,11 @@ export class Sequencer implements DspModule {
   private readonly on = new Uint8Array(SEQUENCER_BANKS * SEQUENCER_STEPS);
   /** Offset of the chosen pattern (parameter "bank") in the arrays. */
   private base = 0;
+  /** Length of each pattern, 1..8. */
+  private readonly len = new Uint8Array(SEQUENCER_BANKS).fill(SEQUENCER_STEPS);
+  /** Length of the chosen pattern. */
+  private curLen = SEQUENCER_STEPS;
+  private bankIndex = 0;
   /** Current step index, −1 before the first clock edge. */
   private step = -1;
   private clockHigh = false;
@@ -44,7 +50,15 @@ export class Sequencer implements DspModule {
   setParam(name: string, value: number): void {
     if (name === 'bank') {
       const b = Math.round(value);
-      this.base = (b >= 0 && b < SEQUENCER_BANKS ? b : 0) * SEQUENCER_STEPS;
+      this.bankIndex = b >= 0 && b < SEQUENCER_BANKS ? b : 0;
+      this.base = this.bankIndex * SEQUENCER_STEPS;
+      this.curLen = this.len[this.bankIndex]!;
+      return;
+    }
+    const lb = parseLenParam(name);
+    if (lb !== null) {
+      this.len[lb] = Math.min(SEQUENCER_STEPS, Math.max(1, Math.round(value)));
+      this.curLen = this.len[this.bankIndex]!;
       return;
     }
     const p = parseStepParam(name);
@@ -64,10 +78,12 @@ export class Sequencer implements DspModule {
       const c = clock[i]!;
       if (!high && c > HIGH) {
         high = true;
-        step = (step + 1) % SEQUENCER_STEPS;
+        step = (step + 1) % this.curLen;
       } else if (high && c < LOW) {
         high = false;
       }
+      // A pattern shortened while playing may leave the step beyond its end: wrap it at once.
+      if (step >= this.curLen) step = 0;
       const s = this.base + (step < 0 ? 0 : step);
       pitchOut[i] = this.pitch[s]!;
       gateOut[i] = high && step >= 0 && this.on[s] ? 1 : 0;
