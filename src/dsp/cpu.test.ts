@@ -12,6 +12,7 @@ import { describe, it } from 'vitest';
 import { Transport } from '../engine/core/Transport';
 import { BLOCK_SIZE, type DspModule } from '../engine/core/types';
 import { Clock } from '../engine/modules/Clock';
+import { Delay } from '../engine/modules/Delay';
 import { Envelope } from '../engine/modules/Envelope';
 import { Lfo } from '../engine/modules/Lfo';
 import { Recorder } from '../engine/modules/Recorder';
@@ -74,6 +75,20 @@ function lfo(wave: number): Lfo {
   return l;
 }
 
+/** A Dual Delay with feedback, filters, tape and sync on, in stereo or ping-pong. */
+function dualDelay(routing: number): Delay {
+  const t = new Transport(SR);
+  const d = new Delay(SR, t);
+  d.onConnectionsChanged([true, true]);
+  d.setParam('feedback', 0.5);
+  d.setParam('tape', 0.5);
+  d.setParam('hp', 200);
+  d.setParam('lp', 6000);
+  d.setParam('routing', routing);
+  d.reset();
+  return d;
+}
+
 /** A spectrum analyser with both inputs connected (peak hold on). */
 function spectrum(): Spectrum {
   const s = new Spectrum(SR);
@@ -110,6 +125,8 @@ describe.skipIf(import.meta.env.MODE !== 'bench')('CPU cost per module', () => {
       ['Envelope', new Envelope(SR)],
       ['LFO (sine)', lfo(0)],
       ['LFO (smooth random)', lfo(5)],
+      ['Dual Delay (stereo)', dualDelay(0)],
+      ['Dual Delay (ping-pong)', dualDelay(1)],
       ['Scope (2 ms)', scope(0.002)],
       ['Scope (1 s)', scope(1)],
       ['Spectrum', spectrum()],

@@ -2,6 +2,7 @@
  * All available module types. Adding a module = writing its definition and listing it here.
  */
 import { clock } from './clock/definition';
+import { delay } from './delay/definition';
 import { envelope } from './envelope/definition';
 import { filter } from './filter/definition';
 import { lfo } from './lfo/definition';
@@ -16,7 +17,7 @@ import { sequencer } from './sequencer/definition';
 import { vca } from './vca/definition';
 import type { ModuleDefinition } from './types';
 
-export const MODULES: readonly ModuleDefinition[] = [oscillator, clock, sequencer, envelope, vca, lfo, filter, mixer, reverb, output, recorder, scope, spectrum];
+export const MODULES: readonly ModuleDefinition[] = [oscillator, clock, sequencer, envelope, vca, lfo, filter, mixer, delay, reverb, output, recorder, scope, spectrum];
 
 const byType = new Map(MODULES.map((d) => [d.type, d]));
 
