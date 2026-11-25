@@ -1,7 +1,8 @@
 <!--
   Vertical peak meter on a dB scale (−60 dB … +6 dB).
   `level` is a linear peak amplitude (1.0 = 0 dBFS), fed by the caller every frame.
-  Shows a peak-hold line and a latching clip LED (click to reset).
+  Shows a peak-hold line and a latching clip LED. A click anywhere on the meter resets its LED; a
+  Shift-click or double-click resets the LEDs of all meters in the same module.
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
@@ -15,6 +16,30 @@
   }
 
   let { level, height = 80, width = 6, label = '' }: Props = $props();
+
+  const RESET_EVENT = 'sonular-clip-reset';
+  let root: HTMLDivElement | undefined = $state();
+  /** The module panel this meter sits in (the meters of one module are reset together). */
+  const host = () => root?.closest('[role="group"]') ?? null;
+
+  function resetAll() {
+    const h = host();
+    if (h) h.dispatchEvent(new CustomEvent(RESET_EVENT));
+    else clipped = false;
+  }
+
+  function onclick(e: MouseEvent) {
+    if (e.shiftKey) resetAll();
+    else clipped = false;
+  }
+
+  $effect(() => {
+    const h = host();
+    if (!h) return;
+    const reset = () => (clipped = false);
+    h.addEventListener(RESET_EVENT, reset);
+    return () => h.removeEventListener(RESET_EVENT, reset);
+  });
 
   const MIN_DB = -60;
   const MAX_DB = 6;
@@ -67,14 +92,14 @@
   const zeroDbFromBottom = `${(dbToPos(0) * 100).toFixed(1)}%`;
 </script>
 
-<div class="meter" title={label}>
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions (the clip LED button inside is the keyboard way) -->
+<div class="meter" title={label} bind:this={root} {onclick} ondblclick={resetAll}>
   <button
     class="clip"
     class:on={clipped}
     type="button"
-    title={clipped ? 'Clipped — click to reset' : 'Clip indicator'}
+    title={clipped ? 'Clipped: click to reset (Shift-click or double-click resets all meters of this module)' : 'Clip indicator'}
     aria-label="Reset clip indicator"
-    onclick={() => (clipped = false)}
   ></button>
   <div
     class="bar lcd small"
@@ -92,15 +117,19 @@
 </div>
 
 <style>
+  /* The whole meter is a button for its clip LED: padding makes the target generous, the negative margin keeps the layout. */
   .meter {
     display: inline-flex;
     flex-direction: column;
     align-items: center;
     gap: 3px;
+    padding: 6px 6px 4px;
+    margin: -6px -6px -4px;
+    cursor: pointer;
   }
   .clip {
-    width: 8px;
-    height: 4px;
+    width: 10px;
+    height: 5px;
     padding: 0;
     border: 0;
     border-radius: 2px;
