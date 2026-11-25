@@ -93,6 +93,7 @@ describe.skipIf(import.meta.env.MODE !== 'bench')('CPU cost per module', () => {
       ['Oscillator (saw)', load('osc', { wave: 2 })],
       ['Mixer (4 channels)', load('mixer')],
       ['Reverb', load('reverb')],
+      ['Filter (low-pass, resonant)', load('filter', { cutoff: 800, resonance: 0.6 })],
       ['Output', load('output')],
       ['Clock', new Clock(transport)],
       ['Sequencer', new Sequencer()],

@@ -67,7 +67,8 @@ so a desktop build could swap them out.
 | Sequencer | 0.6 | 0.02 % |
 | Envelope | 0.7 | 0.03 % |
 | Scope (2 ms / 1 s window, 2026-11-17) | 1.4 / 0.9 | 0.05 % / 0.03 % |
-| Spectrum (2048-point FFT every 1024 samples, 2026-11-24; nothing while silent) | 7.5 | 0.28 % |
+| Spectrum (8192-point FFT every 1024 samples, 2026-11-25; nothing while silent) | 31.9 | 1.19 % |
+| Filter (state-variable, per-sample coefficients, 2026-11-25) | 8.5 | 0.32 % |
 | Recorder (recording, 2026-11-18) | 1.0 | 0.04 % |
 
 In the browser on the user's laptop (CPU meter, peak), 2026-11-16:

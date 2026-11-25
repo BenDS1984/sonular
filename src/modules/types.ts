@@ -28,6 +28,8 @@ export type ParamFormat =
   | 'note'
   /** A multiplication factor, e.g. "×2.0". */
   | 'times'
+  /** A shift in octaves, e.g. "+1.5 oct". */
+  | 'octaves'
   | 'toggle'
   | 'choice';
 

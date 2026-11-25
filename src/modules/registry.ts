@@ -3,6 +3,7 @@
  */
 import { clock } from './clock/definition';
 import { envelope } from './envelope/definition';
+import { filter } from './filter/definition';
 import { mixer } from './mixer/definition';
 import { oscillator } from './oscillator/definition';
 import { output } from './output/definition';
@@ -13,7 +14,7 @@ import { spectrum } from './spectrum/definition';
 import { sequencer } from './sequencer/definition';
 import type { ModuleDefinition } from './types';
 
-export const MODULES: readonly ModuleDefinition[] = [oscillator, clock, sequencer, envelope, mixer, reverb, output, recorder, scope, spectrum];
+export const MODULES: readonly ModuleDefinition[] = [oscillator, clock, sequencer, envelope, filter, mixer, reverb, output, recorder, scope, spectrum];
 
 const byType = new Map(MODULES.map((d) => [d.type, d]));
 
