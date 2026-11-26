@@ -7,7 +7,7 @@ export const vca: ModuleDefinition = {
   title: 'VCA',
   category: 'Shaping',
   description:
-    'Level × cv: turns a sound down or up. Patch an Envelope into cv and the sound follows it; with nothing on cv, Level is a plain amount knob, also for modulation such as an LFO.',
+    'Amount × cv: turns a sound down. Patch an Envelope into cv and the sound follows it; with nothing on cv, Amount is a plain volume knob, also for modulation such as an LFO.',
   signal: 'audio',
   width: 204,
   inputs: [
@@ -15,7 +15,7 @@ export const vca: ModuleDefinition = {
     { id: 'cv', label: 'cv', signal: 'cv' },
   ],
   outputs: [{ id: 'out', label: 'out', signal: 'audio' }],
-  params: [{ id: 'level', label: 'Level', min: 0, max: 1, default: 1, format: 'percent' }],
+  params: [{ id: 'level', label: 'Amount', min: 0, max: 1, default: 1, format: 'percent' }],
   panel: VcaPanel,
   engine: 'native:vca',
 };

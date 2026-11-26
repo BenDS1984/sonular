@@ -19,7 +19,7 @@ export const spectrum: ModuleDefinition = {
     { id: 'outR', label: 'R', signal: 'audio' },
   ],
   params: [
-    { id: 'scale', label: 'Scale', min: 0, max: 1, default: 0, step: 1, format: 'choice', choices: ['Log', 'Lin'] },
+    { id: 'scale', label: 'Axis', min: 0, max: 1, default: 0, step: 1, format: 'choice', choices: ['Log', 'Lin'] },
   ],
   panel: SpectrumPanel,
   engine: 'native:spectrum',
