@@ -1,7 +1,6 @@
 <script lang="ts">
   import Segmented from '../../ui/components/Segmented.svelte';
   import { engineState, meterValue } from '../../engine/engine.svelte';
-  import { lfoRandom } from '../../engine/modules/Lfo';
   import { patch } from '../../patch/patch.svelte';
   import ParamKnob from '../ParamKnob.svelte';
   import type { ModulePanelProps } from '../types';
@@ -34,20 +33,13 @@
   /** Whether a clock is patched in: then Sync counts and Rate rests, otherwise the other way round. */
   const clocked = $derived(patch.cables.some((c) => c.to.module === module.id && c.to.port === 'clock'));
 
-  /** Which random pattern the engine is playing (the meter only moves while playing). */
-  const seed = $derived(meterValue(module.id, 'seed'));
-
-  /** The wave at place x (0..1) of what is drawn: one cycle, or four cycles for the random waves. */
+  /** The wave at place x (0..1) of one cycle (the random waves are not drawn: see the badge). */
   function value(x: number): number {
     if (wave === 0) return Math.sin(2 * Math.PI * x);
     if (wave === 1) return x < 0.25 ? 4 * x : x < 0.75 ? 2 - 4 * x : 4 * x - 4;
     if (wave === 2) return 2 * x - 1;
     if (wave === 3) return x < 0.5 ? 1 : -1;
-    const cycle = Math.min(3, Math.floor(x * 4));
-    const p = x * 4 - cycle;
-    const a = lfoRandom(seed, cycle);
-    if (wave === 4) return a;
-    return a + (lfoRandom(seed, cycle + 1) - a) * (0.5 - 0.5 * Math.cos(Math.PI * p));
+    return 0;
   }
 
   /** Height on the screen of a wave value, with Amount and the polarity applied. */
@@ -60,9 +52,7 @@
     let line = '';
     for (let i = 0; i <= POINTS; i++) {
       const x = i / POINTS;
-      // The random waves are drawn as a run of four cycles; a step wave jumps at each cycle.
-      const xs = wave === 4 ? Math.min(x, 1 - 1e-9) : x;
-      line += `${i ? 'L' : 'M'}${(x * W).toFixed(1)} ${y(value(xs)).toFixed(1)}`;
+      line += `${i ? 'L' : 'M'}${(x * W).toFixed(1)} ${y(value(x)).toFixed(1)}`;
     }
     return line;
   });
@@ -76,17 +66,25 @@
 <div class="lfo">
   <div class="screen lcd">
     <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="LFO wave">
-      {#if !unipolar}
-        <line class="grid" x1="0" y1={H / 2} x2={W} y2={H / 2} />
-      {/if}
       {#if random}
-        {#each [1, 2, 3] as c (c)}
-          <line class="grid" x1={(c * W) / 4} y1="0" x2={(c * W) / 4} y2={H} />
-        {/each}
-      {/if}
-      <path class="line" d={shape} />
-      {#if engineState.playing}
-        <circle class="dot" cx={dotX} cy={dotY} r="3" />
+        <!-- The pattern is new at every Play, so no wave is drawn: just the dice and the name. -->
+        <g class="hint" transform="translate(0 -4)">
+          <rect x={W / 2 - 13} y={H / 2 - 20} width="26" height="26" rx="6" />
+          <circle cx={W / 2 - 7} cy={H / 2 - 14} r="2" />
+          <circle cx={W / 2 + 7} cy={H / 2 - 14} r="2" />
+          <circle cx={W / 2} cy={H / 2 - 7} r="2" />
+          <circle cx={W / 2 - 7} cy={H / 2} r="2" />
+          <circle cx={W / 2 + 7} cy={H / 2} r="2" />
+          <text x={W / 2} y={H / 2 + 22} class="hint-title" text-anchor="middle">{wave === 4 ? 'S&H' : 'Smooth S&H'}</text>
+        </g>
+      {:else}
+        {#if !unipolar}
+          <line class="grid" x1="0" y1={H / 2} x2={W} y2={H / 2} />
+        {/if}
+        <path class="line" d={shape} />
+        {#if engineState.playing}
+          <circle class="dot" cx={dotX} cy={dotY} r="3" />
+        {/if}
       {/if}
     </svg>
   </div>
@@ -144,6 +142,21 @@
     stroke-linejoin: round;
     vector-effect: non-scaling-stroke;
     filter: drop-shadow(0 0 3px var(--signal-cv));
+  }
+  .hint rect {
+    fill: none;
+    stroke: var(--text-muted);
+    stroke-width: 1.2;
+  }
+  .hint circle {
+    fill: var(--text-muted);
+  }
+  .hint text {
+    fill: var(--text-muted);
+    font-family: inherit;
+  }
+  .hint-title {
+    font-size: 12px;
   }
   .dot {
     fill: var(--text-strong);
