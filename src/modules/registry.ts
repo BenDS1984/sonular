@@ -15,10 +15,11 @@ import { sampler } from './sampler/definition';
 import { scope } from './scope/definition';
 import { spectrum } from './spectrum/definition';
 import { sequencer } from './sequencer/definition';
+import { cvmix } from './cvmix/definition';
 import { vca } from './vca/definition';
 import type { ModuleDefinition } from './types';
 
-export const MODULES: readonly ModuleDefinition[] = [oscillator, sampler, clock, sequencer, envelope, vca, lfo, filter, mixer, delay, reverb, output, recorder, scope, spectrum];
+export const MODULES: readonly ModuleDefinition[] = [oscillator, sampler, clock, sequencer, envelope, vca, lfo, filter, mixer, delay, reverb, output, recorder, scope, spectrum, cvmix];
 
 const byType = new Map(MODULES.map((d) => [d.type, d]));
 

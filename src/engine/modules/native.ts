@@ -4,6 +4,7 @@
  */
 import type { ModuleFactory } from '../core/types';
 import { Clock } from './Clock';
+import { CvMix } from './CvMix';
 import { Delay } from './Delay';
 import { Envelope } from './Envelope';
 import { Lfo } from './Lfo';
@@ -17,6 +18,7 @@ import { Vca } from './Vca';
 export const NATIVE_MODULES: Readonly<Record<string, ModuleFactory>> = {
   'native:clock': (_sr, transport) => new Clock(transport),
   'native:sequencer': () => new Sequencer(),
+  'native:cvmix': (sr) => new CvMix(sr),
   'native:delay': (sr, transport) => new Delay(sr, transport),
   'native:envelope': (sr) => new Envelope(sr),
   'native:lfo': (sr) => new Lfo(sr),
