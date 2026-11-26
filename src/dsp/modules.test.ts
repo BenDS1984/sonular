@@ -41,8 +41,8 @@ function render(dsp: FaustDsp, seconds: number, input = 0, sr = SR): Float32Arra
   return out;
 }
 
-/** The oscillator's six inputs: the given pitch buffer, then five silent modulation inputs. */
-const oscIn = (pitch: Float32Array) => [pitch, ...Array.from({ length: 5 }, () => new Float32Array(BLOCK_SIZE))];
+/** The oscillator's five inputs: the given pitch buffer, then four silent modulation inputs. */
+const oscIn = (pitch: Float32Array) => [pitch, ...Array.from({ length: 4 }, () => new Float32Array(BLOCK_SIZE))];
 
 const WAVES = { sine: 0, triangle: 1, saw: 2, square: 3 } as const;
 
@@ -117,7 +117,7 @@ describe('Oscillator', () => {
       for (let b = 0; b < Math.floor(SR / BLOCK_SIZE); b++) {
         // Jump between about 100 Hz and 2 kHz every 50 ms.
         pitchBuf.fill(Math.floor((b * BLOCK_SIZE) / 2400) % 2 ? Math.log2(2000 / 261.63) : Math.log2(100 / 261.63));
-        osc.process(oscIn(pitchBuf), [false, true, true, true, true, true], [out], BLOCK_SIZE);
+        osc.process(oscIn(pitchBuf), [false, true, true, true, true], [out], BLOCK_SIZE);
         if (b > 40) for (const v of out) peak = Math.max(peak, Math.abs(v));
       }
       expect(peak, shape).toBeLessThan(1.1);
@@ -137,7 +137,7 @@ describe('Oscillator', () => {
     osc.setParam('wave', WAVES.sine);
     const pitch = new Float32Array(BLOCK_SIZE);
     const out = new Float32Array(BLOCK_SIZE);
-    for (let b = 0; b < 100; b++) osc.process(oscIn(pitch), [true, true, true, true, true, true], [out], BLOCK_SIZE);
+    for (let b = 0; b < 100; b++) osc.process(oscIn(pitch), [true, true, true, true, true], [out], BLOCK_SIZE);
     let prev = out[BLOCK_SIZE - 1]!;
     let worst = 0;
     let peak = 0;

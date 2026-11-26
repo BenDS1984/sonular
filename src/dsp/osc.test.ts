@@ -1,5 +1,5 @@
 /**
- * Tests for the oscillator's modulation: pulse width, tune/level/FM inputs. Everything renders
+ * Tests for the oscillator's modulation: pulse width, tune/FM inputs. Everything renders
  * offline on the compiled Faust WebAssembly; nothing is played.
  */
 import { readFileSync } from 'node:fs';
@@ -27,7 +27,6 @@ type Signal = number | ((i: number) => number) | undefined;
 interface Inputs {
   pitch?: Signal;
   tune?: Signal;
-  level?: Signal;
   pwm?: Signal;
   fm?: Signal;
   sync?: Signal;
@@ -35,7 +34,7 @@ interface Inputs {
 
 /** Render `seconds`; an input left out is unpatched (silent), the others are constants or functions of the sample number. */
 function render(dsp: FaustDsp, seconds: number, inputs: Inputs = {}): Float32Array {
-  const names = ['pitch', 'tune', 'level', 'pwm', 'fm', 'sync'] as const;
+  const names = ['pitch', 'tune', 'pwm', 'fm', 'sync'] as const;
   const total = Math.round(SR * seconds);
   const out = new Float32Array(total);
   const bufs = names.map(() => new Float32Array(BLOCK_SIZE));
@@ -103,13 +102,6 @@ describe('Oscillator modulation inputs', () => {
     expect(up / base).toBeCloseTo(2, 2);
     expect(base).toBeCloseTo(C4, 1);
   });
-
-  it('level: the signal is added to the knob and limited to 0..1', () => {
-    const quiet = rms(tail(render(osc({ wave: 3, level: 0.5 }), 1, { level: -0.25 })));
-    expect(quiet).toBeCloseTo(0.25, 2);
-    expect(rms(tail(render(osc({ wave: 3, level: 0.5 }), 1, { level: 5 })))).toBeGreaterThan(0.99);
-    expect(rms(tail(render(osc({ wave: 3, level: 0.5 }), 1, { level: -5 })))).toBe(0);
-  });
 });
 
 describe('Oscillator FM', () => {
@@ -147,7 +139,7 @@ describe('Oscillator FM', () => {
   });
 
   it('never goes NaN or silent-wrong with extreme modulation', () => {
-    const x = render(osc({ wave: 2, fm: 4, pw: 0.05 }), 0.5, { fm: (i) => 50 * Math.sin(i / 3), pwm: 9, tune: -9, level: 3 });
+    const x = render(osc({ wave: 2, fm: 4, pw: 0.05 }), 0.5, { fm: (i) => 50 * Math.sin(i / 3), pwm: 9, tune: -9 });
     expect(x.every(Number.isFinite)).toBe(true);
     expect(Math.max(...x.map(Math.abs))).toBeLessThan(2);
   });

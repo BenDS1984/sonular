@@ -7,13 +7,12 @@ export const oscillator: ModuleDefinition = {
   title: 'Oscillator',
   category: 'Sources',
   description:
-    'Basic waveforms: sine, triangle, sawtooth and square. The square has a pulse width. Modulation inputs move tune, level and pulse width (an LFO, an Envelope); the fm input bends the pitch with another oscillator, and sync restarts the wave on every rising edge of another oscillator (hard sync).',
+    'Basic waveforms: sine, triangle, sawtooth and square. The square has a pulse width. Modulation inputs move tune and pulse width (an LFO, an Envelope); the fm input bends the pitch with another oscillator, and sync restarts the wave on every rising edge of another oscillator (hard sync).',
   signal: 'audio',
-  width: 276,
+  width: 252,
   inputs: [
     { id: 'pitch', label: 'pitch', signal: 'pitch' },
     { id: 'tune', label: 'tune', signal: 'cv' },
-    { id: 'level', label: 'level', signal: 'cv' },
     { id: 'pwm', label: 'width', signal: 'cv' },
     { id: 'fm', label: 'fm', signal: 'audio' },
     { id: 'sync', label: 'sync', signal: 'audio' },

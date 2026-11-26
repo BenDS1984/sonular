@@ -2,10 +2,9 @@
 //
 // Input 0: pitch in octaves relative to C4 (0 = 261.63 Hz, +1 = one octave up).
 // Input 1: tune modulation (+-1 = +-24 semitones, the whole Tune knob range).
-// Input 2: level modulation (added to the Level knob, then limited to 0..1).
-// Input 3: pulse width modulation for the square (+-1 moves the width by +-45 points).
-// Input 4: frequency modulation, exponential: the "fm" knob sets octaves per unit of signal.
-// Input 5: hard sync: every rising zero crossing sends the phase back to the start.
+// Input 2: pulse width modulation for the square (+-1 moves the width by +-45 points).
+// Input 3: frequency modulation, exponential: the "fm" knob sets octaves per unit of signal.
+// Input 4: hard sync: every rising zero crossing sends the phase back to the start.
 // An unpatched input is silence, which leaves the knob as it is.
 // All four waveforms share one phase, so switching is seamless (5 ms crossfade).
 //
@@ -108,9 +107,7 @@ with {
 // Crossfade weights, so changing waveform never clicks.
 weight(i) = (int(wave + 0.5) == i) : si.polySmooth(first, ba.tau2pole(0.005), 1);
 
-levelNow(lm) = max(0.0, min(1.0, level + lm));
-
 // A rising zero crossing of the sync input: one sample high, once per crossing.
 trigger(x) = (x > 0) * (x@1 <= 0);
 
-process(pitch, tm, lm, pwmv, fmv, sy) = core(freq(pitch, tm, fmv), pwmv, trigger(sy)) * levelNow(lm);
+process(pitch, tm, pwmv, fmv, sy) = core(freq(pitch, tm, fmv), pwmv, trigger(sy)) * level;
