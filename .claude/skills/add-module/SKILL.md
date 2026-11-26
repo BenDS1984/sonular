@@ -101,23 +101,23 @@ All tests render offline; never play sound unless the user asks.
 - Then: `npm run check`, `npm test`, `npm run build` — all must pass.
 
 **Silent browser check** (dev server `sonular-dev` via preview_start, http://localhost:5173):
-1. Save the user's patch first:
-   `sessionStorage.setItem('backup', localStorage.getItem('sonular.autosave'))`.
-2. Build a test patch via `__sonular.patch` (push modules/cables) and **remove every cable into
-   the Output module**, so playing produces no sound. Check `__sonular.engineState.peakL` is 0.
-3. Check the panel in the DOM (read_page / javascript), not only screenshots: the pane may be
-   hidden and screenshots stale. `computer zoom` on the module's rect (in CSS pixels) gives a
-   reliable picture.
+1. Open the sandbox: `http://localhost:5173/?sandbox=<type>,<type>` (dev server only). It shows just
+   those modules side by side with default parameters and never touches the user's saved patch
+   (no restore, no autosave), so nothing has to be backed up or restored. Navigate there with a
+   fresh page load; wait ~3 s after editing a file before you load or measure it.
+2. Nothing is connected to the Output in the sandbox, so playing produces no sound. Check
+   `__sonular.engineState.peakL` is 0.
+3. Check the panel in the DOM (read_page / javascript, e.g. `offsetWidth/offsetHeight` of
+   `section.module`, gaps between elements), not only screenshots: the pane may be hidden, narrow
+   or show a stale picture. `computer zoom` on the module's rect gives a reliable picture.
    - A hidden pane pauses `requestAnimationFrame`, so animations (reels, meters) seem frozen.
      Check `tabs_context`; to test an animation anyway, temporarily replace
      `window.requestAnimationFrame` with a `setTimeout` version, then put the original back.
    - Never click buttons that download files or open dialogs (Save, Export): they would land in
      the user's downloads. Test the file contents in unit tests instead, and ask the user to try
      the button.
-4. Stop, restore: `localStorage.setItem('sonular.autosave', sessionStorage.getItem('backup'))`,
-   reload, confirm the original modules and cables are back. Clear test data that would make the
-   page ask before leaving (e.g. an unsaved recording) before reloading.
-5. Check console errors and `preview_logs` (errors from before a file existed are stale).
+   - Never click or drag on the user's own patch to test (it changes their knobs); use the sandbox.
+4. Check console errors and `preview_logs` (errors from before a file existed are stale).
 
 ## 6. Wrap up
 

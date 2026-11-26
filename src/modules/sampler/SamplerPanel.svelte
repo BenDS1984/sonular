@@ -199,6 +199,8 @@
     pointer-events: none;
   }
   .controls {
+    /* The room under the knobs is bigger than above them: move them down to share it. */
+    margin-top: 6px;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;

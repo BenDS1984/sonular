@@ -57,6 +57,8 @@
     color: var(--text-muted);
   }
   .outs {
+    /* The room under the knobs is bigger than above them: move them down to share it. */
+    margin-top: 8px;
     display: flex;
     justify-content: space-between;
   }
