@@ -201,17 +201,18 @@
   .controls {
     /* The room under the knobs is bigger than above them: move them down to share it. */
     margin-top: 6px;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--space-2);
+    /* Three equal columns: the two knob columns and the Level slider, evenly spread. */
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    align-items: start;
+    justify-items: center;
   }
   .knobs {
     display: grid;
-    flex: 1;
+    width: 100%;
     justify-items: center;
     grid-template-columns: repeat(2, 1fr);
-    gap: 5px var(--space-2);
+    row-gap: 5px;
   }
   .env {
     fill: none;
