@@ -81,7 +81,6 @@
     color: var(--signal-audio-soft);
   }
   .controls {
-    margin-top: 2px;
     /* Three equal columns: the two knob columns and the Level slider, evenly spread. */
     display: grid;
     grid-template-columns: 2fr 1fr;

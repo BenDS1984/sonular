@@ -47,6 +47,9 @@
   let content: HTMLElement | undefined = $state();
   let footer: HTMLElement | undefined = $state();
   let minHeight = $state(0);
+  // The room the step adds on top of the natural height is shared: half goes above the controls,
+  // the rest stays below them, so the controls sit centred between the header and the jacks.
+  let topSpace = $state(0);
 
   $effect(() => {
     if (!header || !content) return;
@@ -55,6 +58,7 @@
       const pad = parseFloat(getComputedStyle(body).paddingTop) + parseFloat(getComputedStyle(body).paddingBottom);
       const natural = header!.offsetHeight + content!.offsetHeight + pad + (footer?.offsetHeight ?? 0) + 2;
       minHeight = Math.ceil(natural / GRID) * GRID;
+      topSpace = Math.floor((minHeight - natural) / 2);
     };
     const observer = new ResizeObserver(measure);
     for (const el of [header, content, footer]) if (el) observer.observe(el);
@@ -105,7 +109,7 @@
     {/if}
   </header>
   <div class="body">
-    <div class="content" bind:this={content}>
+    <div class="content" bind:this={content} style:margin-top={topSpace ? `${topSpace}px` : undefined}>
       {@render children()}
     </div>
   </div>

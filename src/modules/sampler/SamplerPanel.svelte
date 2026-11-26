@@ -199,8 +199,6 @@
     pointer-events: none;
   }
   .controls {
-    /* The room under the knobs is bigger than above them: move them down to share it. */
-    margin-top: 6px;
     /* Three equal columns: the two knob columns and the Level slider, evenly spread. */
     display: grid;
     grid-template-columns: 2fr 1fr;
