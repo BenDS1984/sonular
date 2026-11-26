@@ -1,6 +1,6 @@
 # Sonular
 
-A modular online and offline music/noise making environment for mac and pc. Made with love and maybe a bit of help from AI.
+A modular online and offline music/noise making environment. Made with love and maybe a bit of help from AI.
 Faust-powered DSP, Svelte UI, installable PWA.
 https://sonular.app/
 
