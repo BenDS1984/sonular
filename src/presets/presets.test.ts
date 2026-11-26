@@ -15,8 +15,8 @@ describe('built-in presets', () => {
     const { patch, warnings, samples } = parsePatchFile(welcome, getDefinition, 'Welcome!');
     expect(warnings).toEqual([]);
     expect(patch.name).toBe('Welcome!');
-    expect(patch.modules).toHaveLength(15);
-    expect(patch.cables).toHaveLength(22);
+    expect(patch.modules).toHaveLength(21);
+    expect(patch.cables).toHaveLength(33);
     // Every sample a module uses comes with the file.
     const used = patch.modules.flatMap((m) => (m.sample ? [m.sample] : []));
     expect(used.length).toBeGreaterThan(0);

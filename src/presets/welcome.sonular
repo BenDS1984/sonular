@@ -1,7 +1,7 @@
 {
   "format": "sonular-patch",
   "version": 1,
-  "savedAt": "2026-11-25T18:53:53.990Z",
+  "savedAt": "2026-11-26T20:53:52.179Z",
   "patch": {
     "name": "Welcome!",
     "tempo": 137,
@@ -15,13 +15,15 @@
           "wave": 2,
           "tune": 0,
           "fine": 0,
-          "level": 0.4720001220703123
+          "pw": 0.5,
+          "fm": 0,
+          "level": 0.5446008646263266
         }
       },
       {
         "id": "clock1",
         "type": "clock",
-        "x": 590,
+        "x": 840,
         "y": -380,
         "params": {
           "ratio1": 2,
@@ -33,7 +35,7 @@
       {
         "id": "sequencer1",
         "type": "sequencer",
-        "x": 380,
+        "x": 370,
         "y": -130,
         "params": {
           "pitch1": 0,
@@ -179,27 +181,27 @@
       {
         "id": "envelope1",
         "type": "envelope",
-        "x": 530,
-        "y": 160,
+        "x": 1050,
+        "y": 240,
         "params": {
-          "attack": 0.007585775750291838,
-          "decay": 0.06668043327030301,
-          "sustain": 0.20000030517578124,
-          "release": 0.36307703424160614
+          "attack": 0.0051141180883714785,
+          "decay": 0.049361408672943134,
+          "sustain": 0.3771931574894832,
+          "release": 0.41348948327597507
         }
       },
       {
         "id": "mixer1",
         "type": "mixer",
         "x": 110,
-        "y": 450,
+        "y": 530,
         "params": {
           "gain1": 1,
-          "pan1": -0.24800048828124954,
+          "pan1": 0,
           "mute1": 0,
           "solo1": 0,
           "gain2": 1.2080004882812498,
-          "pan2": 0.2479998779296877,
+          "pan2": 0,
           "mute2": 0,
           "solo2": 0,
           "gain3": 1,
@@ -210,23 +212,23 @@
           "pan4": 0,
           "mute4": 0,
           "solo4": 0,
-          "main": 1.2160000610351562
+          "main": 0.8720004272460946
         }
       },
       {
         "id": "output1",
         "type": "output",
-        "x": 1250,
-        "y": 270,
+        "x": 1260,
+        "y": 160,
         "params": {
-          "volume": 0.4039998626708978
+          "volume": 0.5039998626708979
         }
       },
       {
         "id": "vca1",
         "type": "vca",
-        "x": 740,
-        "y": 160,
+        "x": 630,
+        "y": 240,
         "params": {
           "level": 1
         }
@@ -234,10 +236,10 @@
       {
         "id": "scope1",
         "type": "scope",
-        "x": 320,
+        "x": 580,
         "y": -460,
         "params": {
-          "time": 0.5577708945172737,
+          "time": 2,
           "scale": 1,
           "trigger": 0
         }
@@ -245,20 +247,22 @@
       {
         "id": "osc2",
         "type": "osc",
-        "x": 320,
+        "x": 370,
         "y": 160,
         "params": {
           "wave": 0,
           "tune": -12,
-          "fine": 31.200042724609403,
-          "level": 0.4839999389648435
+          "fine": 0,
+          "pw": 0.5,
+          "fm": 0,
+          "level": 0.6276199052918632
         }
       },
       {
         "id": "vca2",
         "type": "vca",
-        "x": 950,
-        "y": 160,
+        "x": 840,
+        "y": 240,
         "params": {
           "level": 1
         }
@@ -267,27 +271,27 @@
         "id": "delay1",
         "type": "delay",
         "x": 580,
-        "y": 450,
+        "y": 530,
         "params": {
           "sync": 1,
           "timeL": 375,
           "divL": 3,
           "modeL": 0,
           "timeR": 500,
-          "divR": 3,
+          "divR": 2,
           "modeR": 2,
-          "feedback": 0.5661996231079096,
-          "hp": 20,
+          "feedback": 0.4521994781494138,
+          "hp": 99.31847824815023,
           "lp": 20000,
-          "tape": 0.7880004882812502,
-          "mix": 0.34400001525878826,
-          "routing": 1
+          "tape": 0,
+          "mix": 0.2319998931884765,
+          "routing": 0
         }
       },
       {
         "id": "lfo1",
         "type": "lfo",
-        "x": 110,
+        "x": 370,
         "y": -460,
         "params": {
           "wave": 4,
@@ -301,7 +305,7 @@
       {
         "id": "sequencer2",
         "type": "sequencer",
-        "x": 850,
+        "x": 840,
         "y": -130,
         "params": {
           "pitch1": 0,
@@ -329,14 +333,14 @@
           "b2pitch6": 0,
           "b2pitch7": 0,
           "b2pitch8": 0,
-          "b2on1": 0,
+          "b2on1": 1,
           "b2on2": 0,
           "b2on3": 0,
           "b2on4": 0,
-          "b2on5": 0,
+          "b2on5": 1,
           "b2on6": 0,
-          "b2on7": 0,
-          "b2on8": 0,
+          "b2on7": 1,
+          "b2on8": 1,
           "b2len": 8,
           "b3pitch1": 0,
           "b3pitch2": 0,
@@ -346,11 +350,11 @@
           "b3pitch6": 0,
           "b3pitch7": 0,
           "b3pitch8": 0,
-          "b3on1": 0,
+          "b3on1": 1,
           "b3on2": 0,
           "b3on3": 0,
           "b3on4": 0,
-          "b3on5": 0,
+          "b3on5": 1,
           "b3on6": 0,
           "b3on7": 0,
           "b3on8": 0,
@@ -440,7 +444,7 @@
           "b8on7": 0,
           "b8on8": 0,
           "b8len": 8,
-          "range": 8,
+          "range": 3,
           "bank": 0
         }
       },
@@ -448,11 +452,13 @@
         "id": "sampler1",
         "type": "sampler",
         "x": 110,
-        "y": -130,
+        "y": -170,
         "params": {
           "tune": 3,
           "start": 0,
-          "level": 1
+          "attack": 0.001,
+          "decay": 0.005,
+          "level": 0.7618068479142099
         },
         "sample": "b1968aedc165430277e93134e19c40d708911b21eaa812599dbffad913ec7b7f"
       },
@@ -460,17 +466,17 @@
         "id": "mixer2",
         "type": "mixer",
         "x": 110,
-        "y": 740,
+        "y": 820,
         "params": {
-          "gain1": 0.703999328613281,
-          "pan1": -0.2960000610351565,
+          "gain1": 1,
+          "pan1": -0.24800018310546845,
           "mute1": 0,
           "solo1": 0,
-          "gain2": 0.743999328613281,
-          "pan2": 0.3039999389648447,
+          "gain2": 1,
+          "pan2": 0.24800018310546945,
           "mute2": 0,
           "solo2": 0,
-          "gain3": 0.7599996948242186,
+          "gain3": 1.0160002136230462,
           "pan3": 0,
           "mute3": 0,
           "solo3": 0,
@@ -478,7 +484,80 @@
           "pan4": 0,
           "mute4": 0,
           "solo4": 0,
-          "main": 1
+          "main": 0.8400000000000002
+        }
+      },
+      {
+        "id": "reverb1",
+        "type": "reverb",
+        "x": 1050,
+        "y": 530,
+        "params": {
+          "size": 5.001810267377589,
+          "predelay": 19.60001373291016,
+          "damping": 1,
+          "mix": 0.3320001220703125
+        }
+      },
+      {
+        "id": "filter1",
+        "type": "filter",
+        "x": 580,
+        "y": 820,
+        "params": {
+          "type": 0,
+          "cutoff": 453.9709606577684,
+          "resonance": 0.20800003051757807,
+          "mod": 2.6880004882812543
+        }
+      },
+      {
+        "id": "envelope2",
+        "type": "envelope",
+        "x": 790,
+        "y": 860,
+        "params": {
+          "attack": 0.002615377970875556,
+          "decay": 0.32347501761866726,
+          "sustain": 0.3505360529972957,
+          "release": 0.21145654650863385
+        }
+      },
+      {
+        "id": "lfo2",
+        "type": "lfo",
+        "x": 110,
+        "y": 1110,
+        "params": {
+          "wave": 5,
+          "rate": 0.2933227331503375,
+          "sync": 3,
+          "amount": 1,
+          "phase": 0,
+          "polarity": 1
+        }
+      },
+      {
+        "id": "scope2",
+        "type": "scope",
+        "x": 320,
+        "y": 1110,
+        "params": {
+          "time": 2,
+          "scale": 1,
+          "trigger": 0
+        }
+      },
+      {
+        "id": "cvmix1",
+        "type": "cvmix",
+        "x": 580,
+        "y": 1190,
+        "params": {
+          "level1": 1,
+          "level2": 0.7760006713867214,
+          "level3": 0,
+          "polarity": 0
         }
       }
     ],
@@ -594,29 +673,7 @@
         }
       },
       {
-        "id": "c11",
-        "from": {
-          "module": "mixer1",
-          "port": "outL"
-        },
-        "to": {
-          "module": "delay1",
-          "port": "inL"
-        }
-      },
-      {
-        "id": "c12",
-        "from": {
-          "module": "mixer1",
-          "port": "outR"
-        },
-        "to": {
-          "module": "delay1",
-          "port": "inR"
-        }
-      },
-      {
-        "id": "c15",
+        "id": "c13",
         "from": {
           "module": "lfo1",
           "port": "out"
@@ -627,7 +684,7 @@
         }
       },
       {
-        "id": "c16",
+        "id": "c14",
         "from": {
           "module": "clock1",
           "port": "out3"
@@ -638,7 +695,7 @@
         }
       },
       {
-        "id": "c17",
+        "id": "c15",
         "from": {
           "module": "lfo1",
           "port": "out"
@@ -649,25 +706,36 @@
         }
       },
       {
-        "id": "c13",
+        "id": "c16",
         "from": {
-          "module": "delay1",
-          "port": "outL"
+          "module": "clock1",
+          "port": "out2"
         },
         "to": {
-          "module": "mixer2",
-          "port": "in1"
+          "module": "sequencer2",
+          "port": "clock"
         }
       },
       {
-        "id": "c14",
+        "id": "c17",
         "from": {
-          "module": "delay1",
-          "port": "outR"
+          "module": "sequencer2",
+          "port": "gate"
         },
         "to": {
-          "module": "mixer2",
-          "port": "in2"
+          "module": "sampler1",
+          "port": "gate"
+        }
+      },
+      {
+        "id": "c18",
+        "from": {
+          "module": "lfo1",
+          "port": "out"
+        },
+        "to": {
+          "module": "sequencer2",
+          "port": "pattern"
         }
       },
       {
@@ -682,7 +750,7 @@
         }
       },
       {
-        "id": "c21",
+        "id": "c20",
         "from": {
           "module": "mixer2",
           "port": "outL"
@@ -693,7 +761,7 @@
         }
       },
       {
-        "id": "c22",
+        "id": "c21",
         "from": {
           "module": "mixer2",
           "port": "outR"
@@ -704,31 +772,163 @@
         }
       },
       {
-        "id": "c18",
+        "id": "c22",
         "from": {
-          "module": "clock1",
-          "port": "out2"
+          "module": "delay1",
+          "port": "outR"
         },
         "to": {
-          "module": "sequencer2",
-          "port": "clock"
+          "module": "reverb1",
+          "port": "inR"
         }
       },
       {
         "id": "c23",
         "from": {
-          "module": "sequencer2",
+          "module": "delay1",
+          "port": "outL"
+        },
+        "to": {
+          "module": "reverb1",
+          "port": "inL"
+        }
+      },
+      {
+        "id": "c24",
+        "from": {
+          "module": "reverb1",
+          "port": "outL"
+        },
+        "to": {
+          "module": "mixer2",
+          "port": "in1"
+        }
+      },
+      {
+        "id": "c25",
+        "from": {
+          "module": "reverb1",
+          "port": "outR"
+        },
+        "to": {
+          "module": "mixer2",
+          "port": "in2"
+        }
+      },
+      {
+        "id": "c11",
+        "from": {
+          "module": "mixer1",
+          "port": "outL"
+        },
+        "to": {
+          "module": "filter1",
+          "port": "inL"
+        }
+      },
+      {
+        "id": "c12",
+        "from": {
+          "module": "mixer1",
+          "port": "outR"
+        },
+        "to": {
+          "module": "filter1",
+          "port": "inR"
+        }
+      },
+      {
+        "id": "c26",
+        "from": {
+          "module": "filter1",
+          "port": "outL"
+        },
+        "to": {
+          "module": "delay1",
+          "port": "inL"
+        }
+      },
+      {
+        "id": "c27",
+        "from": {
+          "module": "filter1",
+          "port": "outR"
+        },
+        "to": {
+          "module": "delay1",
+          "port": "inR"
+        }
+      },
+      {
+        "id": "c28",
+        "from": {
+          "module": "sequencer1",
           "port": "gate"
         },
         "to": {
-          "module": "sampler1",
+          "module": "envelope2",
           "port": "gate"
+        }
+      },
+      {
+        "id": "c30",
+        "from": {
+          "module": "lfo2",
+          "port": "out"
+        },
+        "to": {
+          "module": "scope2",
+          "port": "a"
+        }
+      },
+      {
+        "id": "c29",
+        "from": {
+          "module": "envelope2",
+          "port": "env"
+        },
+        "to": {
+          "module": "cvmix1",
+          "port": "in1"
+        }
+      },
+      {
+        "id": "c31",
+        "from": {
+          "module": "cvmix1",
+          "port": "mix"
+        },
+        "to": {
+          "module": "filter1",
+          "port": "mod"
+        }
+      },
+      {
+        "id": "c32",
+        "from": {
+          "module": "lfo2",
+          "port": "out"
+        },
+        "to": {
+          "module": "cvmix1",
+          "port": "in2"
+        }
+      },
+      {
+        "id": "c33",
+        "from": {
+          "module": "cvmix1",
+          "port": "mix"
+        },
+        "to": {
+          "module": "scope2",
+          "port": "b"
         }
       }
     ],
     "view": {
-      "x": -75.99131055903733,
-      "y": 490.994077701931,
+      "x": -61.11658758773342,
+      "y": -850.5095637235404,
       "zoom": 1
     }
   },
