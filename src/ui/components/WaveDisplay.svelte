@@ -10,11 +10,15 @@
     wave: Waveform;
     /** 0..1, scales the drawn amplitude. */
     amplitude?: number;
+    /** Pulse width of the square, 0..1 (0.5 = the plain square). */
+    pulseWidth?: number;
     height?: number;
     signal?: SignalType;
+    /** Part of a bigger screen: no bezel, glass or rounded corners of its own. */
+    bare?: boolean;
   }
 
-  let { wave, amplitude = 1, height = 48, signal = 'audio' }: Props = $props();
+  let { wave, amplitude = 1, pulseWidth = 0.5, height = 48, signal = 'audio', bare = false }: Props = $props();
 
   const W = 200;
   const CYCLES = 2;
@@ -29,7 +33,8 @@
       case 'saw':
         return phase < 0.5 ? 2 * phase : 2 * phase - 2;
       case 'square':
-        return phase < 0.5 ? 1 : -1;
+        // Mean taken out and the peak scaled back to 1, as the oscillator does.
+        return ((phase < pulseWidth ? 1 : -1) - (2 * pulseWidth - 1)) / (2 * Math.max(pulseWidth, 1 - pulseWidth));
     }
   }
 
@@ -51,7 +56,7 @@
   });
 </script>
 
-<div class="screen lcd" style:height={`${height}px`} style:--wave-color={`var(--signal-${signal})`}>
+<div class="screen" class:lcd={!bare} class:bare style:height={`${height}px`} style:--wave-color={`var(--signal-${signal})`}>
   <svg viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="none" aria-hidden="true">
     <line class="axis" x1="0" y1={height / 2} x2={W} y2={height / 2} />
     <path class="wave" d={path} />
@@ -63,6 +68,10 @@
     background: var(--surface-inset);
     border-radius: var(--radius-md);
     overflow: hidden;
+  }
+  .screen.bare {
+    border-radius: 0;
+    background: transparent;
   }
   svg {
     display: block;

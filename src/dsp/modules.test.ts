@@ -34,11 +34,15 @@ function render(dsp: FaustDsp, seconds: number, input = 0, sr = SR): Float32Arra
   const outBuf = new Float32Array(BLOCK_SIZE);
   for (let pos = 0; pos < total; pos += BLOCK_SIZE) {
     const n = Math.min(BLOCK_SIZE, total - pos);
-    dsp.process(dsp.numInputs ? [inBuf] : [], [input === 0], [outBuf], n);
+    const silentIn = new Float32Array(BLOCK_SIZE);
+    dsp.process(Array.from({ length: dsp.numInputs }, (_, k) => (k === 0 ? inBuf : silentIn)), Array.from({ length: dsp.numInputs }, (_, k) => (k === 0 ? input === 0 : true)), [outBuf], n);
     out.set(outBuf.subarray(0, n), pos);
   }
   return out;
 }
+
+/** The oscillator's six inputs: the given pitch buffer, then five silent modulation inputs. */
+const oscIn = (pitch: Float32Array) => [pitch, ...Array.from({ length: 5 }, () => new Float32Array(BLOCK_SIZE))];
 
 const WAVES = { sine: 0, triangle: 1, saw: 2, square: 3 } as const;
 
@@ -113,7 +117,7 @@ describe('Oscillator', () => {
       for (let b = 0; b < Math.floor(SR / BLOCK_SIZE); b++) {
         // Jump between about 100 Hz and 2 kHz every 50 ms.
         pitchBuf.fill(Math.floor((b * BLOCK_SIZE) / 2400) % 2 ? Math.log2(2000 / 261.63) : Math.log2(100 / 261.63));
-        osc.process([pitchBuf], [false], [out], BLOCK_SIZE);
+        osc.process(oscIn(pitchBuf), [false, true, true, true, true, true], [out], BLOCK_SIZE);
         if (b > 40) for (const v of out) peak = Math.max(peak, Math.abs(v));
       }
       expect(peak, shape).toBeLessThan(1.1);
@@ -133,14 +137,14 @@ describe('Oscillator', () => {
     osc.setParam('wave', WAVES.sine);
     const pitch = new Float32Array(BLOCK_SIZE);
     const out = new Float32Array(BLOCK_SIZE);
-    for (let b = 0; b < 100; b++) osc.process([pitch], [true], [out], BLOCK_SIZE);
+    for (let b = 0; b < 100; b++) osc.process(oscIn(pitch), [true, true, true, true, true, true], [out], BLOCK_SIZE);
     let prev = out[BLOCK_SIZE - 1]!;
     let worst = 0;
     let peak = 0;
     for (let b = 0; b < 1200; b++) {
       // A new level about every 16 ms, like knob updates from the UI.
       if (b % 6 === 0) osc.setParam('level', 0.4 + 0.3 * Math.sin(b / 40));
-      osc.process([pitch], [true], [out], BLOCK_SIZE);
+      osc.process(oscIn(pitch), [true, true, true, true, true, true], [out], BLOCK_SIZE);
       for (const v of out) {
         worst = Math.max(worst, Math.abs(v - prev));
         peak = Math.max(peak, Math.abs(v));

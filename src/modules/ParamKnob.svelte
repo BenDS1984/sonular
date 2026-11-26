@@ -14,9 +14,10 @@
     /** Override the label from the spec (e.g. "Ch 1"). */
     label?: string;
     signal?: SignalType;
+    disabled?: boolean;
   }
 
-  let { module, def, param, size = 'md', label, signal }: Props = $props();
+  let { module, def, param, size = 'md', label, signal, disabled = false }: Props = $props();
 
   const spec = $derived(def.params.find((p) => p.id === param));
   const format = $derived(spec ? paramFormatter(spec) : undefined);
@@ -32,6 +33,7 @@
     scale={spec.scale ?? 'linear'}
     bipolar={spec.bipolar ?? false}
     {size}
+    {disabled}
     label={label ?? spec.label}
     {format}
     signal={signal ?? def.signal}

@@ -59,7 +59,7 @@ so a desktop build could swap them out.
 
 | Module | µs per block | Share of one core |
 |---|---|---|
-| Oscillator (saw) | 9.3 | 0.35 % |
+| Oscillator (saw) | 10.6 | 0.40 % |
 | Mixer (4 channels) | 3.7 | 0.14 % |
 | Reverb (input diffusion, equal L/R output, 2026-11-18) | 19.9 | 0.75 % |
 | Output | 0.9 | 0.03 % |
