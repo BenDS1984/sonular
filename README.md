@@ -10,6 +10,8 @@ Sonular is free and open source, and aims for sound quality that holds up in rea
 
 > **Status:** early development... more to come.
 
+![Sonular with the Welcome! patch](docs/screenshot.webp)
+
 ## Principles
 
 - **Sounds good.** Band-limited oscillators, click-free parameter changes, well-behaved filters.
