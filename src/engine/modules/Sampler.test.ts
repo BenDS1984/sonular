@@ -12,17 +12,25 @@ function ramp(length: number, rate = SR, stereo = false): SampleData {
   return { left, right: stereo ? Float32Array.from(left, (v) => -v) : null, sampleRate: rate };
 }
 
-function run(s: Sampler, seconds: number, gate: (i: number) => number, onBlock?: (b: number) => void) {
+type Mods = Partial<Record<'tune' | 'level' | 'decay', (i: number) => number>>;
+
+function run(s: Sampler, seconds: number, gate: (i: number) => number, onBlock?: (b: number) => void, mods: Mods = {}) {
   const total = Math.round(seconds * SR);
   const outL = new Float32Array(total);
   const outR = new Float32Array(total);
-  const inp = [new Float32Array(BLOCK_SIZE)];
+  const inp = Array.from({ length: 4 }, () => new Float32Array(BLOCK_SIZE));
+  const silent = [false, !mods.tune, !mods.level, !mods.decay];
   const outs = [new Float32Array(BLOCK_SIZE), new Float32Array(BLOCK_SIZE)];
   for (let start = 0, b = 0; start < total; start += BLOCK_SIZE, b++) {
     onBlock?.(b);
     const n = Math.min(BLOCK_SIZE, total - start);
-    for (let i = 0; i < n; i++) inp[0]![i] = gate(start + i);
-    s.process(inp, [false], outs, n);
+    for (let i = 0; i < n; i++) {
+      inp[0]![i] = gate(start + i);
+      if (mods.tune) inp[1]![i] = mods.tune(start + i);
+      if (mods.level) inp[2]![i] = mods.level(start + i);
+      if (mods.decay) inp[3]![i] = mods.decay(start + i);
+    }
+    s.process(inp, silent, outs, n);
     outL.set(outs[0]!.subarray(0, n), start);
     outR.set(outs[1]!.subarray(0, n), start);
   }
@@ -131,18 +139,21 @@ describe('Sampler', () => {
   });
 });
 
+/** Two seconds of a constant 0.5. */
+const flat2 = (): SampleData => ({ left: new Float32Array(SR * 2).fill(0.5), right: null, sampleRate: SR });
+
 describe('Sampler attack and decay', () => {
   /** Two seconds of a constant 0.5, so the output is the envelope itself (times 0.5). */
   const flat = (): SampleData => ({ left: new Float32Array(SR * 2).fill(0.5), right: null, sampleRate: SR });
 
   it('with Attack at its minimum and Decay off, nothing changes', () => {
-    const { L } = run(sampler(flat(), { attack: 0.001, decay: 10 }), 0.5, pulseAt(0));
+    const { L } = run(sampler(flat(), { attack: 0.001, decay: 0.005 }), 0.5, pulseAt(0));
     expect(L[0]).toBeCloseTo(0.5, 6);
     expect(L[SR * 0.4]).toBeCloseTo(0.5, 6);
   });
 
   it('Attack fades the sound in over its time', () => {
-    const { L } = run(sampler(flat(), { attack: 0.1, decay: 10 }), 0.3, pulseAt(0));
+    const { L } = run(sampler(flat(), { attack: 0.1, decay: 0.005 }), 0.3, pulseAt(0));
     expect(L[0]).toBeCloseTo(0, 6);
     expect(L[Math.round(0.05 * SR)]).toBeCloseTo(0.25, 2);
     expect(L[Math.round(0.15 * SR)]).toBeCloseTo(0.5, 6);
@@ -156,9 +167,61 @@ describe('Sampler attack and decay', () => {
   });
 
   it('a new gate starts Attack again without a click', () => {
-    const { L } = run(sampler(flat(), { attack: 0.05, decay: 10 }), 0.5, (i) => (i === 0 || i === Math.round(0.2 * SR) ? 1 : 0));
+    const { L } = run(sampler(flat(), { attack: 0.05, decay: 0.005 }), 0.5, (i) => (i === 0 || i === Math.round(0.2 * SR) ? 1 : 0));
     let biggest = 0;
     for (let i = 1; i < L.length; i++) biggest = Math.max(biggest, Math.abs(L[i]! - L[i - 1]!));
     expect(biggest).toBeLessThan(0.02);
+  });
+
+  it('turning Attack or Decay while it plays never jumps the level', () => {
+    const biggestStep = (L: Float32Array) => {
+      let b = 0;
+      for (let i = 1; i < L.length; i++) b = Math.max(b, Math.abs(L[i]! - L[i - 1]!));
+      return b;
+    };
+    // Block size is 128, so a knob change lands on a block edge at about 0.1 s.
+    const turn = (s: Sampler, params: Record<string, number[]>) => (b: number) => {
+      const at = Math.round((0.1 * SR) / BLOCK_SIZE);
+      for (const [k, v] of Object.entries(params)) s.setParam(k, b < at ? v[0]! : v[1]!);
+    };
+    const gate = (i: number) => (i === 0 ? 1 : 0);
+    // Decay switched on in the middle of a sound, then to a much shorter time.
+    const a = sampler(flat(), { attack: 0.001, decay: 0.005 });
+    expect(biggestStep(run(a, 0.6, gate, turn(a, { decay: [0.005, 0.3] })).L)).toBeLessThan(0.01);
+    const b = sampler(flat(), { attack: 0.001, decay: 1 });
+    expect(biggestStep(run(b, 0.6, gate, turn(b, { decay: [1, 0.05] })).L)).toBeLessThan(0.01);
+    // Attack changed while it is still rising.
+    const c = sampler(flat(), { attack: 0.5, decay: 0.005 });
+    expect(biggestStep(run(c, 0.6, gate, turn(c, { attack: [0.5, 0.05] })).L)).toBeLessThan(0.01);
+    // Decay turned off again while it falls.
+    const d = sampler(flat(), { attack: 0.001, decay: 0.5 });
+    expect(biggestStep(run(d, 0.6, gate, turn(d, { decay: [0.5, 0.005] })).L)).toBeLessThan(0.01);
+  });
+
+  it('the modulation inputs move tune, level and decay, and do nothing when unpatched', () => {
+    // Tune +0.5 = +12 semitones: twice as fast.
+    const tuned = run(sampler(ramp(4000)), 0.05, pulseAt(0), undefined, { tune: () => 0.5 });
+    expect(tuned.L[500]).toBeCloseTo(0.25, 2);
+    // Level: knob 0.5 and a signal of -0.25 gives 0.25 of the sample.
+    const quiet = run(sampler(flat2(), { level: 0.5 }), 0.2, pulseAt(0), undefined, { level: () => -0.25 });
+    expect(quiet.L[SR * 0.18]).toBeCloseTo(0.5 * 0.25, 3);
+    // Decay +1: three times as long. Knob 0.2 s (full fade at 0.2 s) becomes 0.6 s.
+    const slow = run(sampler(flat2(), { decay: 0.2 }), 1, pulseAt(0), undefined, { decay: () => 1 });
+    expect(slow.L[Math.round(0.3 * SR)]).toBeCloseTo(0.5 * 0.25, 2);
+    expect(Math.max(...slow.L.subarray(Math.round(0.62 * SR)).map(Math.abs))).toBe(0);
+    // Nothing patched: same as without.
+    const plain = run(sampler(flat2(), { decay: 0.2 }), 1, pulseAt(0));
+    expect(plain.L[Math.round(0.1 * SR)]).toBeCloseTo(0.5 * 0.25, 2);
+  });
+
+  it('a moving tune signal never clicks and never gives NaN', () => {
+    const s = sampler(flat2(), { decay: 0.005 });
+    const { L } = run(s, 0.5, pulseAt(0), undefined, {
+      tune: (i) => Math.sin(i / 2000),
+      level: (i) => 0.3 * Math.sin(i / 3000),
+      decay: (i) => Math.sin(i / 5000),
+    });
+    expect(L.every(Number.isFinite)).toBe(true);
+    for (let i = 1; i < L.length; i++) expect(Math.abs(L[i]! - L[i - 1]!)).toBeLessThan(0.01);
   });
 });

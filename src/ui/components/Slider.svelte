@@ -52,6 +52,8 @@
   const FINE_FACTOR = 10;
 
   let dragging = $state(false);
+  /** Focus came from the mouse: no focus ring then (it stays for keyboard use). */
+  let mouseFocus = $state(false);
   let track: HTMLDivElement | undefined = $state();
   let lastY = 0;
   let dragNorm = 0;
@@ -87,6 +89,7 @@
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     (e.currentTarget as HTMLElement).focus();
+    mouseFocus = true;
     dragging = true;
     lastY = e.clientY;
     // A click jumps to the pointer; with Shift it only starts a fine drag from where the value is.
@@ -109,6 +112,7 @@
 
   function onkeydown(e: KeyboardEvent) {
     if (disabled) return;
+    mouseFocus = false;
     const fine = e.shiftKey ? 0.1 : 1;
     switch (e.key) {
       case 'ArrowUp':
@@ -143,6 +147,8 @@
   <div
     class="track-area"
     class:active={dragging}
+    class:mouse-focus={mouseFocus}
+    onblur={() => (mouseFocus = false)}
     style:height={`${height}px`}
     bind:this={track}
     role="slider"
@@ -191,7 +197,7 @@
     border-radius: var(--radius-sm);
     outline-offset: 1px;
   }
-  .track-area:focus-visible {
+  .track-area:focus-visible:not(.mouse-focus) {
     outline: 2px solid var(--slider-accent);
   }
   .groove {

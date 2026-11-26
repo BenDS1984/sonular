@@ -23,7 +23,7 @@ export type ParamFormat =
   | 'hz'
   | 'percent'
   | 'seconds'
-  /** Seconds, but the maximum reads "Off" (a time that can be switched off). */
+  /** Seconds, but the minimum reads "Off" (a time that can be switched off). */
   | 'seconds-off'
   | 'ms'
   /** Semitones from middle C shown as a note name ("C4", "F#3"). */

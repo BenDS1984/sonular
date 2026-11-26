@@ -30,7 +30,7 @@ export function paramFormatter(spec: ParamSpec): (value: number) => string {
     case 'seconds':
       return formatSeconds;
     case 'seconds-off':
-      return (v) => (v >= spec.max * 0.999 ? 'Off' : formatSeconds(v));
+      return (v) => (v <= spec.min * 1.02 ? 'Off' : formatSeconds(v));
     case 'ms':
       return formatMs;
     case 'note':

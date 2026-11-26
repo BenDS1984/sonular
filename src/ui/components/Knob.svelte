@@ -62,6 +62,8 @@
   const FINE_FACTOR = 10;
 
   let dragging = $state(false);
+  /** Focus came from the mouse: no focus ring then (it stays for keyboard use). */
+  let mouseFocus = $state(false);
   let dragNorm = 0;
   let lastY = 0;
 
@@ -119,6 +121,7 @@
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     (e.currentTarget as HTMLElement).focus();
+    mouseFocus = true;
     dragging = true;
     dragNorm = norm;
     lastY = e.clientY;
@@ -138,6 +141,7 @@
 
   function onkeydown(e: KeyboardEvent) {
     if (disabled) return;
+    mouseFocus = false;
     const fine = e.shiftKey ? 0.1 : 1;
     switch (e.key) {
       case 'ArrowUp':
@@ -172,6 +176,8 @@
   <div
     class="dial"
     class:active={dragging}
+    class:mouse-focus={mouseFocus}
+    onblur={() => (mouseFocus = false)}
     style:width={`${px}px`}
     style:height={`${px}px`}
     role="slider"
@@ -228,7 +234,7 @@
     border-radius: 50%;
     outline-offset: 1px;
   }
-  .dial:focus-visible {
+  .dial:focus-visible:not(.mouse-focus) {
     outline: 2px solid var(--knob-accent);
   }
   svg {
