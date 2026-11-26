@@ -134,7 +134,7 @@
   .sampler {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-3);
     border-radius: var(--radius-md);
   }
   .sampler.dropping {
