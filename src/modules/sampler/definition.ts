@@ -7,7 +7,7 @@ export const sampler: ModuleDefinition = {
   title: 'Sampler',
   category: 'Sources',
   description:
-    'Plays one sample from your library when a gate comes in, for example from the Sequencer. Tune changes its pitch, Start where it begins. The sample is saved inside the patch file.',
+    'Plays one sample from your library when a gate comes in, for example from the Sequencer. Tune changes its pitch, Start where it begins. Attack fades the sound in; Decay fades it out and stops it (at its maximum, Off, the sample plays to its end). The sample is saved inside the patch file.',
   signal: 'audio',
   width: 264,
   inputs: [{ id: 'gate', label: 'gate', signal: 'gate' }],
@@ -18,6 +18,8 @@ export const sampler: ModuleDefinition = {
   params: [
     { id: 'tune', label: 'Tune', min: -24, max: 24, default: 0, step: 1, bipolar: true, format: 'semitones' },
     { id: 'start', label: 'Start', min: 0, max: 1, default: 0, format: 'percent' },
+    { id: 'attack', label: 'Attack', min: 0.001, max: 2, default: 0.001, scale: 'log', format: 'seconds' },
+    { id: 'decay', label: 'Decay', min: 0.005, max: 10, default: 10, scale: 'log', format: 'seconds-off' },
     { id: 'level', label: 'Level', min: 0, max: 1, default: 0.8, format: 'gain-db' },
   ],
   panel: SamplerPanel,

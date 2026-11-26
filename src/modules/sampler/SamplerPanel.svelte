@@ -102,6 +102,10 @@
     <ParamKnob {module} {def} param="start" />
     <ParamKnob {module} {def} param="level" />
   </div>
+  <div class="knobs">
+    <ParamKnob {module} {def} param="attack" />
+    <ParamKnob {module} {def} param="decay" />
+  </div>
 </div>
 
 <style>

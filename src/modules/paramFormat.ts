@@ -29,6 +29,8 @@ export function paramFormatter(spec: ParamSpec): (value: number) => string {
       return formatPercent;
     case 'seconds':
       return formatSeconds;
+    case 'seconds-off':
+      return (v) => (v >= spec.max * 0.999 ? 'Off' : formatSeconds(v));
     case 'ms':
       return formatMs;
     case 'note':

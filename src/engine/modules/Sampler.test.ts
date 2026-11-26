@@ -130,3 +130,35 @@ describe('Sampler', () => {
     expect(names).toContain('s:position');
   });
 });
+
+describe('Sampler attack and decay', () => {
+  /** Two seconds of a constant 0.5, so the output is the envelope itself (times 0.5). */
+  const flat = (): SampleData => ({ left: new Float32Array(SR * 2).fill(0.5), right: null, sampleRate: SR });
+
+  it('with Attack at its minimum and Decay off, nothing changes', () => {
+    const { L } = run(sampler(flat(), { attack: 0.001, decay: 10 }), 0.5, pulseAt(0));
+    expect(L[0]).toBeCloseTo(0.5, 6);
+    expect(L[SR * 0.4]).toBeCloseTo(0.5, 6);
+  });
+
+  it('Attack fades the sound in over its time', () => {
+    const { L } = run(sampler(flat(), { attack: 0.1, decay: 10 }), 0.3, pulseAt(0));
+    expect(L[0]).toBeCloseTo(0, 6);
+    expect(L[Math.round(0.05 * SR)]).toBeCloseTo(0.25, 2);
+    expect(L[Math.round(0.15 * SR)]).toBeCloseTo(0.5, 6);
+  });
+
+  it('Decay fades the sound out and stops it, even though the sample is longer', () => {
+    const { L } = run(sampler(flat(), { attack: 0.001, decay: 0.2 }), 1, pulseAt(0));
+    expect(L[Math.round(0.1 * SR)]).toBeCloseTo(0.5 * 0.25, 2); // halfway: (1 − 0.5)² of full
+    expect(Math.max(...L.subarray(Math.round(0.21 * SR)).map(Math.abs))).toBe(0);
+    for (let i = 1; i < L.length; i++) expect(Math.abs(L[i]! - L[i - 1]!)).toBeLessThan(0.002);
+  });
+
+  it('a new gate starts Attack again without a click', () => {
+    const { L } = run(sampler(flat(), { attack: 0.05, decay: 10 }), 0.5, (i) => (i === 0 || i === Math.round(0.2 * SR) ? 1 : 0));
+    let biggest = 0;
+    for (let i = 1; i < L.length; i++) biggest = Math.max(biggest, Math.abs(L[i]! - L[i - 1]!));
+    expect(biggest).toBeLessThan(0.02);
+  });
+});

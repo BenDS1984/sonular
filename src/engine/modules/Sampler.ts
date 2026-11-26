@@ -6,6 +6,10 @@ const LOW = 0.4;
 
 /** When a new gate restarts the sample, the old playback fades out over this long, so it never clicks. */
 const RETRIGGER_FADE_SECONDS = 0.003;
+/** An Attack at or below this is "instant": the sample starts at full level, as before Attack existed. */
+const ATTACK_INSTANT_SECONDS = 0.0011;
+/** A Decay at or above this is "off": the sample plays to its end. */
+const DECAY_OFF_SECONDS = 9.99;
 /** The level glides over ~20 ms, so turning the knob never clicks. */
 const LEVEL_GLIDE_SECONDS = 0.02;
 
@@ -17,8 +21,12 @@ const LEVEL_GLIDE_SECONDS = 0.02;
  *           whatever the gate does afterwards.
  * Outputs: 0 L, 1 R (a mono sample comes out on both).
  *
+ * Attack and Decay shape every playback like an AD envelope: the level rises over "attack", then
+ * falls to zero over "decay" and the sample stops there (even if it is longer). Attack at its
+ * minimum is instant, Decay at its maximum is off: then nothing changes.
+ *
  * Parameters: "tune" in semitones (the sample plays faster or slower, so its pitch follows),
- * "start" 0..1 (where in the sample it begins), "level" 0..1.
+ * "start" 0..1 (where in the sample it begins), "level" 0..1, "attack" and "decay" in seconds.
  * Meters: "position" (how far the sample has played, 0..1) and "active" (1 while it plays).
  *
  * The audio arrives from the main thread through setSample, as plain arrays. Reading is linear
@@ -43,10 +51,15 @@ export class Sampler implements DspModule {
   private start = 0;
   private level = 0.8;
   private levelNow = 0.8;
+  private attack = 0;
+  private decay = Infinity;
 
   private gateHigh = false;
   // The voice that plays, and the one fading out after a retrigger.
   private pos = 0;
+  /** Samples since the playing voice started, for Attack and Decay. */
+  private age = 0;
+  private envGain = 1;
   private active = false;
   private oldPos = 0;
   private oldSpeed = 1;
@@ -77,6 +90,12 @@ export class Sampler implements DspModule {
         break;
       case 'level':
         this.level = Math.min(1, Math.max(0, value));
+        break;
+      case 'attack':
+        this.attack = value <= ATTACK_INSTANT_SECONDS ? 0 : value;
+        break;
+      case 'decay':
+        this.decay = value >= DECAY_OFF_SECONDS ? Infinity : Math.max(0.001, value);
         break;
     }
   }
@@ -117,6 +136,10 @@ export class Sampler implements DspModule {
     const startPos = this.start * last;
     let level = this.levelNow;
     let pos = this.pos;
+    let age = this.age;
+    let envGain = this.envGain;
+    const attackSamples = this.attack * this.sampleRate;
+    const decaySamples = this.decay * this.sampleRate;
     // A change of tune is heard at once, also while the sample plays.
     let speed = speedNew;
     let active = this.active;
@@ -133,10 +156,11 @@ export class Sampler implements DspModule {
           // Move the playing voice to the fading one and begin again.
           oPos = pos;
           oSpeed = speed;
-          oGain = 1;
+          oGain = envGain;
           oActive = true;
         }
         pos = startPos;
+        age = 0;
         speed = speedNew;
         active = true;
       } else if (high && g < LOW) {
@@ -154,6 +178,19 @@ export class Sampler implements DspModule {
         r = right[i0]! + (right[i1]! - right[i0]!) * f;
         pos += speed;
         if (pos >= last) active = false;
+        // Attack and Decay: an AD envelope over this playback.
+        let e = attackSamples > 0 && age < attackSamples ? age / attackSamples : 1;
+        if (decaySamples !== Infinity) {
+          const t = (age - attackSamples) / decaySamples;
+          if (t >= 1) {
+            active = false;
+            e = 0;
+          } else if (t > 0) e *= (1 - t) * (1 - t);
+        }
+        age++;
+        envGain = e;
+        l *= e;
+        r *= e;
       }
       if (oActive) {
         const i0 = oPos | 0;
@@ -172,6 +209,8 @@ export class Sampler implements DspModule {
     this.levelNow = level;
     this.gateHigh = high;
     this.pos = pos;
+    this.age = age;
+    this.envGain = envGain;
     this.active = active;
     this.oldPos = oPos;
     this.oldSpeed = oSpeed;
