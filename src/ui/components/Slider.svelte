@@ -4,7 +4,7 @@
   Interaction:
   - click or drag along the track to set the value (hold Shift while dragging for fine control)
   - double-click resets to the default value
-  - keyboard when focused: arrows, PageUp/PageDown, Home/End (Shift = fine)
+  The slider is mouse only: it cannot be focused or moved with the keyboard.
   The mouse wheel does not move sliders: it pans the canvas.
 -->
 <script lang="ts">
@@ -52,8 +52,6 @@
   const FINE_FACTOR = 10;
 
   let dragging = $state(false);
-  /** Focus came from the mouse: no focus ring then (it stays for keyboard use). */
-  let mouseFocus = $state(false);
   let track: HTMLDivElement | undefined = $state();
   let lastY = 0;
   let dragNorm = 0;
@@ -73,11 +71,6 @@
 
   const setNormalized = (t: number) => commit(fromNormalized(t, min, max, scale));
 
-  function nudge(direction: number, fraction: number) {
-    if (step) commit(value + direction * step * Math.max(1, Math.round(fraction * 100)));
-    else setNormalized(norm + direction * fraction);
-  }
-
   /** The position along the track (0 at the bottom, 1 at the top) under a pointer. */
   function along(e: PointerEvent): number {
     const r = track!.getBoundingClientRect();
@@ -88,8 +81,6 @@
     if (disabled || e.button !== 0 || !track) return;
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    (e.currentTarget as HTMLElement).focus();
-    mouseFocus = true;
     dragging = true;
     lastY = e.clientY;
     // A click jumps to the pointer; with Shift it only starts a fine drag from where the value is.
@@ -109,37 +100,6 @@
   }
 
   const endDrag = () => (dragging = false);
-
-  function onkeydown(e: KeyboardEvent) {
-    if (disabled) return;
-    mouseFocus = false;
-    const fine = e.shiftKey ? 0.1 : 1;
-    switch (e.key) {
-      case 'ArrowUp':
-      case 'ArrowRight':
-        nudge(1, 0.01 * fine);
-        break;
-      case 'ArrowDown':
-      case 'ArrowLeft':
-        nudge(-1, 0.01 * fine);
-        break;
-      case 'PageUp':
-        nudge(1, 0.1);
-        break;
-      case 'PageDown':
-        nudge(-1, 0.1);
-        break;
-      case 'Home':
-        commit(min);
-        break;
-      case 'End':
-        commit(max);
-        break;
-      default:
-        return;
-    }
-    e.preventDefault();
-  }
 </script>
 
 <div class="slider" class:disabled style:--slider-accent={`var(--signal-${signal})`}>
@@ -147,26 +107,20 @@
   <div
     class="track-area"
     class:active={dragging}
-    class:mouse-focus={mouseFocus}
-    onblur={() => (mouseFocus = false)}
     style:height={`${height}px`}
     bind:this={track}
-    role="slider"
-    tabindex={disabled ? -1 : 0}
+    role="meter"
     aria-label={label}
-    aria-orientation="vertical"
     aria-valuemin={min}
     aria-valuemax={max}
     aria-valuenow={value}
     aria-valuetext={text}
-    aria-disabled={disabled}
     {onpointerdown}
     {onpointermove}
     onpointerup={endDrag}
     onpointercancel={endDrag}
     onlostpointercapture={endDrag}
     ondblclick={() => !disabled && commit(resetValue)}
-    {onkeydown}
   >
     <div class="groove"></div>
     <div class="fill" style:height={`${PAD + norm * travel}px`}></div>
@@ -196,9 +150,6 @@
     touch-action: none;
     border-radius: var(--radius-sm);
     outline-offset: 1px;
-  }
-  .track-area:focus-visible:not(.mouse-focus) {
-    outline: 2px solid var(--slider-accent);
   }
   .groove {
     position: absolute;

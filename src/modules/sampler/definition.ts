@@ -25,7 +25,7 @@ export const sampler: ModuleDefinition = {
     { id: 'start', label: 'Start', min: 0, max: 1, default: 0, format: 'percent' },
     { id: 'attack', label: 'Attack', min: 0.001, max: 2, default: 0.001, scale: 'log', format: 'seconds' },
     { id: 'decay', label: 'Decay', min: 0.005, max: 2, default: 0.005, scale: 'log', format: 'seconds-off' },
-    { id: 'level', label: 'Level', min: 0, max: 1, default: 0.8, format: 'gain-db' },
+    { id: 'level', label: 'Level', min: 0, max: 1, default: 0.7, format: 'gain-db' },
   ],
   panel: SamplerPanel,
   engine: 'native:sampler',

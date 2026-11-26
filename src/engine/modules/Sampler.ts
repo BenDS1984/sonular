@@ -54,8 +54,8 @@ export class Sampler implements DspModule {
   private data: SampleData | null = null;
   private tune = 0;
   private start = 0;
-  private level = 0.8;
-  private levelNow = 0.8;
+  private level = 0.7;
+  private levelNow = 0.7;
   private attack = 0;
   private decay = Infinity;
 

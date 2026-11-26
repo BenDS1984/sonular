@@ -6,7 +6,7 @@
   The mouse wheel does not turn knobs: it pans the canvas, so scrolling over a module never
   changes a setting by accident.
   - double-click resets to the default value
-  - keyboard when focused: arrows, PageUp/PageDown, Home/End (Shift = fine)
+  The knob is mouse only: it cannot be focused or turned with the keyboard.
 -->
 <script lang="ts">
   import { clamp, fromNormalized, quantize, toNormalized, type Scale } from '../scale';
@@ -62,8 +62,6 @@
   const FINE_FACTOR = 10;
 
   let dragging = $state(false);
-  /** Focus came from the mouse: no focus ring then (it stays for keyboard use). */
-  let mouseFocus = $state(false);
   let dragNorm = 0;
   let lastY = 0;
 
@@ -109,19 +107,11 @@
     commit(fromNormalized(t, min, max, scale));
   }
 
-  /** Move by a fraction of the range, or by whole steps for stepped knobs. */
-  function nudge(direction: number, fraction: number) {
-    if (step) commit(value + direction * step * Math.max(1, Math.round(fraction * 100)));
-    else setNormalized(norm + direction * fraction);
-  }
-
   // ---------- Pointer ----------
   function onpointerdown(e: PointerEvent) {
     if (disabled || e.button !== 0) return;
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    (e.currentTarget as HTMLElement).focus();
-    mouseFocus = true;
     dragging = true;
     dragNorm = norm;
     lastY = e.clientY;
@@ -138,37 +128,6 @@
   function endDrag() {
     dragging = false;
   }
-
-  function onkeydown(e: KeyboardEvent) {
-    if (disabled) return;
-    mouseFocus = false;
-    const fine = e.shiftKey ? 0.1 : 1;
-    switch (e.key) {
-      case 'ArrowUp':
-      case 'ArrowRight':
-        nudge(1, 0.01 * fine);
-        break;
-      case 'ArrowDown':
-      case 'ArrowLeft':
-        nudge(-1, 0.01 * fine);
-        break;
-      case 'PageUp':
-        nudge(1, 0.1);
-        break;
-      case 'PageDown':
-        nudge(-1, 0.1);
-        break;
-      case 'Home':
-        commit(min);
-        break;
-      case 'End':
-        commit(max);
-        break;
-      default:
-        return;
-    }
-    e.preventDefault();
-  }
 </script>
 
 <div class="knob" class:disabled style:--knob-accent={`var(--signal-${signal})`}>
@@ -176,25 +135,20 @@
   <div
     class="dial"
     class:active={dragging}
-    class:mouse-focus={mouseFocus}
-    onblur={() => (mouseFocus = false)}
     style:width={`${px}px`}
     style:height={`${px}px`}
-    role="slider"
-    tabindex={disabled ? -1 : 0}
+    role="meter"
     aria-label={label}
     aria-valuemin={min}
     aria-valuemax={max}
     aria-valuenow={value}
     aria-valuetext={text}
-    aria-disabled={disabled}
     {onpointerdown}
     {onpointermove}
     onpointerup={endDrag}
     onpointercancel={endDrag}
     onlostpointercapture={endDrag}
     ondblclick={() => !disabled && commit(resetValue)}
-    {onkeydown}
   >
     <svg viewBox="0 0 100 100" aria-hidden="true">
       <path class="track" d={trackPath} />
@@ -233,9 +187,6 @@
     touch-action: none;
     border-radius: 50%;
     outline-offset: 1px;
-  }
-  .dial:focus-visible:not(.mouse-focus) {
-    outline: 2px solid var(--knob-accent);
   }
   svg {
     display: block;
