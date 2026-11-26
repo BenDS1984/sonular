@@ -30,6 +30,13 @@ function render(lfo: Lfo, samples: number, clock: (i: number) => number = () => 
   return out;
 }
 
+/** The seed of the random pattern the LFO is playing now. */
+function meterSeed(lfo: Lfo): number {
+  const m = new Float32Array(2);
+  lfo.readMeters(m, 0);
+  return m[1]!;
+}
+
 /** A clock pulse every `period` samples, high for the first half of it. */
 const pulses = (period: number) => (i: number) => (i % period) < period / 2 ? 1 : 0;
 
@@ -114,38 +121,48 @@ describe('LFO amount, polarity and phase', () => {
 });
 
 describe('LFO random waves', () => {
-  it('plays the same pattern after every Play, and different levels each cycle', () => {
+  it('plays a new pattern after every Play, and different levels each cycle', () => {
     const lfo = make({ wave: WAVE.random, rate: 4 });
     const a = render(lfo, SR);
     lfo.reset();
     const b = render(lfo, SR);
-    expect(b).toEqual(a);
+    expect(b).not.toEqual(a);
     const levels = [0, 1, 2, 3].map((c) => a[Math.round(((c + 0.5) / 4) * SR)]!);
     expect(new Set(levels.map((v) => v.toFixed(3))).size).toBe(4);
   });
 
+  it('two LFOs play different patterns', () => {
+    const a = render(make({ wave: WAVE.random, rate: 4 }), SR);
+    const b = render(make({ wave: WAVE.random, rate: 4 }), SR);
+    expect(b).not.toEqual(a);
+  });
+
   it('random holds a level for a whole cycle; its levels follow the pattern', () => {
-    const x = render(make({ wave: WAVE.random, rate: 2 }), SR);
+    const lfo = make({ wave: WAVE.random, rate: 2 });
+    const x = render(lfo, SR);
+    const seed = meterSeed(lfo);
     const half = SR / 2;
     for (let c = 0; c < 2; c++) {
       const slice = x.subarray(c * half + 10, (c + 1) * half - 10);
       expect(Math.max(...slice) - Math.min(...slice)).toBeLessThan(1e-6);
-      expect(slice[0]).toBeCloseTo(lfoRandom(c), 5);
+      expect(slice[0]).toBeCloseTo(lfoRandom(seed, c), 5);
     }
   });
 
   it('smooth random glides from one level to the next without jumps', () => {
-    const x = render(make({ wave: WAVE.smooth, rate: 3 }), SR * 2);
+    const lfo = make({ wave: WAVE.smooth, rate: 3 });
+    const x = render(lfo, SR * 2);
+    const seed = meterSeed(lfo);
     let biggest = 0;
     for (let i = 1; i < x.length; i++) biggest = Math.max(biggest, Math.abs(x[i]! - x[i - 1]!));
     expect(biggest).toBeLessThan(0.002);
     // And it does arrive: at the start of a cycle it is at that cycle's level.
-    expect(x[0]).toBeCloseTo(lfoRandom(0), 3);
-    expect(x[SR / 3]).toBeCloseTo(lfoRandom(1), 2);
+    expect(x[0]).toBeCloseTo(lfoRandom(seed, 0), 3);
+    expect(x[SR / 3]).toBeCloseTo(lfoRandom(seed, 1), 2);
   });
 
   it('gives random numbers that spread over the whole range', () => {
-    const values = Array.from({ length: 2000 }, (_, n) => lfoRandom(n));
+    const values = Array.from({ length: 2000 }, (_, n) => lfoRandom(1234, n));
     expect(Math.min(...values)).toBeLessThan(-0.95);
     expect(Math.max(...values)).toBeGreaterThan(0.95);
     expect(values.reduce((s, v) => s + v, 0) / values.length).toBeCloseTo(0, 1);

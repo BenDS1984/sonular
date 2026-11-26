@@ -34,6 +34,9 @@
   /** Whether a clock is patched in: then Sync counts and Rate rests, otherwise the other way round. */
   const clocked = $derived(patch.cables.some((c) => c.to.module === module.id && c.to.port === 'clock'));
 
+  /** Which random pattern the engine is playing (the meter only moves while playing). */
+  const seed = $derived(meterValue(module.id, 'seed'));
+
   /** The wave at place x (0..1) of what is drawn: one cycle, or four cycles for the random waves. */
   function value(x: number): number {
     if (wave === 0) return Math.sin(2 * Math.PI * x);
@@ -42,9 +45,9 @@
     if (wave === 3) return x < 0.5 ? 1 : -1;
     const cycle = Math.min(3, Math.floor(x * 4));
     const p = x * 4 - cycle;
-    const a = lfoRandom(cycle);
+    const a = lfoRandom(seed, cycle);
     if (wave === 4) return a;
-    return a + (lfoRandom(cycle + 1) - a) * (0.5 - 0.5 * Math.cos(Math.PI * p));
+    return a + (lfoRandom(seed, cycle + 1) - a) * (0.5 - 0.5 * Math.cos(Math.PI * p));
   }
 
   /** Height on the screen of a wave value, with Amount and the polarity applied. */

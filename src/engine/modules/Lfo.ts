@@ -30,12 +30,18 @@ const NO_CYCLE = -1e9;
 /** The amount glides over ~20 ms, so turning the knob never jumps the output. */
 const AMOUNT_GLIDE_SECONDS = 0.02;
 
+/** A fresh random seed: a whole number below 2^24, so it also passes exactly through a meter. */
+function newSeed(): number {
+  return Math.floor(Math.random() * 16777216);
+}
+
 /**
- * A repeatable random number in -1..1 for cycle number `n`: the same cycle always gives the same
- * value, so a Random LFO plays the same pattern after every Play, and nothing has to be stepped.
+ * A random number in -1..1 for cycle number `n` of the pattern belonging to `seed`: the same seed
+ * and cycle always give the same value, nothing has to be stepped. Each LFO draws a new seed at
+ * every Play, so every LFO and every Play gets its own pattern.
  */
-export function lfoRandom(n: number): number {
-  let x = (n | 0) ^ 0x9e3779b9;
+export function lfoRandom(seed: number, n: number): number {
+  let x = ((n | 0) ^ Math.imul(seed | 0, 0x27d4eb2d)) ^ 0x9e3779b9;
   x = Math.imul(x ^ (x >>> 16), 0x85ebca6b);
   x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35);
   x ^= x >>> 16;
@@ -55,14 +61,14 @@ export function lfoRandom(n: number): number {
  *
  * Parameters: "wave" (index into LFO_WAVES), "rate" in Hz, "sync" (index into LFO_SYNC),
  * "amount" 0..1, "phase" in degrees (where each Play starts), "polarity" 0 bipolar / 1 unipolar.
- * Meter "phase": where in the cycle the wave is now, 0..1 (for Random and Smooth: where in a run of
+ * Meters: "seed" (which random pattern is playing) and "phase": where in the cycle the wave is now, 0..1 (for Random and Smooth: where in a run of
  * four cycles, so the panel can draw the real pattern).
  */
 export class Lfo implements DspModule {
   readonly numInputs = 1;
   readonly numOutputs = 1;
   readonly tailSeconds = Infinity;
-  readonly meterNames = ['phase'] as const;
+  readonly meterNames = ['phase', 'seed'] as const;
 
   private readonly sampleRate: number;
   private readonly amountCoef: number;
@@ -88,6 +94,8 @@ export class Lfo implements DspModule {
   private cycleOfRandom = NO_CYCLE;
   private randomA = 0;
   private randomB = 0;
+  /** Which random pattern this LFO plays; drawn anew at every Play. */
+  private seed = newSeed();
   private phaseNow = 0;
   /** What the panel shows: the place in the cycle, or for the random waves in a run of four cycles. */
   private position = 0;
@@ -153,6 +161,7 @@ export class Lfo implements DspModule {
     let cycleOfRandom = this.cycleOfRandom;
     let randomA = this.randomA;
     let randomB = this.randomB;
+    const seed = this.seed;
     let p = this.phaseNow;
     let freeOrSyncTotal = 0;
 
@@ -198,8 +207,8 @@ export class Lfo implements DspModule {
       } else {
         if (cycle !== cycleOfRandom) {
           // Moving on to the next cycle reuses the value already drawn for it.
-          randomA = cycle === cycleOfRandom + 1 ? randomB : lfoRandom(cycle);
-          randomB = lfoRandom(cycle + 1);
+          randomA = cycle === cycleOfRandom + 1 ? randomB : lfoRandom(seed, cycle);
+          randomB = lfoRandom(seed, cycle + 1);
           cycleOfRandom = cycle;
         }
         v = wave === 4 ? randomA : randomA + (randomB - randomA) * (0.5 - 0.5 * Math.cos(3.141592653589793 * p));
@@ -224,10 +233,12 @@ export class Lfo implements DspModule {
 
   readMeters(out: Float32Array, offset: number): void {
     out[offset] = this.position;
+    out[offset + 1] = this.seed;
   }
 
-  /** Play starts again from the top: the same phase, the same random pattern, counting afresh. */
+  /** Play starts again from the top: the same phase, a new random pattern, counting afresh. */
   reset(): void {
+    this.seed = newSeed();
     this.freeCycles = 0;
     this.clockHigh = false;
     this.pulseIndex = -1;
