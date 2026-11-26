@@ -1,6 +1,6 @@
 # Sonular
 
-A modular online and offline music/noise making environment. Made with love and maybe a bit of help from AI.
+A modular online and offline music/noise making environment. A hobby project, made with love. I don't write the code myself: it is built together with an AI coding assistant (Claude), while I decide what the app does, how it looks and sounds, and test it.
 
 Faust-powered DSP, Svelte UI, installable PWA.
 https://sonular.app/
