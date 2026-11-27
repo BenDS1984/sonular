@@ -71,6 +71,12 @@ function applyPatch(loaded: Patch) {
   patch.groups = loaded.groups;
   patch.view = loaded.view;
   raiseGroups();
+  ensureOutput();
+}
+
+/** A patch always has its Output; one opened without (an old file) gets one. */
+export function ensureOutput() {
+  if (!patch.modules.some((m) => m.type === 'output')) addDefaultOutput();
 }
 
 /**

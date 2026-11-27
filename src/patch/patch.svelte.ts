@@ -89,7 +89,17 @@ export function addModule(type: string, x: number, y: number) {
   return m;
 }
 
+/** How far a copy lies from its original, in canvas pixels. */
+const DUPLICATE_OFFSET = 40;
+
+/** Copy these modules (and the cables between them) a little down and to the right, and select the copies. */
+export function duplicateModules(ids: string[]) {
+  const copies = ops.duplicateModules(patch, ids, DUPLICATE_OFFSET, DUPLICATE_OFFSET);
+  selectModules(copies.map((m) => m.id));
+}
+
 export function removeModule(id: string) {
+  if (!ops.canRemove(patch, id)) return;
   ops.removeModule(patch, id);
   for (const key of Object.keys(canvasState.portOffsets)) {
     if (key.startsWith(`${id}:`)) delete canvasState.portOffsets[key];

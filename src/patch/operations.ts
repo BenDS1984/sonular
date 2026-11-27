@@ -44,6 +44,41 @@ export function addModule(patch: Patch, def: ModuleDefinition, x: number, y: num
   return module;
 }
 
+/**
+ * Copy modules (same settings and sample, moved by dx/dy) together with the cables that run between
+ * them. Cables to modules outside the copy are not copied. The copies get fresh ids and no own name,
+ * and are not in any group. Returns the copies in the order of the originals.
+ */
+export function duplicateModules(patch: Patch, ids: string[], dx: number, dy: number): ModuleInstance[] {
+  const wanted = new Set(ids);
+  const originals = patch.modules.filter((m) => wanted.has(m.id) && m.type !== OUTPUT_TYPE);
+  const newIds = new Map<string, string>();
+  const copies: ModuleInstance[] = [];
+  for (const m of originals) {
+    const copy: ModuleInstance = { id: nextModuleId(patch, m.type), type: m.type, x: m.x + dx, y: m.y + dy, params: { ...m.params } };
+    if (m.sample) copy.sample = m.sample;
+    patch.modules.push(copy);
+    newIds.set(m.id, copy.id);
+    copies.push(copy);
+  }
+  for (const c of [...patch.cables]) {
+    const from = newIds.get(c.from.module);
+    const to = newIds.get(c.to.module);
+    if (from && to) patch.cables.push({ id: nextCableId(patch), from: { module: from, port: c.from.port }, to: { module: to, port: c.to.port } });
+  }
+  return copies;
+}
+
+/** The Output is the one way out to the speakers: a patch has exactly one, so it is never copied and the last one stays. */
+export const OUTPUT_TYPE = 'output';
+
+/** Whether a module may be removed: the only Output may not. */
+export function canRemove(patch: Patch, id: string): boolean {
+  const m = patch.modules.find((x) => x.id === id);
+  if (!m) return false;
+  return m.type !== OUTPUT_TYPE || patch.modules.some((x) => x.type === OUTPUT_TYPE && x.id !== id);
+}
+
 /** Remove a module and every cable attached to it. */
 export function removeModule(patch: Patch, id: string): void {
   const i = patch.modules.findIndex((m) => m.id === id);

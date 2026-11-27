@@ -26,12 +26,14 @@
 
   const matches = $derived.by(() => {
     const q = query.trim().toLowerCase();
+    // The Output is always in the patch (one only), so it is not offered here.
     return MODULES.filter(
       (d) =>
-        !q ||
+        d.type !== 'output' &&
+        (!q ||
         d.title.toLowerCase().includes(q) ||
         d.category.toLowerCase().includes(q) ||
-        d.description.toLowerCase().includes(q),
+        d.description.toLowerCase().includes(q)),
     ).sort(
       (a, b) =>
         CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category) || a.title.localeCompare(b.title),

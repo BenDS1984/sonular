@@ -7,13 +7,14 @@
   import Port from '../components/Port.svelte';
   import { getDefinition } from '../../modules/registry';
   import { dropHint, frameRect, groupOf } from '../../patch/groups';
-  import { addToGroup, canvasState, isHidden, moduleLayer, patch, raiseModule, removeFromGroup, removeModule, selectModule } from '../../patch/patch.svelte';
+  import { addToGroup, canvasState, isHidden, moduleLayer, patch, raiseModule, removeFromGroup, removeModule, selectedModuleIds, selectModule } from '../../patch/patch.svelte';
   import { snap } from '../../patch/geometry';
-  import { isPortConnected } from '../../patch/operations';
+  import { canRemove, isPortConnected } from '../../patch/operations';
   import type { ModuleInstance } from '../../patch/types';
   import { defaultTitle, moduleLabel, moduleTooltip, renameModule } from '../../patch/moduleNames';
   import { interaction, isValidTarget } from './interaction.svelte';
   import { startAutoPan } from './autoPan';
+  import { moduleMenu } from './menuState.svelte';
 
   interface Props {
     module: ModuleInstance;
@@ -117,6 +118,15 @@
 
   const connected = (port: string, kind: 'in' | 'out') => isPortConnected(patch, { module: module.id, port }, kind);
   const target = (port: string, kind: 'in' | 'out') => isValidTarget({ module: module.id, port }, kind);
+  /** Right-click on the header: select the module (unless it is in the selected group) and open the menu. */
+  function oncontextmenu(e: MouseEvent) {
+    e.preventDefault();
+    if (!selected || canvasState.selection?.kind !== 'modules') selectModule(module.id);
+    // Nothing to offer for the Output alone: it is never copied.
+    const copyable = selectedModuleIds().some((id) => patch.modules.find((m) => m.id === id)?.type !== 'output');
+    moduleMenu.open = copyable ? { x: e.clientX, y: e.clientY } : null;
+  }
+
   const active = (port: string) =>
     interaction.cable?.target?.module === module.id && interaction.cable.target.port === port;
 </script>
@@ -149,7 +159,8 @@
       width={def.width}
       {selected}
       {onheaderpointerdown}
-      onremove={() => removeModule(module.id)}
+      onheadercontextmenu={oncontextmenu}
+      onremove={canRemove(patch, module.id) ? () => removeModule(module.id) : undefined}
     >
       <def.panel {module} {def} />
       {#snippet ports()}

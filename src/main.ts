@@ -8,7 +8,7 @@ import { startPatchSync } from './engine/engine.svelte';
 import { getDefinition } from './modules/registry';
 import { restoreAutosave, startAutosave } from './patch/autosave.svelte';
 import { addModule, patch } from './patch/patch.svelte';
-import { addDefaultOutput, foldAllFamilies } from './patch/fileActions';
+import { addDefaultOutput, ensureOutput, foldAllFamilies } from './patch/fileActions';
 import { startHistory } from './patch/history.svelte';
 import { startPwa } from './platform/pwa.svelte';
 import { isUnsupportedDevice } from './platform/device';
@@ -46,7 +46,8 @@ function startApp(el: HTMLElement) {
   }
   // Order matters: restore the saved patch first, so it becomes the start of the undo history.
   // Nothing saved (the first visit): start with an Output at the right, like every new patch.
-  if (!restoreAutosave()) {
+  if (restoreAutosave()) ensureOutput();
+  else {
     addDefaultOutput();
     foldAllFamilies();
   }

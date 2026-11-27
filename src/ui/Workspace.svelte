@@ -19,6 +19,7 @@
   import CableLayer from './workspace/CableLayer.svelte';
   import ZoomControls from './workspace/ZoomControls.svelte';
   import Minimap from './workspace/Minimap.svelte';
+  import ModuleMenu from './workspace/ModuleMenu.svelte';
   import { prefs } from './prefs.svelte';
   import GroupView from './workspace/GroupView.svelte';
   import {
@@ -345,6 +346,7 @@
     <Minimap />
   {/if}
 
+  <ModuleMenu />
   <ZoomControls
     zoom={view.zoom}
     onzoom={zoomCentered}

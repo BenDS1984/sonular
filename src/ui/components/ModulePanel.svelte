@@ -19,6 +19,8 @@
     children: Snippet;
     ports?: Snippet;
     onheaderpointerdown?: (e: PointerEvent) => void;
+    /** Right-click on the header. */
+    onheadercontextmenu?: (e: MouseEvent) => void;
     onremove?: () => void;
     /** When given, the title can be renamed by double-clicking it. */
     rename?: { value: string; placeholder: string; tooltip: string; onrename: (name: string) => void };
@@ -33,6 +35,7 @@
     children,
     ports,
     onheaderpointerdown,
+    onheadercontextmenu,
     onremove,
     rename,
   }: Props = $props();
@@ -77,7 +80,7 @@
 >
   <!-- svelte-ignore a11y_no_static_element_interactions (dragging by the header is a mouse affordance; keyboard moving comes later) -->
   <!-- The header grabs the pointer for dragging, so a double-click on the name arrives here; only one that lands on the name counts. -->
-  <header class="header" bind:this={header} onpointerdown={onheaderpointerdown} ondblclick={rename ? (e) => nameField?.isAt(e.clientX, e.clientY) && nameField.start() : undefined}>
+  <header class="header" bind:this={header} onpointerdown={onheaderpointerdown} oncontextmenu={onheadercontextmenu} ondblclick={rename ? (e) => nameField?.isAt(e.clientX, e.clientY) && nameField.start() : undefined}>
     <h3 class="title">
       {#if rename}
         <EditableName
