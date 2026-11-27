@@ -3,6 +3,7 @@
   drag it (or click anywhere) to move around; Ctrl + scroll zooms.
 -->
 <script lang="ts">
+  import { MOD_KEY } from '../../platform/keys';
   import { getDefinition } from '../../modules/registry';
   import { canvasState, isHidden, patch } from '../../patch/patch.svelte';
   import { barRect, cableEnds, frameRect, groupOf, GROUP_HEADER } from '../../patch/groups';
@@ -132,7 +133,7 @@
   class="minimap"
   role="img"
   aria-label="Patch overview. Drag to move around."
-  title="Overview — drag to move around, Ctrl + scroll to zoom"
+  title={`Overview — drag to move around, ${MOD_KEY} + scroll to zoom`}
   {onpointerdown}
   {onwheel}
   ondblclick={(e) => e.stopPropagation()}

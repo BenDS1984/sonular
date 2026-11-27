@@ -1,5 +1,6 @@
 <!-- Bottom-right corner of the canvas: cable visibility and transparency, overview, zoom. -->
 <script lang="ts">
+  import { MOD_KEY } from '../../platform/keys';
   interface Props {
     zoom: number;
     onzoom: (factor: number) => void;
@@ -75,11 +76,11 @@
     </svg>
   </button>
   <span class="sep" aria-hidden="true"></span>
-  <button type="button" title="Zoom out (Ctrl + scroll)" aria-label="Zoom out" onclick={() => onzoom(1 / 1.2)}>
+  <button type="button" title={`Zoom out (${MOD_KEY} + scroll)`} aria-label="Zoom out" onclick={() => onzoom(1 / 1.2)}>
     <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
   </button>
   <button type="button" class="pct" title="Reset to 100%" onclick={onreset}>{Math.round(zoom * 100)}%</button>
-  <button type="button" title="Zoom in (Ctrl + scroll)" aria-label="Zoom in" onclick={() => onzoom(1.2)}>
+  <button type="button" title={`Zoom in (${MOD_KEY} + scroll)`} aria-label="Zoom in" onclick={() => onzoom(1.2)}>
     <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
   </button>
   <button type="button" title="Fit all modules in view" aria-label="Fit all modules in view" onclick={onfit}>

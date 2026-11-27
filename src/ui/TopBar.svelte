@@ -10,6 +10,7 @@
   import { choosePatchFile, newPatch, requestSave } from '../patch/fileActions';
   import { toggleBrowserPanel } from './browser/browserPanel.svelte';
   import { prefs } from './prefs.svelte';
+  import { MOD_KEY, REDO_KEYS } from '../platform/keys';
   import { dialogs } from './dialogs.svelte';
 
   // ---------- New patch (with confirmation when there is something to lose) ----------
@@ -169,11 +170,11 @@
         </div>
       {/if}
     </span>
-    <IconButton icon="open" label="Open patch file (Ctrl+O)" onclick={choosePatchFile} />
-    <IconButton icon="save" label="Save patch as file (Ctrl+S)" onclick={requestSave} />
+    <IconButton icon="open" label={`Open patch file (${MOD_KEY}+O)`} onclick={choosePatchFile} />
+    <IconButton icon="save" label={`Save patch as file (${MOD_KEY}+S)`} onclick={requestSave} />
     <span class="sep" aria-hidden="true"></span>
-    <IconButton icon="undo" label="Undo (Ctrl+Z)" disabled={!historyState.canUndo} onclick={undo} />
-    <IconButton icon="redo" label="Redo (Ctrl+Y)" disabled={!historyState.canRedo} onclick={redo} />
+    <IconButton icon="undo" label={`Undo (${MOD_KEY}+Z)`} disabled={!historyState.canUndo} onclick={undo} />
+    <IconButton icon="redo" label={`Redo (${REDO_KEYS})`} disabled={!historyState.canRedo} onclick={redo} />
   </div>
 
   <div class="group">
