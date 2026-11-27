@@ -12,6 +12,7 @@ import { describe, it } from 'vitest';
 import { Transport } from '../engine/core/Transport';
 import { BLOCK_SIZE, type DspModule } from '../engine/core/types';
 import { Clock } from '../engine/modules/Clock';
+import { CvMix } from '../engine/modules/CvMix';
 import { Delay } from '../engine/modules/Delay';
 import { Envelope } from '../engine/modules/Envelope';
 import { Lfo } from '../engine/modules/Lfo';
@@ -20,6 +21,7 @@ import { Sampler } from '../engine/modules/Sampler';
 import { Scope } from '../engine/modules/Scope';
 import { Spectrum } from '../engine/modules/Spectrum';
 import { Sequencer } from '../engine/modules/Sequencer';
+import { Vca } from '../engine/modules/Vca';
 import { FaustDsp, type FaustMeta } from '../engine/faust/FaustDsp';
 
 const SR = 48000;
@@ -147,6 +149,8 @@ describe.skipIf(import.meta.env.MODE !== 'bench')('CPU cost per module', () => {
       ['Scope (2 ms)', scope(0.002)],
       ['Scope (1 s)', scope(1)],
       ['Spectrum', spectrum()],
+      ['VCA', new Vca(SR)],
+      ['CV Mix', new CvMix(SR)],
       ['Recorder (recording)', recorder()],
     ];
     const rows = modules.map(([name, dsp]) => {

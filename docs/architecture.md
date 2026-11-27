@@ -72,6 +72,8 @@ so a desktop build could swap them out.
 | Filter (state-variable, per-sample coefficients, 2026-11-25) | 8.5 | 0.32 % |
 | Dual Delay (two mono lines, note-synced, shared feedback, high-pass and low-pass, tape; stereo / ping-pong, 2026-11-25; nothing while idle) | 5.7 / 5.8 | 0.21 % / 0.22 % |
 | Sampler (playing a sample, 2026-11-25; nothing when no sample plays) | 0.9 | 0.04 % |
+| VCA (2026-11-27) | 0.8 | 0.03 % |
+| CV Mix (2026-11-27) | 0.6 | 0.02 % |
 | Recorder (recording, 2026-11-18) | 1.0 | 0.04 % |
 
 In the browser on the user's laptop (CPU meter, peak), 2026-11-16:
