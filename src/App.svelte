@@ -47,6 +47,7 @@
     height: 100%;
   }
   .patch-row {
+    position: relative;
     flex: 1;
     min-height: 0;
     display: flex;

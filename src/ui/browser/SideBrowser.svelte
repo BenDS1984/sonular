@@ -219,8 +219,11 @@
 
 <style>
   .side-browser {
-    position: relative;
-    flex: none;
+    /* Floats over the left edge of the patch, so showing or hiding it never moves the patch. */
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.35);
     display: flex;
     flex-direction: column;
     min-height: 0;
