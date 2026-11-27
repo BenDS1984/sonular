@@ -8,6 +8,7 @@ export const sampler: ModuleDefinition = {
   category: 'Sources',
   description:
     'Plays one sample from your library when a gate comes in, for example from the Sequencer. Tune changes its pitch, Start where it begins. Attack fades the sound in; Decay fades it out and stops it (at its minimum, Off, the sample plays to its end). The tune, level and decay inputs move those knobs from a modulation signal; use a CV Mix or VCA to make it weaker. The sample is saved inside the patch file.',
+  summary: 'Plays a sample from your library on a gate.',
   signal: 'audio',
   width: 252,
   inputs: [

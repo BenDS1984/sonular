@@ -8,6 +8,7 @@ export const filter: ModuleDefinition = {
   category: 'Shaping',
   description:
     'Stereo filter (12 dB per octave): low-pass, high-pass or band-pass. The mod input moves the cutoff (an LFO or an envelope); Resonance makes it ring.',
+  summary: 'Stereo low-, high- or band-pass filter.',
   signal: 'audio',
   width: 204,
   inputs: [

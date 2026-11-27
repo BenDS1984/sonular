@@ -71,6 +71,8 @@ export interface ModuleDefinition {
   title: string;
   category: 'Sources' | 'Sequencing' | 'Shaping' | 'Modulation' | 'Effects' | 'Mixing' | 'Output' | 'Utilities';
   description: string;
+  /** A short line for the browser panel, small enough for two lines; the full description is in its tooltip. */
+  summary: string;
   /** Accent colour: the kind of signal the module mainly produces. */
   signal: SignalType;
   /** Panel width in pixels. */

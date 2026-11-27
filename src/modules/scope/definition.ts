@@ -8,6 +8,7 @@ export const scope: ModuleDefinition = {
   category: 'Utilities',
   description:
     'Two-channel oscilloscope: shows any signal as a moving line. Signals pass through unchanged, so it can sit between two modules.',
+  summary: 'Two-channel oscilloscope.',
   signal: 'audio',
   width: 252,
   inputs: [

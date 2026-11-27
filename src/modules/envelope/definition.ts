@@ -7,6 +7,7 @@ export const envelope: ModuleDefinition = {
   title: 'Envelope',
   category: 'Modulation',
   description: 'ADSR envelope: a gate makes a curve that rises and falls (attack, decay, sustain, release). Patch it into a VCA to shape the volume of a sound, or into any modulation input.',
+  summary: 'ADSR curve from a gate, e.g. for a VCA.',
   signal: 'cv',
   width: 204,
   inputs: [{ id: 'gate', label: 'gate', signal: 'gate' }],

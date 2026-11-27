@@ -8,6 +8,7 @@ export const vca: ModuleDefinition = {
   category: 'Shaping',
   description:
     'Amount × cv: turns a sound down. Patch an Envelope into cv and the sound follows it; with nothing on cv, Amount is a plain volume knob, also for modulation such as an LFO.',
+  summary: 'Turns a sound down: Amount × cv.',
   signal: 'audio',
   width: 204,
   inputs: [

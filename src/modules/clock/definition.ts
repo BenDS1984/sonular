@@ -8,6 +8,7 @@ export const clock: ModuleDefinition = {
   title: 'Clock',
   category: 'Sequencing',
   description: 'Brings the tempo into the patch: four pulse outputs, each at its own note value (1/16, 1/8, …).',
+  summary: 'Tempo as four pulse outputs at note values.',
   signal: 'gate',
   width: 252,
   inputs: [],

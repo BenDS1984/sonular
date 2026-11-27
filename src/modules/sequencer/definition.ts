@@ -11,6 +11,7 @@ export const sequencer: ModuleDefinition = {
   title: 'Sequencer',
   category: 'Sequencing',
   description: 'Up to eight steps with a note and an on/off switch each, moved on by a clock, in eight patterns (A–H) that each have their own length. A modulation signal on the pattern input switches between the patterns.',
+  summary: 'Eight steps in eight patterns, moved on by a clock.',
   signal: 'pitch',
   width: 464,
   inputs: [

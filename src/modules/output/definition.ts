@@ -7,6 +7,7 @@ export const output: ModuleDefinition = {
   title: 'Output',
   category: 'Output',
   description: 'Sends audio to your speakers or headphones, with volume and level meters.',
+  summary: 'Sends audio to your speakers.',
   signal: 'audio',
   width: 140,
   inputs: [

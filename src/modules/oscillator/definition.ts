@@ -8,6 +8,7 @@ export const oscillator: ModuleDefinition = {
   category: 'Sources',
   description:
     'Basic waveforms: sine, triangle, sawtooth and square. The square has a pulse width. Modulation inputs move tune and pulse width (an LFO, an Envelope); the fm input bends the pitch with another oscillator, and sync restarts the wave on every rising edge of another oscillator (hard sync).',
+  summary: 'Sine, triangle, saw and square, with FM and sync.',
   signal: 'audio',
   width: 252,
   inputs: [

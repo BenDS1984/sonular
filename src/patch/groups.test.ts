@@ -10,6 +10,7 @@ const def = (type: string, inputs: string[], outputs: string[]): ModuleDefinitio
   title: type,
   category: 'Utilities',
   description: '',
+  summary: '',
   signal: 'audio',
   width: 100,
   inputs: inputs.map((id) => ({ id, label: id, signal: 'audio' })),

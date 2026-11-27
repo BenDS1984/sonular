@@ -192,7 +192,7 @@
             >
               <span class="text">
                 <span class="name">{def.title}</span>
-                <span class="desc">{def.description}</span>
+                <span class="desc">{def.summary}</span>
               </span>
             </div>
           {/each}

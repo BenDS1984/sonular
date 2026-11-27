@@ -9,6 +9,7 @@ export const lfo: ModuleDefinition = {
   category: 'Modulation',
   description:
     'A slow wave that moves other modules, like a filter cutoff. Runs free at Rate (Hz); with a Clock patched into clock it follows the clock instead, Sync cycles per pulse.',
+  summary: 'Slow wave that moves other modules.',
   signal: 'cv',
   width: 204,
   inputs: [{ id: 'clock', label: 'clock', signal: 'gate' }],

@@ -8,6 +8,7 @@ export const recorder: ModuleDefinition = {
   category: 'Output',
   description:
     'Records its stereo input as a 24-bit WAV file. Press Rec, then Play: recording starts on the first beat. The sound passes through unchanged.',
+  summary: 'Records the stereo input as a WAV file.',
   signal: 'audio',
   width: 204,
   inputs: [

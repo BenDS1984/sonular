@@ -15,6 +15,7 @@ export const delay: ModuleDefinition = {
   category: 'Effects',
   description:
     'A left and a right delay line, each a musical time of the project tempo (straight, triplet or dotted) or free in milliseconds. One shared feedback with a high-pass and a low-pass in the loop, tape saturation and wobble, and a dry/wet mix. Stereo or ping-pong. The screen draws the echoes.',
+  summary: 'Stereo delay, synced to tempo, with feedback and tape.',
   signal: 'audio',
   width: 464,
   inputs: [

@@ -8,6 +8,7 @@ export const cvmix: ModuleDefinition = {
   category: 'Utilities',
   description:
     'Adds three signals together, each with its own level knob from −100% to +100% (negative flips the signal, so you can subtract). Use it to put several modulation sources, such as two LFOs and an Envelope, on one input. Unipolar squeezes the sum into 0…1.',
+  summary: 'Adds three signals, each with its own level.',
   signal: 'cv',
   width: 204,
   inputs: [

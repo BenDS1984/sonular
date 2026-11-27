@@ -12,6 +12,7 @@ export const mixer: ModuleDefinition = {
   title: 'Mixer',
   category: 'Mixing',
   description: 'Four channels with level, pan, mute and solo, summed to a stereo output.',
+  summary: 'Four channels with pan, mute and solo.',
   signal: 'audio',
   width: 464,
   inputs: CHANNELS.map((ch) => ({ id: `in${ch}`, label: `in ${ch}`, signal: 'audio' as const })),
