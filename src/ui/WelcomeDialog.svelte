@@ -70,7 +70,7 @@
       and then.
     </p>
     <p class="note">
-      <strong>Saving your sound:</strong> add a <strong>Recorder</strong> module, press Rec and
+      <strong>Tip:</strong> to record your sound, add a <strong>Recorder</strong> module, press Rec and
       then Play, and save the take as a WAV file.
     </p>
     <p class="small">
